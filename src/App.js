@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses } from './utils/storage';
+import { getClasses, getChildren, getRecordsByDate, today } from './utils/storage';
 
 // Pages
 import TodayPage from './pages/TodayPage';
@@ -15,23 +15,32 @@ import SettingsPage from './pages/SettingsPage';
 import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: 'today', label: '오늘', icon: Home },
-  { id: 'record', label: '기록', icon: PenLine },
+  { id: 'today',    label: '오늘',   icon: Home },
+  { id: 'record',   label: '기록',   icon: PenLine },
   { id: 'children', label: '아이들', icon: Users },
-  { id: 'docs', label: '문서함', icon: FolderOpen },
-  { id: 'check', label: '점검', icon: CheckSquare },
+  { id: 'docs',     label: '문서함', icon: FolderOpen },
+  { id: 'check',    label: '점검',   icon: CheckSquare },
 ];
 
 export default function App() {
   const [page, setPage] = useState('today');
   const [isSetup, setIsSetup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [recordContext, setRecordContext] = useState(null); // for pre-selected child
+  const [recordContext, setRecordContext] = useState(null);
+  const [unrecordedCount, setUnrecordedCount] = useState(0);
 
   useEffect(() => {
     const classes = getClasses();
     if (classes.length === 0) setIsSetup(true);
   }, []);
+
+  // 페이지 이동 시마다 미기록 아이 수 갱신
+  useEffect(() => {
+    const children = getChildren();
+    const recs = getRecordsByDate(today());
+    const recordedIds = new Set(recs.map(r => r.childId));
+    setUnrecordedCount(children.filter(c => !recordedIds.has(c.id)).length);
+  }, [page]);
 
   if (isSetup) {
     return <SetupPage onComplete={() => setIsSetup(false)} />;
@@ -44,11 +53,13 @@ export default function App() {
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
     if (ctx) setRecordContext(ctx);
+    else if (p !== page) setRecordContext(null);
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
-      {/* Top Bar */}
+
+      {/* ── Top Bar ─────────────────────────────────── */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 100,
         background: 'rgba(248,250,254,0.95)',
@@ -58,30 +69,32 @@ export default function App() {
         height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--primary)', letterSpacing: '-0.5px' }}>
+        <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--primary)', letterSpacing: '-0.5px' }}>
           쌤워크
         </span>
-        <button onClick={() => setShowSettings(true)} style={{
-          width: 36, height: 36, borderRadius: '50%',
-          background: 'var(--gray-100)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--gray-600)',
-          transition: 'background 0.15s',
-        }}>
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'var(--gray-100)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--gray-600)',
+          }}
+        >
           <Settings size={18} />
         </button>
       </header>
 
-      {/* Page Content */}
-      <main style={{ flex: 1, paddingBottom: 'calc(var(--bottom-nav) + 16px)' }}>
-        {page === 'today' && <TodayPage onNavigate={handleNavigate} />}
-        {page === 'record' && <RecordPage context={recordContext} onNavigate={handleNavigate} />}
+      {/* ── Page Content ────────────────────────────── */}
+      <main className="page-enter" style={{ flex: 1, paddingBottom: 'calc(var(--bottom-nav) + 16px)' }}>
+        {page === 'today'    && <TodayPage    onNavigate={handleNavigate} />}
+        {page === 'record'   && <RecordPage   context={recordContext} onNavigate={handleNavigate} />}
         {page === 'children' && <ChildrenPage onNavigate={handleNavigate} />}
-        {page === 'docs' && <DocsPage onNavigate={handleNavigate} />}
-        {page === 'check' && <CheckPage onNavigate={handleNavigate} />}
+        {page === 'docs'     && <DocsPage     onNavigate={handleNavigate} />}
+        {page === 'check'    && <CheckPage    onNavigate={handleNavigate} />}
       </main>
 
-      {/* Bottom Nav */}
+      {/* ── Bottom Nav ──────────────────────────────── */}
       <nav style={{
         position: 'fixed', bottom: 0, left: '50%',
         transform: 'translateX(-50%)',
@@ -97,21 +110,30 @@ export default function App() {
       }}>
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const active = page === id;
+          // 배지: 기록 탭에 미기록 수, 점검 탭에도 표시
+          const badge = (id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
+
           return (
             <button
               key={id}
               onClick={() => handleNavigate(id)}
               style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
+                flex: 1,
+                position: 'relative',
+                display: 'flex', flexDirection: 'column',
                 alignItems: 'center', gap: 3, padding: '8px 4px',
                 borderRadius: 'var(--radius-md)',
-                transition: 'all 0.15s ease',
                 color: active ? 'var(--primary)' : 'var(--text-tertiary)',
                 background: active ? 'var(--primary-light)' : 'transparent',
               }}
             >
+              {badge > 0 && (
+                <span className="nav-badge">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
               <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-              <span style={{ fontSize: 11, fontWeight: active ? 600 : 400, letterSpacing: '-0.2px' }}>
+              <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, letterSpacing: '-0.2px' }}>
                 {label}
               </span>
             </button>

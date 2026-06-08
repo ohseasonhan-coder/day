@@ -10,6 +10,15 @@ const PERIOD_LABELS = {
   '1year': '최근 1년',
 };
 
+const AVATAR_COLORS = [
+  '#4F7FFF', '#6C63FF', '#FF8C42', '#00B4D8',
+  '#4CAF50', '#E91E9A', '#FF5722', '#607D8B',
+];
+function getAvatarColor(name) {
+  if (!name) return AVATAR_COLORS[0];
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
 export default function ChildrenPage({ onNavigate }) {
   const [children, setChildren] = useState([]);
   const [search, setSearch] = useState('');
@@ -287,33 +296,65 @@ export default function ChildrenPage({ onNavigate }) {
         const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
         const topCatMeta = topCat ? CATEGORIES[topCat] : null;
 
+        const avatarColor = getAvatarColor(child.name);
         return (
           <button
             key={child.id}
             onClick={() => selectChild(child)}
+            className="card-lift"
             style={{
               width: '100%', background: 'white', border: '1px solid var(--border)',
-              borderRadius: 16, padding: '15px 16px', marginBottom: 10,
+              borderRadius: 18, padding: '15px 16px', marginBottom: 10,
               display: 'flex', alignItems: 'center', gap: 14,
               boxShadow: 'var(--shadow-sm)', textAlign: 'left',
             }}
           >
+            {/* 컬러 이니셜 아바타 */}
             <div style={{
-              width: 46, height: 46, borderRadius: '50%',
-              background: topCatMeta?.bg || 'var(--gray-100)',
+              width: 50, height: 50, borderRadius: '50%',
+              background: `${avatarColor}18`,
+              border: `2px solid ${avatarColor}30`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, flexShrink: 0,
+              fontSize: 20, fontWeight: 900, color: avatarColor,
+              flexShrink: 0, position: 'relative',
             }}>
-              {topCatMeta?.emoji || <User size={20} color="var(--gray-400)" />}
+              {child.name[0]}
+              {/* 카테고리 이모지 뱃지 */}
+              {topCatMeta && (
+                <div style={{
+                  position: 'absolute', bottom: -2, right: -2,
+                  width: 20, height: 20, borderRadius: '50%',
+                  background: topCatMeta.bg, border: '2px solid white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10,
+                }}>
+                  {topCatMeta.emoji}
+                </div>
+              )}
             </div>
+
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 3 }}>{child.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+              <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 4, color: 'var(--text-primary)' }}>
+                {child.name}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 3 }}>
                 기록 {recs.length}건{lastRec ? ` · 최근 ${formatDate(lastRec.date)}` : ' · 아직 기록 없음'}
               </div>
-              {topCatMeta && (
-                <div style={{ fontSize: 11, color: topCatMeta.color, marginTop: 4, fontWeight: 800 }}>
-                  {topCatMeta.emoji} {topCatMeta.label} 기록이 가장 많아요
+              {/* 기록 수 바 */}
+              {recs.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ flex: 1, height: 4, background: 'var(--gray-100)', borderRadius: 100 }}>
+                    <div style={{
+                      height: 4, borderRadius: 100,
+                      background: avatarColor,
+                      width: `${Math.min(100, recs.length * 10)}%`,
+                    }} />
+                  </div>
+                  {topCatMeta && (
+                    <span style={{ fontSize: 11, color: topCatMeta.color, fontWeight: 700 }}>
+                      {topCatMeta.label}
+                    </span>
+                  )}
                 </div>
               )}
             </div>

@@ -139,3 +139,87 @@ a {
 .slide-up {
   animation: slideUp 0.4s ease forwards;
 }
+
+/* ── 터치 피드백 ───────────────────────────────── */
+button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.96);
+  opacity: 0.88;
+}
+
+/* ── 카드 hover (태블릿/데스크톱) ─────────────────── */
+@media (hover: hover) {
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+}
+
+/* ── 토스트 알림 ───────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--bottom-nav) + 20px);
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: var(--gray-800);
+  color: white;
+  padding: 12px 22px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 9999;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: toastIn 0.28s ease forwards, toastOut 0.28s ease 1.72s forwards;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+}
+
+/* ── 네비게이션 배지 ────────────────────────────── */
+.nav-badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 18px);
+  min-width: 17px;
+  height: 17px;
+  background: var(--accent);
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 900;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid white;
+  animation: fadeIn 0.2s ease;
+}
+
+/* ── 아바타 ─────────────────────────────────────── */
+.avatar-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.avatar-scroll::-webkit-scrollbar { display: none; }
+
+/* ── 입력 포커스 ────────────────────────────────── */
+input:focus, textarea:focus {
+  outline: none;
+}
+
+/* ── 페이지 전환 ────────────────────────────────── */
+.page-enter {
+  animation: fadeIn 0.22s ease forwards;
+}
