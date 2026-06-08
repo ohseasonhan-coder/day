@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getRecordsByDate, getClasses, today, formatDateKo, CATEGORIES } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
 import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
