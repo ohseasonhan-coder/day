@@ -1,10 +1,20 @@
-// Storage keys
+// ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
+// 로그인한 사용자의 userId를 prefix로 사용 → 멀티 계정 지원
+// auth.js import를 피하기 위해 직접 localStorage에서 읽음
+function _getUid() {
+  try {
+    const s = localStorage.getItem('sw_session');
+    return s ? (JSON.parse(s)?.userId || 'default') : 'default';
+  } catch { return 'default'; }
+}
+
+// getter 프로퍼티로 선언 → 호출 시점의 userId를 반영
 const KEYS = {
-  CLASSES: 'sw_classes',
-  CHILDREN: 'sw_children',
-  RECORDS: 'sw_records',
-  DOCUMENTS: 'sw_documents',
-  SETTINGS: 'sw_settings',
+  get CLASSES()   { return `sw_${_getUid()}_classes`; },
+  get CHILDREN()  { return `sw_${_getUid()}_children`; },
+  get RECORDS()   { return `sw_${_getUid()}_records`; },
+  get DOCUMENTS() { return `sw_${_getUid()}_documents`; },
+  get SETTINGS()  { return `sw_${_getUid()}_settings`; },
 };
 
 // Generic storage helpers
@@ -133,3 +143,57 @@ export const updateDocumentDraft = (id, updates) => {
 export const deleteDocumentDraft = (id) => {
   saveDocuments(getDocuments().filter(d => d.id !== id));
 };
+
+// ── 백업 / 복구 ──────────────────────────────────────────────────────────────
+export function exportBackup() {
+  const uid = _getUid();
+  const payload = {
+    version: 2,
+    appName: '쌤워크',
+    userId: uid,
+    exportedAt: new Date().toISOString(),
+    classes: getClasses(),
+    children: getChildren(),
+    records: getRecords(),
+    documents: getDocuments(),
+    settings: getSettings(),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const dateStr = today().replace(/-/g, '');
+  a.href     = url;
+  a.download = `saemwork_backup_${uid}_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// 복구: 파일 내용(string) → 현재 사용자의 데이터에 덮어씀
+// 반환값: { ok: true, summary } | { ok: false, error: string }
+export function importBackup(jsonString) {
+  try {
+    const data = JSON.parse(jsonString);
+    if (!data.version || !data.appName)
+      return { ok: false, error: '쌤워크 백업 파일이 아니에요.' };
+
+    if (data.classes)   saveClasses(data.classes);
+    if (data.children)  saveChildren(data.children);
+    if (data.records)   saveRecords(data.records);
+    if (data.documents) saveDocuments(data.documents);
+    if (data.settings)  saveSettings(data.settings);
+
+    return {
+      ok: true,
+      summary: {
+        children:  (data.children  || []).length,
+        records:   (data.records   || []).length,
+        documents: (data.documents || []).length,
+        exportedAt: data.exportedAt,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: `파일 형식이 올바르지 않아요. (${e.message})` };
+  }
+}

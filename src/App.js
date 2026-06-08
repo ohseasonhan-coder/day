@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
 import { getClasses, getChildren, getRecordsByDate, today } from './utils/storage';
+import { isLoggedIn, getCurrentUser, logout } from './utils/auth';
 
 import TodayPage    from './pages/TodayPage';
 import RecordPage   from './pages/RecordPage';
@@ -9,6 +10,7 @@ import DocsPage     from './pages/DocsPage';
 import CheckPage    from './pages/CheckPage';
 import SetupPage    from './pages/SetupPage';
 import SettingsPage from './pages/SettingsPage';
+import LoginPage    from './pages/LoginPage';
 
 import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap } from 'lucide-react';
 
@@ -31,6 +33,7 @@ function useIsDesktop() {
 }
 
 export default function App() {
+  const [user, setUser]                     = useState(() => isLoggedIn() ? getCurrentUser() : null);
   const [page, setPage]                     = useState('today');
   const [isSetup, setIsSetup]               = useState(false);
   const [showSettings, setShowSettings]     = useState(false);
@@ -39,18 +42,32 @@ export default function App() {
   const isDesktop = useIsDesktop();
 
   useEffect(() => {
+    if (!user) return;
     if (getClasses().length === 0) setIsSetup(true);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     const children = getChildren();
     const recs     = getRecordsByDate(today());
     const ids      = new Set(recs.map(r => r.childId));
     setUnrecordedCount(children.filter(c => !ids.has(c.id)).length);
-  }, [page]);
+  }, [page, user]);
+
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+    setPage('today');
+    setIsSetup(false);
+  };
+
+  // 로그인하지 않은 경우 로그인 화면 표시
+  if (!user) {
+    return <LoginPage onLogin={(u) => { setUser(u); setPage('today'); }} />;
+  }
 
   if (isSetup)     return <SetupPage    onComplete={() => setIsSetup(false)} />;
-  if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} />;
+  if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} />;
 
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
