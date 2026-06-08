@@ -55,6 +55,7 @@ export default function RecordPage({ context, onNavigate }) {
         childName: selectedChild.name,
         rawText: rawText.trim(),
         classAge: cl?.age,
+        recordType,
       });
       setResult({ ...res, recordType });
     } catch (e) {
@@ -255,6 +256,7 @@ export default function RecordPage({ context, onNavigate }) {
           <ResultSection title="관찰일지 문장" text={result.observation} />
           <ResultSection title="부모상담/알림장 문장" text={result.parent} accent />
           <ResultSection title="교사 지원계획" text={result.support} />
+          <ResultSection title="문서작성 준비 상태" text={result.documentReadyText} />
           <ResultSection title="원문 순화본" text={result.softened} />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>

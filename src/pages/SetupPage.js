@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { saveClasses, saveChildren, saveApiKey, genId } from '../utils/storage';
-import { ChevronRight, Plus, Trash2, BookOpen } from 'lucide-react';
+import { saveClasses, saveChildren, genId } from '../utils/storage';
+import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 
 const S = {
   container: {
@@ -34,13 +34,12 @@ const S = {
 };
 
 export default function SetupPage({ onComplete }) {
-  const [step, setStep] = useState(1); // 1: class info, 2: children, 3: api key
+  const [step, setStep] = useState(1); // 1: class info, 2: children
   const [className, setClassName] = useState('');
   const [classAge, setClassAge] = useState('');
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [childInput, setChildInput] = useState('');
   const [children, setChildren] = useState([]);
-  const [apiKey, setApiKey] = useState('');
 
   const addChild = () => {
     const names = childInput.split(/[,\n\s]+/).map(n => n.trim()).filter(Boolean);
@@ -55,14 +54,11 @@ export default function SetupPage({ onComplete }) {
     if (step === 1) {
       if (!className.trim()) return alert('반 이름을 입력해주세요');
       setStep(2);
-    } else if (step === 2) {
-      setStep(3);
     } else {
       // Save everything
       const classId = genId();
       saveClasses([{ id: classId, name: className, age: classAge, year }]);
       saveChildren(children.map(c => ({ ...c, classId })));
-      if (apiKey.trim()) saveApiKey(apiKey.trim());
       onComplete();
     }
   };
@@ -74,7 +70,7 @@ export default function SetupPage({ onComplete }) {
 
       {/* Progress */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 32 }}>
-        {[1, 2, 3].map(s => (
+        {[1, 2].map(s => (
           <div key={s} style={{
             flex: 1, height: 4, borderRadius: 2,
             background: s <= step ? 'var(--primary)' : 'var(--gray-200)',
@@ -164,42 +160,6 @@ export default function SetupPage({ onComplete }) {
         </div>
       )}
 
-      {step === 3 && (
-        <div style={S.card} className="slide-up">
-          <div style={S.step}>3단계</div>
-          <div style={S.sectionTitle}>AI 설정</div>
-          <div style={S.desc}>
-            Anthropic API 키를 입력하면 AI가 기록을 자동으로 분류하고 문서를 생성합니다.<br />
-            <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 500 }}>
-              console.anthropic.com
-            </a>에서 무료로 발급받을 수 있어요.
-          </div>
-
-          <div style={{ marginBottom: 8 }}>
-            <div style={S.label}>API 키</div>
-            <input
-              style={S.input}
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="sk-ant-..."
-            />
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
-            키는 기기에만 저장되며 외부로 전송되지 않습니다. 나중에 설정에서 입력할 수도 있어요.
-          </div>
-
-          <div style={{ marginTop: 20, padding: 16, background: 'var(--primary-light)', borderRadius: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontWeight: 600, marginBottom: 8, fontSize: 14 }}>
-              <BookOpen size={16} /> API 키 없이도 사용 가능
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--primary)', opacity: 0.8, lineHeight: 1.6 }}>
-              API 키 없이도 기록 저장, 조회, 문서 복사 기능을 사용할 수 있습니다. AI 자동 분류와 문서 생성만 제한됩니다.
-            </div>
-          </div>
-        </div>
-      )}
-
       <button
         onClick={handleNext}
         style={{
@@ -210,7 +170,7 @@ export default function SetupPage({ onComplete }) {
           marginTop: 'auto',
         }}
       >
-        {step === 3 ? '시작하기' : '다음'}
+        {step === 2 ? '시작하기' : '다음'}
         <ChevronRight size={20} />
       </button>
     </div>

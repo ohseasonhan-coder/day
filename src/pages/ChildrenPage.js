@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord } from '../utils/storage';
-import { generateGrowthSummary, generateConsultDoc } from '../utils/ai';
+import { generateGrowthSummary, generateConsultDoc, processRecord } from '../utils/ai';
 import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
 
 const PERIOD_LABELS = {
@@ -219,7 +219,7 @@ export default function ChildrenPage({ onNavigate }) {
         {records.length === 0 ? (
           <EmptyState text="이 기간의 기록이 없어요" action="기록 추가하기" onAction={() => onNavigate('record', { childId: selected.id })} />
         ) : (
-          records.map(r => <RecordCard key={r.id} record={r} onChange={refreshSelectedRecords} />)
+          records.map(r => <RecordCard key={r.id} record={r} classAge={classes[0]?.age} onChange={refreshSelectedRecords} />)
         )}
       </div>
     );
@@ -408,9 +408,10 @@ function CopyCard({ title, text, accent }) {
   );
 }
 
-function RecordCard({ record, onChange }) {
+function RecordCard({ record, classAge, onChange }) {
   const cat = CATEGORIES[record.category] || CATEGORIES.special;
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState({
     rawText: record.rawText || '',
     observation: record.observation || '',
@@ -418,13 +419,50 @@ function RecordCard({ record, onChange }) {
     support: record.support || '',
   });
 
-  const handleSave = () => {
-    updateRecord(record.id, {
-      ...draft,
-      updatedAt: new Date().toISOString(),
-    });
-    setEditing(false);
-    onChange?.();
+  const handleSave = async () => {
+    if (!draft.rawText.trim()) return alert('기록 원문을 입력해주세요.');
+    setSaving(true);
+    try {
+      const rawChanged = draft.rawText.trim() !== (record.rawText || '').trim();
+      let generated = null;
+      if (rawChanged) {
+        generated = await processRecord({
+          childName: record.childName,
+          rawText: draft.rawText.trim(),
+          classAge,
+          recordType: record.recordType,
+        });
+      }
+
+      const keepManualObservation = draft.observation !== (record.observation || '');
+      const keepManualParent = draft.parent !== (record.parent || '');
+      const keepManualSupport = draft.support !== (record.support || '');
+
+      updateRecord(record.id, {
+        ...draft,
+        rawText: draft.rawText.trim(),
+        ...(generated ? {
+          category: generated.category,
+          devAreas: generated.devAreas,
+          tags: generated.tags,
+          softened: generated.softened,
+          normalizedText: generated.normalizedText,
+          documentMeta: generated.documentMeta,
+          documentReadyText: generated.documentReadyText,
+          title: generated.title,
+          observation: keepManualObservation ? draft.observation : generated.observation,
+          parent: keepManualParent ? draft.parent : generated.parent,
+          support: keepManualSupport ? draft.support : generated.support,
+        } : {}),
+        updatedAt: new Date().toISOString(),
+      });
+      setEditing(false);
+      onChange?.();
+    } catch (e) {
+      alert(e.message || '기록을 다시 정리하는 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = () => {
@@ -450,12 +488,12 @@ function RecordCard({ record, onChange }) {
         <EditField label="부모상담 문장" value={draft.parent} onChange={v => setDraft(d => ({ ...d, parent: v }))} />
         <EditField label="지원계획" value={draft.support} onChange={v => setDraft(d => ({ ...d, support: v }))} />
 
-        <button onClick={handleSave} style={{
+        <button onClick={handleSave} disabled={saving} style={{
           width: '100%', marginTop: 4, padding: '12px', borderRadius: 12,
-          background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900,
+          background: saving ? 'var(--gray-300)' : 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          <Save size={15} /> 수정 저장
+          <Save size={15} /> {saving ? '재정리 중...' : '수정 저장'}
         </button>
       </div>
     );

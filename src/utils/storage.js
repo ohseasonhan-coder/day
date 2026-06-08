@@ -3,8 +3,8 @@ const KEYS = {
   CLASSES: 'sw_classes',
   CHILDREN: 'sw_children',
   RECORDS: 'sw_records',
+  DOCUMENTS: 'sw_documents',
   SETTINGS: 'sw_settings',
-  API_KEY: 'sw_api_key',
 };
 
 // Generic storage helpers
@@ -33,6 +33,9 @@ export const saveChildren = (v) => storage.set(KEYS.CHILDREN, v);
 export const getRecords = () => storage.get(KEYS.RECORDS) || [];
 export const saveRecords = (v) => storage.set(KEYS.RECORDS, v);
 
+export const getDocuments = () => storage.get(KEYS.DOCUMENTS) || [];
+export const saveDocuments = (v) => storage.set(KEYS.DOCUMENTS, v);
+
 export const getSettings = () => storage.get(KEYS.SETTINGS) || {
   nameStyle: 'name',       // 'name' | 'alias' | 'blank' | 'common'
   softening: true,
@@ -42,9 +45,6 @@ export const getSettings = () => storage.get(KEYS.SETTINGS) || {
   tone: 'warm',            // 'warm' | 'professional' | 'formal'
 };
 export const saveSettings = (v) => storage.set(KEYS.SETTINGS, v);
-
-export const getApiKey = () => storage.get(KEYS.API_KEY) || '';
-export const saveApiKey = (v) => storage.set(KEYS.API_KEY, v);
 
 // ID generator
 export const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -110,4 +110,26 @@ export const updateRecord = (id, updates) => {
 
 export const deleteRecord = (id) => {
   saveRecords(getRecords().filter(r => r.id !== id));
+};
+
+export const addDocumentDraft = (document) => {
+  const documents = getDocuments();
+  const newDocument = {
+    ...document,
+    id: genId(),
+    status: document.status || 'draft',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  saveDocuments([newDocument, ...documents]);
+  return newDocument;
+};
+
+export const updateDocumentDraft = (id, updates) => {
+  const documents = getDocuments();
+  saveDocuments(documents.map(d => d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d));
+};
+
+export const deleteDocumentDraft = (id) => {
+  saveDocuments(getDocuments().filter(d => d.id !== id));
 };

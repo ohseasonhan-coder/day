@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getRecords, getRecordsByDate, getClasses, getChildren, today, formatDateKo, formatDate, CATEGORIES } from '../utils/storage';
+import { getRecords, getRecordsByDate, getClasses, getChildren, today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
 import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -73,7 +73,15 @@ export default function DocsPage({ onNavigate }) {
       } else {
         generated = buildDocument(activeType, targetRecords, viewDate, cl, children);
       }
-      setDoc(generated);
+      const savedDraft = addDocumentDraft({
+        ...generated,
+        type: activeType,
+        date: viewDate,
+        classId: cl?.id,
+        className: cl?.name,
+        sourceRecordIds: targetRecords.map(r => r.id),
+      });
+      setDoc(savedDraft);
     } catch (e) {
       alert(e.message || '문서 생성 중 오류가 발생했어요.');
     } finally {

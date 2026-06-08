@@ -1547,6 +1547,67 @@ const SUPPORT_TEMPLATES = {
   special: '아이의 상태를 지속적으로 관찰하며 가정과 긴밀히 소통하고, 필요한 경우 즉각적인 지원을 제공한다.',
 };
 
+const DOCUMENT_USE_BY_CATEGORY = {
+  peer: ['observation', 'dailyJournal', 'parentConsult', 'developmentEvaluation', 'playEvaluation', 'assessmentCheck'],
+  habit: ['observation', 'dailyJournal', 'parentConsult', 'developmentEvaluation', 'assessmentCheck'],
+  comm: ['observation', 'dailyJournal', 'parentConsult', 'developmentEvaluation', 'playEvaluation', 'assessmentCheck'],
+  nature: ['observation', 'dailyJournal', 'developmentEvaluation', 'playEvaluation', 'monthlyEvaluation'],
+  art: ['observation', 'dailyJournal', 'developmentEvaluation', 'playEvaluation', 'monthlyEvaluation'],
+  body: ['observation', 'dailyJournal', 'developmentEvaluation', 'playEvaluation', 'safetyEvaluation'],
+  play: ['observation', 'dailyJournal', 'playEvaluation', 'weeklyEvaluation', 'monthlyEvaluation'],
+  special: ['observation', 'dailyJournal', 'parentConsult', 'safetyEvaluation', 'eventEvaluation', 'assessmentCheck'],
+};
+
+function buildDocumentMeta({ rawText, normalizedText, category, devAreas, tags, recordType, classAge }) {
+  const reviewFlags = [];
+  const signalText = normalizedText || rawText || '';
+  if (signalText.length < 12) reviewFlags.push('기록이 짧아 문서 생성 전 상황 보완이 필요할 수 있음');
+  if (!devAreas?.length) reviewFlags.push('발달영역 확인 필요');
+  if (!tags?.length) reviewFlags.push('세부태그 확인 필요');
+
+  const usableFor = new Set(DOCUMENT_USE_BY_CATEGORY[category] || DOCUMENT_USE_BY_CATEGORY.play);
+  if (recordType === 'consult') usableFor.add('parentConsult');
+  if (recordType === 'special') {
+    usableFor.add('safetyEvaluation');
+    usableFor.add('eventEvaluation');
+  }
+  if (recordType === 'notice') usableFor.add('parentNotice');
+
+  return {
+    schemaVersion: 1,
+    engine: 'rule-based-local',
+    recordType: recordType || 'observe',
+    classAge: classAge || '',
+    normalizedText: signalText,
+    primaryCategory: category,
+    devAreas: devAreas || [],
+    tags: tags || [],
+    usableFor: [...usableFor],
+    reviewFlags,
+    documentReady: reviewFlags.length === 0,
+  };
+}
+
+function makeDocumentReadyText(meta) {
+  const readyLabel = meta.documentReady ? '문서작성에 바로 사용할 수 있는 기록입니다.' : '문서작성 전 간단한 확인이 필요한 기록입니다.';
+  const uses = {
+    observation: '관찰일지',
+    dailyJournal: '보육일지',
+    parentConsult: '부모상담자료',
+    developmentEvaluation: '발달평가',
+    playEvaluation: '놀이평가',
+    weeklyEvaluation: '주간평가',
+    monthlyEvaluation: '월간평가',
+    safetyEvaluation: '안전교육·행사평가',
+    eventEvaluation: '행사평가',
+    assessmentCheck: '평가제 점검',
+    parentNotice: '부모 안내문',
+  };
+  const usable = meta.usableFor.map(key => uses[key] || key).slice(0, 6).join(', ');
+  const review = meta.reviewFlags.length ? `\n확인 필요: ${meta.reviewFlags.join(', ')}` : '';
+  return `${readyLabel}\n활용 가능 문서: ${usable || '관찰일지, 보육일지'}${review}`;
+}
+
 function makeTitle(text, categoryId) {
   const normalizedText = normalizeRecordText(text);
   const CAT_LABELS = { peer: '또래관계', habit: '생활습관', comm: '의사소통', nature: '자연탐구', art: '예술표현', body: '신체활동', play: '놀이활동', special: '특이사항' };
@@ -1558,13 +1619,22 @@ function makeTitle(text, categoryId) {
 
 // ─── 공개 함수 ────────────────────────────────────────────────────
 
-export async function processRecord({ childName, rawText, classAge }) {
+export async function processRecord({ childName, rawText, classAge, recordType }) {
   const name = childName || '아동';
   const normalizedText = normalizeRecordText(rawText);
   const category = detectCategory(normalizedText);
   const devAreas = detectDevAreas(normalizedText);
   const tags = extractTags(normalizedText, category);
   const softened = softenText(normalizedText);
+  const documentMeta = buildDocumentMeta({
+    rawText,
+    normalizedText,
+    category,
+    devAreas,
+    tags,
+    recordType,
+    classAge,
+  });
 
   const observeFn = OBSERVATION_TEMPLATES[category] || OBSERVATION_TEMPLATES.play;
   const parentFn = PARENT_TEMPLATES[category] || PARENT_TEMPLATES.play;
@@ -1575,6 +1645,8 @@ export async function processRecord({ childName, rawText, classAge }) {
     tags,
     softened,
     normalizedText,
+    documentMeta,
+    documentReadyText: makeDocumentReadyText(documentMeta),
     observation: observeFn(name, normalizedText),
     parent: makeParentMessage(name, category, normalizedText) || parentFn(name),
     support: makeSupportPlan(category, normalizedText),
