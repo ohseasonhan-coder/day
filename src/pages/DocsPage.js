@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  getRecords, getRecordsByDate, getClasses, getChildren,
+  getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
@@ -428,24 +428,6 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   );
 }
 
-// ── 기록 필터링 헬퍼 ──────────────────────────────────────────────────────────
-function getTargetRecords(type, viewDate, dayRecords, allRecords) {
-  if (type === 'daily') return dayRecords;
-  const target = new Date(viewDate);
-  if (type === 'weekly') {
-    return allRecords.filter(r => daysBetween(target, new Date(r.date)) >= 0 && daysBetween(target, new Date(r.date)) <= 6);
-  }
-  if (type === 'monthly' || type === 'review') {
-    return allRecords.filter(r => {
-      const d = new Date(r.date);
-      return d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth();
-    });
-  }
-  if (type === 'parent' || type === 'development') {
-    return allRecords.filter(r => daysBetween(target, new Date(r.date)) >= 0 && daysBetween(target, new Date(r.date)) <= 90);
-  }
-  return dayRecords.length ? dayRecords : allRecords.slice(0, 8);
-}
 
 function daysBetween(later, earlier) {
   return Math.floor((later - earlier) / 86400000);
