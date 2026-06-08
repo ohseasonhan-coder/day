@@ -94,6 +94,18 @@ function softenText(text) {
   return result;
 }
 
+function hasFinalConsonant(value) {
+  const last = [...String(value).trim()].pop();
+  if (!last) return false;
+  const code = last.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+function subject(name) {
+  return `${name}${hasFinalConsonant(name) ? '이' : ''}가`;
+}
+
 // ─── 키워드 기반 분류 ─────────────────────────────────────────────
 function detectCategory(text) {
   const scores = CATEGORY_RULES.map(cat => ({
@@ -140,40 +152,40 @@ function extractTags(text, categoryId) {
 // ─── 문장 생성 템플릿 ─────────────────────────────────────────────
 const OBSERVATION_TEMPLATES = {
   peer: (name, text) =>
-    `${name}이/가 또래와의 놀이 상황에서 ${softSummary(text)} 교사의 지원을 통해 상황을 경험하는 모습이 관찰되었다.`,
+    `${subject(name)} 또래와의 놀이 상황에서 ${softSummary(text)} 교사의 지원을 통해 상황을 경험하는 모습이 관찰되었다.`,
   habit: (name, text) =>
-    `${name}이/가 일상생활 중 ${softSummary(text)} 교사의 안내를 통해 생활습관을 익혀가고 있다.`,
+    `${subject(name)} 일상생활 중 ${softSummary(text)} 교사의 안내를 통해 생활습관을 익혀가고 있다.`,
   comm: (name, text) =>
-    `${name}이/가 ${softSummary(text)} 자신의 생각이나 감정을 표현하려는 모습이 관찰되었다.`,
+    `${subject(name)} ${softSummary(text)} 자신의 생각이나 감정을 표현하려는 모습이 관찰되었다.`,
   nature: (name, text) =>
-    `${name}이/가 자연물에 관심을 보이며 ${softSummary(text)} 탐구하는 모습이 관찰되었다.`,
+    `${subject(name)} 자연물에 관심을 보이며 ${softSummary(text)} 탐구하는 모습이 관찰되었다.`,
   art: (name, text) =>
-    `${name}이/가 예술 활동에 참여하며 ${softSummary(text)} 자신만의 방식으로 표현하는 모습이 보였다.`,
+    `${subject(name)} 예술 활동에 참여하며 ${softSummary(text)} 자신만의 방식으로 표현하는 모습이 보였다.`,
   body: (name, text) =>
-    `${name}이/가 신체 활동 중 ${softSummary(text)} 적극적으로 참여하는 모습이 관찰되었다.`,
+    `${subject(name)} 신체 활동 중 ${softSummary(text)} 적극적으로 참여하는 모습이 관찰되었다.`,
   play: (name, text) =>
-    `${name}이/가 놀이 활동에 참여하며 ${softSummary(text)} 집중하여 탐색하는 모습이 보였다.`,
+    `${subject(name)} 놀이 활동에 참여하며 ${softSummary(text)} 집중하여 탐색하는 모습이 보였다.`,
   special: (name, text) =>
-    `${name}이/가 ${softSummary(text)} 교사가 세심히 살피며 지원하였다.`,
+    `${subject(name)} ${softSummary(text)} 교사가 세심히 살피며 지원하였다.`,
 };
 
 const PARENT_TEMPLATES = {
   peer: (name) =>
-    `${name}이/가 요즘 친구들과 어울리는 상황에서 다양한 감정을 경험하고 있습니다. 아직 조율이 어려운 순간도 있지만, 교사의 도움을 받아 말로 표현하고 차례를 기다리는 경험을 하고 있어요.`,
+    `${subject(name)} 요즘 친구들과 어울리는 상황에서 다양한 감정을 경험하고 있습니다. 아직 조율이 어려운 순간도 있지만, 교사의 도움을 받아 말로 표현하고 차례를 기다리는 경험을 하고 있어요.`,
   habit: (name) =>
-    `${name}이/가 일상생활의 규칙과 습관을 익혀가는 중입니다. 가정에서도 스스로 해볼 수 있는 기회를 많이 주시면 큰 도움이 됩니다.`,
+    `${subject(name)} 일상생활의 규칙과 습관을 익혀가는 중입니다. 가정에서도 스스로 해볼 수 있는 기회를 많이 주시면 큰 도움이 됩니다.`,
   comm: (name) =>
-    `${name}이/가 자신의 생각과 감정을 말로 표현하려는 모습이 늘고 있습니다. 가정에서도 아이의 이야기를 천천히 들어주시면 언어 발달에 도움이 됩니다.`,
+    `${subject(name)} 자신의 생각과 감정을 말로 표현하려는 모습이 늘고 있습니다. 가정에서도 아이의 이야기를 천천히 들어주시면 언어 발달에 도움이 됩니다.`,
   nature: (name) =>
-    `${name}이/가 자연에 대한 호기심이 많아 주변 사물을 관심 있게 살피고 있습니다. 가정에서 산책이나 자연 탐색 기회를 주시면 더욱 좋을 것 같아요.`,
+    `${subject(name)} 자연에 대한 호기심이 많아 주변 사물을 관심 있게 살피고 있습니다. 가정에서 산책이나 자연 탐색 기회를 주시면 더욱 좋을 것 같아요.`,
   art: (name) =>
-    `${name}이/가 예술 활동에 즐겁게 참여하며 창의적으로 표현하는 모습을 보이고 있습니다. 가정에서도 자유롭게 그리고 만들 수 있는 환경을 만들어 주세요.`,
+    `${subject(name)} 예술 활동에 즐겁게 참여하며 창의적으로 표현하는 모습을 보이고 있습니다. 가정에서도 자유롭게 그리고 만들 수 있는 환경을 만들어 주세요.`,
   body: (name) =>
-    `${name}이/가 신체 활동을 즐기며 활발하게 움직이고 있습니다. 충분한 바깥 활동과 안전한 신체 놀이 환경을 제공해 주시면 좋겠습니다.`,
+    `${subject(name)} 신체 활동을 즐기며 활발하게 움직이고 있습니다. 충분한 바깥 활동과 안전한 신체 놀이 환경을 제공해 주시면 좋겠습니다.`,
   play: (name) =>
-    `${name}이/가 다양한 놀이 활동에 집중하며 탐색하는 모습을 보이고 있습니다. 아이가 관심 갖는 놀이를 가정에서도 함께 즐겨 보세요.`,
+    `${subject(name)} 다양한 놀이 활동에 집중하며 탐색하는 모습을 보이고 있습니다. 아이가 관심 갖는 놀이를 가정에서도 함께 즐겨 보세요.`,
   special: (name) =>
-    `${name}이/가 오늘 특별한 상황을 경험하였습니다. 가정에서도 아이의 컨디션과 감정 상태를 세심히 살펴봐 주시면 감사하겠습니다.`,
+    `${subject(name)} 오늘 특별한 상황을 경험하였습니다. 가정에서도 아이의 컨디션과 감정 상태를 세심히 살펴봐 주시면 감사하겠습니다.`,
 };
 
 const SUPPORT_TEMPLATES = {
@@ -264,10 +276,10 @@ export async function generateGrowthSummary({ childName, records, period, childA
   const topLabel = CAT_LABELS[topCat] || '놀이활동';
 
   return {
-    overall: `${name}이/가 ${period} 동안 ${count}건의 관찰 기록이 누적되었습니다. 전반적으로 ${topLabel} 영역에서 활발한 모습을 보이며 성장하고 있습니다. 교사와의 관계에서도 안정감을 보이며 일상생활에 적응하고 있습니다.`,
-    strengths: `${name}이/가 ${topLabel} 상황에서 자신의 관심을 적극적으로 표현하는 모습이 돋보입니다. 새로운 활동에 흥미를 보이며 탐색하려는 의지가 강하고, 교사의 지원을 통해 경험을 확장해나가고 있습니다.`,
+    overall: `${subject(name)} ${period} 동안 ${count}건의 관찰 기록이 누적되었습니다. 전반적으로 ${topLabel} 영역에서 활발한 모습을 보이며 성장하고 있습니다. 교사와의 관계에서도 안정감을 보이며 일상생활에 적응하고 있습니다.`,
+    strengths: `${subject(name)} ${topLabel} 상황에서 자신의 관심을 적극적으로 표현하는 모습이 돋보입니다. 새로운 활동에 흥미를 보이며 탐색하려는 의지가 강하고, 교사의 지원을 통해 경험을 확장해나가고 있습니다.`,
     support: `또래와의 상호작용 과정에서 감정 조절과 의사소통 표현 기회를 더 많이 제공하면 좋겠습니다. 다양한 발달 영역의 균형 있는 경험을 위해 지속적인 관찰과 지원이 이루어질 예정입니다.`,
-    parentMessage: `${name}이/가 원에서 ${topLabel} 활동을 즐겁게 경험하며 성장하고 있습니다. 가정에서도 아이가 관심 갖는 것들을 함께 탐색해 주시고, 일상 속 작은 성공 경험을 충분히 격려해 주세요. 앞으로도 아이의 성장을 함께 지원하겠습니다.`,
+    parentMessage: `${subject(name)} 원에서 ${topLabel} 활동을 즐겁게 경험하며 성장하고 있습니다. 가정에서도 아이가 관심 갖는 것들을 함께 탐색해 주시고, 일상 속 작은 성공 경험을 충분히 격려해 주세요. 앞으로도 아이의 성장을 함께 지원하겠습니다.`,
     nextSteps: `개별 발달 특성을 고려한 맞춤형 지원을 지속하고, 부족한 영역의 경험이 균형 있게 이루어지도록 환경과 활동을 계획할 예정입니다.`,
   };
 }
@@ -285,7 +297,7 @@ export async function generateConsultDoc({ childName, records, childAge }) {
   const CAT_LABELS = { peer: '또래관계', habit: '생활습관', comm: '의사소통', nature: '자연탐구', art: '예술표현', body: '신체활동', play: '놀이활동', special: '특이사항' };
 
   return {
-    recentGrowth: `최근 ${name}이/가 ${CAT_LABELS[topCat] || '놀이'} 영역에서 활발한 모습을 보이고 있습니다. 총 ${count}건의 관찰 기록을 통해 꾸준한 성장이 확인되었습니다.`,
+    recentGrowth: `최근 ${subject(name)} ${CAT_LABELS[topCat] || '놀이'} 영역에서 활발한 모습을 보이고 있습니다. 총 ${count}건의 관찰 기록을 통해 꾸준한 성장이 확인되었습니다.`,
     strengths: `자신이 좋아하는 활동에 집중하여 탐색하는 능력이 뛰어납니다. 교사의 지원을 받아 새로운 경험에 도전하려는 의지를 보이고 있으며, 일상 루틴에 잘 적응하고 있습니다.`,
     supportNeeded: `또래와의 상호작용 과정에서 감정을 말로 표현하는 연습이 지속적으로 필요합니다. 가정과 원이 함께 일관된 방향으로 지원해 주시면 더욱 빠른 성장이 기대됩니다.`,
     homeLinks: [
@@ -293,7 +305,8 @@ export async function generateConsultDoc({ childName, records, childAge }) {
       '스스로 해결할 수 있는 작은 일을 맡겨 자립심을 키울 수 있게 도와주세요.',
       '바깥 활동과 자연 탐색의 기회를 자주 제공해 주시면 좋겠습니다.',
     ].join(' / '),
-    teacherSupport: `원에서는 ${name}이/가 안정감을 느낄 수 있도록 일관된 지지를 제공하고 있으며, 개별 특성을 반영한 활동 지원을 이어가고 있습니다.`,
-    openingMessage: `오늘 상담에 시간 내주셔서 감사합니다. ${name}이/가 원에서 즐겁게 지내고 있어 함께 나눌 이야기가 많습니다.`,
+    teacherSupport: `원에서는 ${subject(name)} 안정감을 느낄 수 있도록 일관된 지지를 제공하고 있으며, 개별 특성을 반영한 활동 지원을 이어가고 있습니다.`,
+    openingMessage: `오늘 상담에 시간 내주셔서 감사합니다. ${subject(name)} 원에서 즐겁게 지내고 있어 함께 나눌 이야기가 많습니다.`,
   };
 }
+
