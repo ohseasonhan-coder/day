@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿import React, { useState, useEffect, useRef } from 'react';
+﻿﻿﻿﻿﻿import React, { useState, useEffect, useRef } from 'react';
 import { getChildren, getClasses, addRecord, CATEGORIES, today } from '../utils/storage';
 import { processRecord } from '../utils/ai';
 import { Sparkles, ChevronDown, Copy, Check, RotateCcw, Save } from 'lucide-react';

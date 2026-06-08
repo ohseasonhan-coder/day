@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { getSettings, saveSettings, getApiKey, saveApiKey, getClasses, getChildren, saveChildren, genId } from '../utils/storage';
-import { ArrowLeft, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId } from '../utils/storage';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 export default function SettingsPage({ onBack }) {
   const [settings, setSettings] = useState(getSettings());
-  const [apiKey, setApiKey] = useState(getApiKey());
-  const [showKey, setShowKey] = useState(false);
   const [classes] = useState(getClasses());
   const [children, setChildren] = useState(getChildren());
   const [activeTab, setActiveTab] = useState('general');
@@ -14,7 +12,6 @@ export default function SettingsPage({ onBack }) {
 
   const handleSave = () => {
     saveSettings(settings);
-    saveApiKey(apiKey.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

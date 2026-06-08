@@ -240,7 +240,6 @@ export async function generateDailyJournal({ records, date, classAge, className 
   if (activityParts.length === 0) activityParts.push('다양한 놀이 활동');
 
   const childCount = records.length;
-  const age = classAge || '';
 
   return {
     playFlow: `오늘 유아들은 ${activityParts.join(', ')}에 참여하며 즐거운 하루를 보냈다. 실내외 놀이 환경에서 자신이 관심 있는 놀이를 선택하여 집중하는 모습을 보였으며, 활동 간 자연스러운 연계가 이루어졌다.`,

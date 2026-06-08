@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿import React, { useState, useEffect } from 'react';
+﻿﻿﻿﻿﻿import React, { useState, useEffect } from 'react';
 import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc } from '../utils/ai';
 import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User } from 'lucide-react';
