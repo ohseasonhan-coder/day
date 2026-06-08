@@ -1,8 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup } from '../utils/storage';
-import { changePassword, deleteAccount } from '../utils/auth';
+import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle } from 'lucide-react';
 
+const PLAN_LABELS = {
+  [PLANS.VIP]:     { label: '영구 무료 (VIP)',  color: '#E91E9A', bg: '#FDE8F4', badge: '👑 VIP' },
+  [PLANS.PREMIUM]: { label: '프리미엄',          color: 'var(--primary)', bg: 'var(--primary-light)', badge: '⭐ 프리미엄' },
+  [PLANS.FREE]:    { label: '무료 플랜',          color: 'var(--text-secondary)', bg: 'var(--gray-100)', badge: '무료' },
+};
 export default function SettingsPage({ onBack, currentUser, onLogout }) {
   const [settings, setSettings]   = useState(getSettings());
   const [classes]                 = useState(getClasses());
@@ -295,16 +300,32 @@ export default function SettingsPage({ onBack, currentUser, onLogout }) {
         {activeTab === 'account' && currentUser && (
           <div>
             {/* 현재 계정 정보 */}
-            <div style={{
-              background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-              borderRadius: 18, padding: 20, marginBottom: 20, color: 'white',
-            }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, marginBottom: 12 }}>
-                {currentUser.displayName?.[0] || '?'}
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>{currentUser.displayName} 선생님</div>
-              <div style={{ fontSize: 13, opacity: 0.8 }}>@{currentUser.userId}</div>
-            </div>
+            {(() => {
+              const planInfo = PLAN_LABELS[currentUser.plan] || PLAN_LABELS[PLANS.FREE];
+              const isVipUser = currentUser.plan === PLANS.VIP;
+              return (
+                <div style={{
+                  background: isVipUser
+                    ? 'linear-gradient(135deg, #7B2FF7, #E91E9A)'
+                    : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                  borderRadius: 18, padding: 20, marginBottom: 20, color: 'white',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900 }}>
+                      {currentUser.displayName?.[0] || '?'}
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 900, background: 'rgba(255,255,255,0.25)', padding: '5px 12px', borderRadius: 100 }}>
+                      {planInfo.badge}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>{currentUser.displayName} 선생님</div>
+                  <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 6 }}>@{currentUser.userId}</div>
+                  <div style={{ fontSize: 12, opacity: 0.75, background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: 8, display: 'inline-block' }}>
+                    {planInfo.label} {isVipUser && '· 유료화 이후에도 무료'}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 로그아웃 */}
             <SettingCard title="로그아웃">

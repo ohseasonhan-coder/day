@@ -28,9 +28,24 @@ export function isLoggedIn() {
   return !!getCurrentUser();
 }
 
+// ── 플랜 상수 ────────────────────────────────────────────────────────────────
+export const PLANS = {
+  FREE:      'free',       // 일반 무료 계정
+  PREMIUM:   'premium',    // 유료 구독 계정
+  VIP:       'vip',        // 영구 무료 계정 (유료화 이후에도 무료 유지)
+};
+
+// ── 플랜 확인 헬퍼 ───────────────────────────────────────────────────────────
+export function isPremium(user) {
+  return user?.plan === PLANS.PREMIUM || user?.plan === PLANS.VIP;
+}
+export function isVip(user) {
+  return user?.plan === PLANS.VIP;
+}
+
 // ── 회원가입 ─────────────────────────────────────────────────────────────────
 // 반환값: { ok: true, user } | { ok: false, error: string }
-export function register(userId, password, displayName) {
+export function register(userId, password, displayName, plan = PLANS.FREE) {
   const userId2 = userId.trim().toLowerCase();
   if (!userId2)       return { ok: false, error: '아이디를 입력해 주세요.' };
   if (userId2.length < 3) return { ok: false, error: '아이디는 3자 이상이어야 해요.' };
@@ -47,13 +62,39 @@ export function register(userId, password, displayName) {
 
   const user = {
     userId: userId2,
-    password,            // 로컬 앱 — 평문 저장 (백엔드 없음)
+    password,
     displayName: displayName.trim(),
+    plan,
     createdAt: new Date().toISOString(),
   };
   saveAccountsInternal([...accounts, user]);
   setSession(user);
   return { ok: true, user };
+}
+
+// ── 시드 계정 (앱 초기화 시 자동 생성) ──────────────────────────────────────
+// 이미 존재하는 계정은 건드리지 않음 (idempotent)
+const SEED_ACCOUNTS = [
+  // ① 테스트 계정
+  { userId: 'saemtest',  password: 'test1234',  displayName: '테스트계정',  plan: PLANS.VIP },
+  // ② VIP 계정 × 5 — 유료화 이후에도 영구 무료
+  { userId: 'ssam01',    password: 'Saem@2025', displayName: '쌤워크VIP01', plan: PLANS.VIP },
+  { userId: 'ssam02',    password: 'Saem@2025', displayName: '쌤워크VIP02', plan: PLANS.VIP },
+  { userId: 'ssam03',    password: 'Saem@2025', displayName: '쌤워크VIP03', plan: PLANS.VIP },
+  { userId: 'ssam04',    password: 'Saem@2025', displayName: '쌤워크VIP04', plan: PLANS.VIP },
+  { userId: 'ssam05',    password: 'Saem@2025', displayName: '쌤워크VIP05', plan: PLANS.VIP },
+];
+
+export function seedSpecialAccounts() {
+  const accounts = getAccounts();
+  let changed = false;
+  SEED_ACCOUNTS.forEach(seed => {
+    if (!accounts.find(a => a.userId === seed.userId)) {
+      accounts.push({ ...seed, createdAt: new Date().toISOString() });
+      changed = true;
+    }
+  });
+  if (changed) saveAccountsInternal(accounts);
 }
 
 // ── 로그인 ────────────────────────────────────────────────────────────────────

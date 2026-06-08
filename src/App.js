@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
 import { getClasses, getChildren, getRecordsByDate, today } from './utils/storage';
-import { isLoggedIn, getCurrentUser, logout } from './utils/auth';
+import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 
 import TodayPage    from './pages/TodayPage';
 import RecordPage   from './pages/RecordPage';
@@ -31,6 +31,9 @@ function useIsDesktop() {
   }, []);
   return isDesktop;
 }
+
+// 앱 최초 로드 시 시드 계정 생성 (이미 있으면 무시)
+seedSpecialAccounts();
 
 export default function App() {
   const [user, setUser]                     = useState(() => isLoggedIn() ? getCurrentUser() : null);
