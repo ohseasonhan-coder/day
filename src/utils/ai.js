@@ -645,7 +645,7 @@ SOFTEN_MAP.push(...AI_LIKE_RULE_PACK.soften);
 POSITIVE_REPHRASE_MAP.push(...AI_LIKE_RULE_PACK.positive);
 
 function softenText(text) {
-  let result = text;
+  let result = normalizeRecordText(text);
   for (const { pattern, replace } of SOFTEN_MAP) {
     result = result.replace(pattern, replace);
   }
@@ -672,8 +672,103 @@ function subject(name) {
   return `${name}${hasFinalConsonant(name) ? '이' : ''}가`;
 }
 
+const TYPO_NORMALIZATION_RULES = [
+  [/또레/g, '또래'],
+  [/칭구|친고|친규/g, '친구'],
+  [/캠핑\s*(노리|놀의|놀이이)/g, '캠핑놀이'],
+  [/역활/g, '역할'],
+  [/차레|차래/g, '차례'],
+  [/순서\s*를/g, '순서를'],
+  [/순서를\s*잘\s*기달/g, '순서를 잘 기다'],
+  [/잘\s*기달/g, '잘 기다'],
+  [/기달/g, '기다'],
+  [/기다렷/g, '기다렸'],
+  [/기다렷다|기다렸다아/g, '기다렸다'],
+  [/기다린다|기다림/g, '기다렸다'],
+  [/줄\s*을\s*섯/g, '줄을 섰'],
+  [/줄\s*섯/g, '줄 섰'],
+  [/빌여|빌러|빌려죠|빌려조/g, '빌려'],
+  [/나눠?줫/g, '나눠줬'],
+  [/양보햇/g, '양보했'],
+  [/가저가|가져갓|가져감/g, '가져가'],
+  [/빼았|빼앗/g, '빼앗'],
+  [/울엇|울었/g, '울었다'],
+  [/울면서\s*말햇/g, '울면서 말했다'],
+  [/속상햇|속상해햇/g, '속상해했다'],
+  [/화냇/g, '화냈'],
+  [/싫어햇/g, '싫어했다'],
+  [/말햇|말헀|말했/g, '말했다'],
+  [/이야기햇|얘기햇/g, '이야기했다'],
+  [/대답햇/g, '대답했다'],
+  [/질문햇/g, '질문했다'],
+  [/표현햇/g, '표현했다'],
+  [/스스로햇/g, '스스로 했다'],
+  [/혼자햇/g, '혼자 했다'],
+  [/정리햇|치웟/g, '정리했다'],
+  [/먹엇|먹었/g, '먹었다'],
+  [/안먹|안 먹/g, '먹는 것에 어려움'],
+  [/낮잠\s*안\s*잠|안잠/g, '휴식에 어려움'],
+  [/화장실\s*갓/g, '화장실에 갔다'],
+  [/손씻|손\s*씻/g, '손 씻'],
+  [/관찰햇/g, '관찰했다'],
+  [/돋보기를\s*봄/g, '돋보기로 관찰했다'],
+  [/만들엇/g, '만들었다'],
+  [/그렷/g, '그렸다'],
+  [/노래햇/g, '노래했다'],
+  [/춤췃/g, '춤췄다'],
+  [/뛰엇/g, '뛰었다'],
+  [/넘어졋/g, '넘어졌다'],
+  [/부딪쳣/g, '부딪쳤다'],
+  [/도와달랫|도와달라햇/g, '도와달라고 했다'],
+  [/무서워햇/g, '무서워했다'],
+  [/시끄러워햇/g, '시끄러워했다'],
+  [/촉감놀이햇/g, '촉감놀이를 했다'],
+  [/생일잔치햇/g, '생일잔치를 했다'],
+  [/대피훈련햇/g, '대피훈련을 했다'],
+];
+
+const PHRASE_NORMALIZATION_RULES = [
+  [/([가-힣A-Za-z0-9]+)\s*이\s*\/\s*가/g, '$1이가'],
+  [/([가-힣A-Za-z0-9]+)\s*\/\s*가/g, '$1가'],
+  [/([가-힣A-Za-z0-9]+)\s*\/\s*이/g, '$1이'],
+  [/([가-힣])([,.!?])/g, '$1$2 '],
+  [/([가-힣])\s+(이|가|은|는|을|를|에|에서|와|과|로|으로)\b/g, '$1$2'],
+  [/([가-힣])([A-Za-z0-9])/g, '$1 $2'],
+  [/([A-Za-z0-9])([가-힣])/g, '$1 $2'],
+  [/순서를\s*잘\s*기다렸(?:다)?/g, '순서를 기다렸다'],
+  [/잘\s*기다렸(?:다)?/g, '차례를 기다렸다'],
+  [/친구\s*와/g, '친구와'],
+  [/또래\s*와/g, '또래와'],
+  [/교사\s*의/g, '교사의'],
+  [/지원\s*을/g, '지원을'],
+  [/상황\s*을/g, '상황을'],
+];
+
+function normalizeRecordText(text) {
+  let result = String(text || '').normalize('NFC');
+  result = result
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[，、]/g, ',')
+    .replace(/[。]/g, '.')
+    .replace(/[ㅋㅎㅠㅜ]{2,}/g, '')
+    .replace(/(.)\1{3,}/g, '$1$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  for (const [pattern, replace] of TYPO_NORMALIZATION_RULES) {
+    result = result.replace(pattern, replace);
+  }
+  for (const [pattern, replace] of PHRASE_NORMALIZATION_RULES) {
+    result = result.replace(pattern, replace);
+  }
+
+  return result.replace(/\s+/g, ' ').trim();
+}
+
 function cleanObservationInput(text) {
-  return applyPositiveRephrase(softenText(text))
+  const normalized = normalizeRecordText(text);
+  return applyPositiveRephrase(softenText(normalized))
     .replace(/^\s*[가-힣A-Za-z0-9]+(?:이\/가|이\s*\/\s*가|이가|가|은|는)\s*/u, '')
     .replace(/\b([가-힣]+)이\/가\b/gu, '$1이가')
     .replace(/하였으며/g, '하고')
@@ -1215,11 +1310,12 @@ SCENE_RULES.push(
 );
 
 function findSceneRule(text) {
+  const normalizedText = normalizeRecordText(text);
   const scored = SCENE_RULES
     .map(rule => ({
       rule,
       score: rule.keywords.reduce((sum, keyword) => {
-        if (!text.includes(keyword)) return sum;
+        if (!normalizedText.includes(keyword)) return sum;
         return sum + (keyword.length >= 4 ? 3 : 1);
       }, 0),
     }))
@@ -1230,24 +1326,25 @@ function findSceneRule(text) {
 
 function makeParentMessage(name, category, text) {
   const s = subject(name);
-  const sceneRule = findSceneRule(text);
+  const normalizedText = normalizeRecordText(text);
+  const sceneRule = findSceneRule(normalizedText);
   if (sceneRule) return sceneRule.parent(s);
-  if (includesAny(text, ['순서', '차례', '기다'])) {
+  if (includesAny(normalizedText, ['순서', '차례', '기다'])) {
     return `${s} 또래와 함께 놀이하며 차례를 기다리는 경험을 하고 있습니다. 원하는 놀이를 바로 하기 어려운 순간에도 교사의 안내를 받아 기다려보는 모습이 나타나고 있어요.`;
   }
-  if (includesAny(text, ['울', '속상', '화', '짜증', '싫어'])) {
+  if (includesAny(normalizedText, ['울', '속상', '화', '짜증', '싫어'])) {
     return `${s} 자신의 감정을 표현하는 모습이 나타나고 있습니다. 아직 감정이 커질 때는 울음이나 강한 표현으로 나타나기도 하지만, 교사의 도움을 받아 감정을 말로 표현하는 경험을 하고 있어요.`;
   }
-  if (includesAny(text, ['말', '이야기', '질문', '대답', '나도', '할래'])) {
+  if (includesAny(normalizedText, ['말', '이야기', '질문', '대답', '나도', '할래'])) {
     return `${s} 자신의 생각과 요구를 말로 표현하려는 모습이 늘고 있습니다. 원에서는 아이의 말을 충분히 기다려 주며 짧은 문장으로 표현해볼 수 있도록 돕고 있습니다.`;
   }
-  if (includesAny(text, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
+  if (includesAny(normalizedText, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
     return `${s} 일상 속에서 스스로 해보려는 시도가 보이고 있습니다. 작은 성공 경험을 통해 자신감이 쌓일 수 있도록 원에서도 차근차근 지원하고 있습니다.`;
   }
-  if (includesAny(text, ['곤충', '애벌레', '장수풍뎅이', '관찰', '돋보기', '왜', '궁금'])) {
+  if (includesAny(normalizedText, ['곤충', '애벌레', '장수풍뎅이', '관찰', '돋보기', '왜', '궁금'])) {
     return `${s} 주변 사물과 자연에 호기심을 보이며 관찰하는 모습이 나타나고 있습니다. 궁금한 점을 말로 표현하고 직접 탐색해보는 경험을 즐기고 있어요.`;
   }
-  if (includesAny(text, ['그림', '색', '만들', '노래', '춤', '꾸미'])) {
+  if (includesAny(normalizedText, ['그림', '색', '만들', '노래', '춤', '꾸미'])) {
     return `${s} 예술 활동에서 자신의 생각을 자유롭게 표현하고 있습니다. 결과보다는 과정 안에서 즐거움을 느끼며 다양한 재료와 방법을 경험하고 있어요.`;
   }
 
@@ -1255,24 +1352,25 @@ function makeParentMessage(name, category, text) {
 }
 
 function makeSupportPlan(category, text) {
-  const sceneRule = findSceneRule(text);
+  const normalizedText = normalizeRecordText(text);
+  const sceneRule = findSceneRule(normalizedText);
   if (sceneRule) return sceneRule.support;
-  if (includesAny(text, ['순서', '차례', '기다'])) {
+  if (includesAny(normalizedText, ['순서', '차례', '기다'])) {
     return '또래와의 놀이에서 차례를 기다리는 경험을 반복적으로 제공하고, 기다리는 동안 할 수 있는 말과 행동을 교사가 구체적으로 모델링한다.';
   }
-  if (includesAny(text, ['울', '속상', '화', '짜증', '싫어'])) {
+  if (includesAny(normalizedText, ['울', '속상', '화', '짜증', '싫어'])) {
     return '감정이 커지는 상황에서 아이의 마음을 먼저 읽어주고, “속상했구나”, “기다리고 싶지 않았구나”처럼 감정을 말로 표현하는 모델링을 제공한다.';
   }
-  if (includesAny(text, ['빼앗', '가져가', '친구 것', '빌려'])) {
+  if (includesAny(normalizedText, ['빼앗', '가져가', '친구 것', '빌려'])) {
     return '놀잇감 사용 순서를 시각적으로 안내하고, “빌려줘”, “다 쓰면 알려줘”와 같은 또래 간 요청 표현을 반복적으로 연습한다.';
   }
-  if (includesAny(text, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
+  if (includesAny(normalizedText, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
     return '스스로 시도할 수 있는 시간을 충분히 제공하고, 과정 중 필요한 부분만 짧게 도와 자립 경험이 이어지도록 지원한다.';
   }
-  if (includesAny(text, ['말', '질문', '대답', '표현', '나도', '할래'])) {
+  if (includesAny(normalizedText, ['말', '질문', '대답', '표현', '나도', '할래'])) {
     return '아이의 표현을 충분히 기다린 뒤 짧은 문장으로 확장해 들려주고, 또래와 교사에게 자신의 생각을 말해볼 기회를 자주 제공한다.';
   }
-  if (includesAny(text, ['곤충', '애벌레', '관찰', '돋보기', '궁금', '왜'])) {
+  if (includesAny(normalizedText, ['곤충', '애벌레', '관찰', '돋보기', '궁금', '왜'])) {
     return '관찰 도구와 관련 자료를 제공하여 탐색을 확장하고, 관찰한 내용을 말이나 그림으로 표현해볼 수 있도록 지원한다.';
   }
   return SUPPORT_TEMPLATES[category] || SUPPORT_TEMPLATES.play;
@@ -1280,11 +1378,12 @@ function makeSupportPlan(category, text) {
 
 // ─── 키워드 기반 분류 ─────────────────────────────────────────────
 function detectCategory(text) {
+  const normalizedText = normalizeRecordText(text);
   const scores = CATEGORY_RULES.map(cat => ({
     id: cat.id,
     label: cat.label,
     score: cat.keywords.reduce((sum, keyword) => {
-      if (!text.includes(keyword)) return sum;
+      if (!normalizedText.includes(keyword)) return sum;
       return sum + (keyword.length >= 4 ? 2 : 1);
     }, 0),
   }));
@@ -1293,8 +1392,9 @@ function detectCategory(text) {
 }
 
 function detectDevAreas(text) {
+  const normalizedText = normalizeRecordText(text);
   const matched = DEV_AREA_RULES
-    .map(area => ({ id: area.id, score: area.keywords.filter(k => text.includes(k)).length }))
+    .map(area => ({ id: area.id, score: area.keywords.filter(k => normalizedText.includes(k)).length }))
     .filter(a => a.score > 0)
     .sort((a, b) => b.score - a.score);
 
@@ -1303,6 +1403,7 @@ function detectDevAreas(text) {
 }
 
 function extractTags(text, categoryId) {
+  const normalizedText = normalizeRecordText(text);
   const TAG_POOL = {
     peer: ['또래관계', '갈등상황', '차례기다리기', '감정표현', '협력', '양보', '친구와 놀이'],
     habit: ['생활습관', '식습관', '수면', '배변', '위생', '자립', '정리정돈'],
@@ -1316,17 +1417,17 @@ function extractTags(text, categoryId) {
 
   const base = TAG_POOL[categoryId] || TAG_POOL.play;
   const extra = [];
-  if (text.includes('울') || text.includes('속상')) extra.push('감정조절');
-  if (text.includes('스스로') || text.includes('혼자')) extra.push('자립심');
-  if (text.includes('왜') || text.includes('어떻게') || text.includes('궁금')) extra.push('호기심');
-  if (text.includes('도와') || text.includes('배려')) extra.push('배려심');
-  if (text.includes('순서') || text.includes('차례') || text.includes('기다')) extra.push('기다리기');
-  if (text.includes('빌려') || text.includes('나눠') || text.includes('양보')) extra.push('나눔경험');
-  if (text.includes('캠핑') || text.includes('역할') || text.includes('상상')) extra.push('상상놀이');
-  if (text.includes('관찰') || text.includes('돋보기')) extra.push('관찰하기');
-  if (text.includes('정리') || text.includes('치우')) extra.push('정리습관');
-  if (text.includes('말') || text.includes('표현') || text.includes('나도')) extra.push('언어표현');
-  const sceneRule = findSceneRule(text);
+  if (normalizedText.includes('울') || normalizedText.includes('속상')) extra.push('감정조절');
+  if (normalizedText.includes('스스로') || normalizedText.includes('혼자')) extra.push('자립심');
+  if (normalizedText.includes('왜') || normalizedText.includes('어떻게') || normalizedText.includes('궁금')) extra.push('호기심');
+  if (normalizedText.includes('도와') || normalizedText.includes('배려')) extra.push('배려심');
+  if (normalizedText.includes('순서') || normalizedText.includes('차례') || normalizedText.includes('기다')) extra.push('기다리기');
+  if (normalizedText.includes('빌려') || normalizedText.includes('나눠') || normalizedText.includes('양보')) extra.push('나눔경험');
+  if (normalizedText.includes('캠핑') || normalizedText.includes('역할') || normalizedText.includes('상상')) extra.push('상상놀이');
+  if (normalizedText.includes('관찰') || normalizedText.includes('돋보기')) extra.push('관찰하기');
+  if (normalizedText.includes('정리') || normalizedText.includes('치우')) extra.push('정리습관');
+  if (normalizedText.includes('말') || normalizedText.includes('표현') || normalizedText.includes('나도')) extra.push('언어표현');
+  const sceneRule = findSceneRule(normalizedText);
   if (sceneRule?.id === 'meal') extra.push('식사경험');
   if (sceneRule?.id === 'nap') extra.push('휴식습관');
   if (sceneRule?.id === 'toilet') extra.push('배변표현');
@@ -1447,10 +1548,11 @@ const SUPPORT_TEMPLATES = {
 };
 
 function makeTitle(text, categoryId) {
+  const normalizedText = normalizeRecordText(text);
   const CAT_LABELS = { peer: '또래관계', habit: '생활습관', comm: '의사소통', nature: '자연탐구', art: '예술표현', body: '신체활동', play: '놀이활동', special: '특이사항' };
   const label = CAT_LABELS[categoryId] || '관찰기록';
   const keywords = ['친구', '식사', '말', '곤충', '그림', '운동', '블록', '건강'];
-  const found = keywords.find(k => text.includes(k));
+  const found = keywords.find(k => normalizedText.includes(k));
   return found ? `${label} - ${found}` : label;
 }
 
@@ -1458,10 +1560,11 @@ function makeTitle(text, categoryId) {
 
 export async function processRecord({ childName, rawText, classAge }) {
   const name = childName || '아동';
-  const category = detectCategory(rawText);
-  const devAreas = detectDevAreas(rawText);
-  const tags = extractTags(rawText, category);
-  const softened = softenText(rawText);
+  const normalizedText = normalizeRecordText(rawText);
+  const category = detectCategory(normalizedText);
+  const devAreas = detectDevAreas(normalizedText);
+  const tags = extractTags(normalizedText, category);
+  const softened = softenText(normalizedText);
 
   const observeFn = OBSERVATION_TEMPLATES[category] || OBSERVATION_TEMPLATES.play;
   const parentFn = PARENT_TEMPLATES[category] || PARENT_TEMPLATES.play;
@@ -1471,10 +1574,11 @@ export async function processRecord({ childName, rawText, classAge }) {
     devAreas,
     tags,
     softened,
-    observation: observeFn(name, rawText),
-    parent: makeParentMessage(name, category, rawText) || parentFn(name),
-    support: makeSupportPlan(category, rawText),
-    title: makeTitle(rawText, category),
+    normalizedText,
+    observation: observeFn(name, normalizedText),
+    parent: makeParentMessage(name, category, normalizedText) || parentFn(name),
+    support: makeSupportPlan(category, normalizedText),
+    title: makeTitle(normalizedText, category),
   };
 }
 
