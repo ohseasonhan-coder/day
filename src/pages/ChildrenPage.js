@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren } from '../utils/storage';
+import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc } from '../utils/ai';
-import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User, FileText, BarChart3 } from 'lucide-react';
+import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
 
 const PERIOD_LABELS = {
   '1month': '최근 1개월',
@@ -96,6 +96,11 @@ export default function ChildrenPage({ onNavigate }) {
     setChildren([...ch, newChild]);
     setNewChildName('');
     setShowAddChild(false);
+  };
+
+  const refreshSelectedRecords = () => {
+    if (!selected) return;
+    setRecords(loadRecords(selected));
   };
 
   if (selected) {
@@ -214,7 +219,7 @@ export default function ChildrenPage({ onNavigate }) {
         {records.length === 0 ? (
           <EmptyState text="이 기간의 기록이 없어요" action="기록 추가하기" onAction={() => onNavigate('record', { childId: selected.id })} />
         ) : (
-          records.map(r => <RecordCard key={r.id} record={r} />)
+          records.map(r => <RecordCard key={r.id} record={r} onChange={refreshSelectedRecords} />)
         )}
       </div>
     );
@@ -403,15 +408,76 @@ function CopyCard({ title, text, accent }) {
   );
 }
 
-function RecordCard({ record }) {
+function RecordCard({ record, onChange }) {
   const cat = CATEGORIES[record.category] || CATEGORIES.special;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({
+    rawText: record.rawText || '',
+    observation: record.observation || '',
+    parent: record.parent || '',
+    support: record.support || '',
+  });
+
+  const handleSave = () => {
+    updateRecord(record.id, {
+      ...draft,
+      updatedAt: new Date().toISOString(),
+    });
+    setEditing(false);
+    onChange?.();
+  };
+
+  const handleDelete = () => {
+    if (!window.confirm('이 기록을 삭제할까요? 삭제한 기록은 되돌릴 수 없습니다.')) return;
+    deleteRecord(record.id);
+    onChange?.();
+  };
+
+  if (editing) {
+    return (
+      <div style={{ background: 'white', border: `1.5px solid ${cat.color}`, borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>
+            {cat.emoji} {cat.label} 수정 중
+          </span>
+          <button onClick={() => setEditing(false)} style={{ color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 800 }}>
+            <X size={13} /> 취소
+          </button>
+        </div>
+
+        <EditField label="원본 기록" value={draft.rawText} onChange={v => setDraft(d => ({ ...d, rawText: v }))} />
+        <EditField label="관찰일지 문장" value={draft.observation} onChange={v => setDraft(d => ({ ...d, observation: v }))} />
+        <EditField label="부모상담 문장" value={draft.parent} onChange={v => setDraft(d => ({ ...d, parent: v }))} />
+        <EditField label="지원계획" value={draft.support} onChange={v => setDraft(d => ({ ...d, support: v }))} />
+
+        <button onClick={handleSave} style={{
+          width: '100%', marginTop: 4, padding: '12px', borderRadius: 12,
+          background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}>
+          <Save size={15} /> 수정 저장
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>
-          {cat.emoji} {cat.label}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatDate(record.date)}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>
+            {cat.emoji} {cat.label}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatDate(record.date)}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <button onClick={() => setEditing(true)} title="수정" style={{ width: 30, height: 30, borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Pencil size={14} />
+          </button>
+          <button onClick={handleDelete} title="삭제" style={{ width: 30, height: 30, borderRadius: 10, background: 'var(--accent-light)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
       {record.observation && (
         <div style={{ fontSize: 13, lineHeight: 1.75, color: 'var(--text-primary)' }}>{record.observation}</div>
@@ -426,6 +492,24 @@ function RecordCard({ record }) {
         </div>
       )}
     </div>
+  );
+}
+
+function EditField({ label, value, onChange }) {
+  return (
+    <label style={{ display: 'block', marginBottom: 10 }}>
+      <span style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)', marginBottom: 5 }}>{label}</span>
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          width: '100%', minHeight: 72, padding: '10px 12px',
+          borderRadius: 12, border: '1.5px solid var(--border)',
+          fontSize: 13, lineHeight: 1.7, resize: 'vertical',
+          fontFamily: 'inherit', outline: 'none',
+        }}
+      />
+    </label>
   );
 }
 

@@ -106,6 +106,35 @@ function subject(name) {
   return `${name}${hasFinalConsonant(name) ? '이' : ''}가`;
 }
 
+function cleanObservationInput(text) {
+  return softenText(text)
+    .replace(/^\s*[가-힣A-Za-z0-9]+(?:이\/가|이\s*\/\s*가|이가|가|은|는)\s*/u, '')
+    .replace(/\b([가-힣]+)이\/가\b/gu, '$1이가')
+    .replace(/\s+/g, ' ')
+    .replace(/잘기다린다/g, '차례를 기다리는 모습이 보였다')
+    .replace(/잘 기다린다/g, '차례를 기다리는 모습이 보였다')
+    .replace(/교사의 지원을 통해 상황을 경험하는 모습이 관찰되었다\.?/g, '')
+    .replace(/교사의 지원을 통해 상황을 경험하는 모습이 보였다\.?/g, '')
+    .replace(/교사의 안내를 통해 상황을 경험하였다\.?/g, '')
+    .trim();
+}
+
+function finishSentence(text) {
+  const clean = text.trim().replace(/[.。]+$/g, '');
+  return clean ? `${clean}.` : '';
+}
+
+function observationDetail(text, limit = 90) {
+  const clean = cleanObservationInput(text);
+  if (!clean) return '상황에 참여하며 경험을 이어가는 모습이 관찰되었다';
+  const trimmed = clean.length > limit ? clean.slice(0, limit).trim() : clean;
+  return trimmed
+    .replace(/했다$/u, '하는 모습이 관찰되었다')
+    .replace(/하였다$/u, '하는 모습이 관찰되었다')
+    .replace(/말했다$/u, '말로 표현하였다')
+    .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
+}
+
 // ─── 키워드 기반 분류 ─────────────────────────────────────────────
 function detectCategory(text) {
   const scores = CATEGORY_RULES.map(cat => ({
@@ -152,21 +181,21 @@ function extractTags(text, categoryId) {
 // ─── 문장 생성 템플릿 ─────────────────────────────────────────────
 const OBSERVATION_TEMPLATES = {
   peer: (name, text) =>
-    `${subject(name)} 또래와의 놀이 상황에서 ${softSummary(text)} 교사의 지원을 통해 상황을 경험하는 모습이 관찰되었다.`,
+    finishSentence(`${subject(name)} 또래와의 놀이에서 ${observationDetail(text)}`),
   habit: (name, text) =>
-    `${subject(name)} 일상생활 중 ${softSummary(text)} 교사의 안내를 통해 생활습관을 익혀가고 있다.`,
+    finishSentence(`${subject(name)} 일상생활 중 ${observationDetail(text)}`),
   comm: (name, text) =>
-    `${subject(name)} ${softSummary(text)} 자신의 생각이나 감정을 표현하려는 모습이 관찰되었다.`,
+    finishSentence(`${subject(name)} ${observationDetail(text)}`),
   nature: (name, text) =>
-    `${subject(name)} 자연물에 관심을 보이며 ${softSummary(text)} 탐구하는 모습이 관찰되었다.`,
+    finishSentence(`${subject(name)} 자연물에 관심을 보이며 ${observationDetail(text)}`),
   art: (name, text) =>
-    `${subject(name)} 예술 활동에 참여하며 ${softSummary(text)} 자신만의 방식으로 표현하는 모습이 보였다.`,
+    finishSentence(`${subject(name)} 예술 활동에 참여하며 ${observationDetail(text)}`),
   body: (name, text) =>
-    `${subject(name)} 신체 활동 중 ${softSummary(text)} 적극적으로 참여하는 모습이 관찰되었다.`,
+    finishSentence(`${subject(name)} 신체 활동 중 ${observationDetail(text)}`),
   play: (name, text) =>
-    `${subject(name)} 놀이 활동에 참여하며 ${softSummary(text)} 집중하여 탐색하는 모습이 보였다.`,
+    finishSentence(`${subject(name)} 놀이 활동에 참여하며 ${observationDetail(text)}`),
   special: (name, text) =>
-    `${subject(name)} ${softSummary(text)} 교사가 세심히 살피며 지원하였다.`,
+    finishSentence(`${subject(name)} ${observationDetail(text)} 교사가 세심히 살피며 지원하였다`),
 };
 
 const PARENT_TEMPLATES = {
@@ -198,12 +227,6 @@ const SUPPORT_TEMPLATES = {
   play: '아이의 관심사를 반영한 놀이 환경을 구성하고, 놀이가 확장될 수 있도록 적절한 시기에 지원과 개입을 제공한다.',
   special: '아이의 상태를 지속적으로 관찰하며 가정과 긴밀히 소통하고, 필요한 경우 즉각적인 지원을 제공한다.',
 };
-
-function softSummary(text) {
-  const softened = softenText(text);
-  const trimmed = softened.length > 40 ? softened.slice(0, 40) + '…' : softened;
-  return trimmed + ' ';
-}
 
 function makeTitle(text, categoryId) {
   const CAT_LABELS = { peer: '또래관계', habit: '생활습관', comm: '의사소통', nature: '자연탐구', art: '예술표현', body: '신체활동', play: '놀이활동', special: '특이사항' };
