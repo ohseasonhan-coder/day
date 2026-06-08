@@ -14,7 +14,7 @@ const DOC_TYPES = [
   { key: 'review', label: '원장 검토', icon: '✅', desc: '누락·표현·지원계획 검토용 요약' },
 ];
 
-export default function DocsPage({ onNavigate }) {
+export default function DocsPage({ onNavigate, isDesktop }) {
   const [viewDate, setViewDate] = useState(today());
   const [dayRecords, setDayRecords] = useState([]);
   const [allRecords, setAllRecords] = useState([]);
@@ -89,58 +89,52 @@ export default function DocsPage({ onNavigate }) {
     }
   };
 
-  return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
-          <Sparkles size={13} /> 문서 자동화 센터
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
-        <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          보육일지부터 부모상담자료, 발달평가, 행사평가, 원장 검토자료까지 한 번에 초안을 만듭니다.
+  const DateNav = (
+    <div style={{
+      background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: '12px 16px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16,
+      boxShadow: 'var(--shadow-sm)',
+    }}>
+      <button onClick={() => changeDate(-1)} style={{ color: 'var(--text-secondary)', padding: 4 }}>
+        <ChevronLeft size={20} />
+      </button>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontWeight: 800, fontSize: 16 }}>{formatDateKo(viewDate)}</div>
+        <div style={{ fontSize: 12, color: isToday ? 'var(--primary)' : 'var(--text-tertiary)', fontWeight: isToday ? 700 : 400 }}>
+          {isToday ? '오늘' : viewDate}
         </div>
       </div>
+      <button onClick={() => changeDate(1)} style={{ color: 'var(--text-secondary)', padding: 4 }} disabled={isToday}>
+        <ChevronRight size={20} style={{ opacity: isToday ? 0.3 : 1 }} />
+      </button>
+    </div>
+  );
 
-      <div style={{
-        background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: '12px 16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16,
-        boxShadow: 'var(--shadow-sm)',
-      }}>
-        <button onClick={() => changeDate(-1)} style={{ color: 'var(--text-secondary)', padding: 4 }}>
-          <ChevronLeft size={20} />
-        </button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{formatDateKo(viewDate)}</div>
-          <div style={{ fontSize: 12, color: isToday ? 'var(--primary)' : 'var(--text-tertiary)', fontWeight: isToday ? 700 : 400 }}>
-            {isToday ? '오늘' : viewDate}
+  const TypeSelector = (
+    <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 18 }}>
+      {DOC_TYPES.map(t => (
+        <button
+          key={t.key}
+          onClick={() => { setActiveType(t.key); setShowRecords(false); }}
+          style={{
+            textAlign: 'left', borderRadius: 16, padding: '13px 12px',
+            border: `1px solid ${activeType === t.key ? 'var(--primary)' : 'var(--border)'}`,
+            background: activeType === t.key ? 'var(--primary-light)' : 'white',
+            boxShadow: activeType === t.key ? '0 8px 18px rgba(79,127,255,0.12)' : 'var(--shadow-sm)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: isDesktop ? 0 : 5 }}>
+            <span style={{ fontSize: 18 }}>{t.icon}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: activeType === t.key ? 'var(--primary)' : 'var(--text-primary)' }}>{t.label}</span>
           </div>
-        </div>
-        <button onClick={() => changeDate(1)} style={{ color: 'var(--text-secondary)', padding: 4 }} disabled={isToday}>
-          <ChevronRight size={20} style={{ opacity: isToday ? 0.3 : 1 }} />
+          {!isDesktop && <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{t.desc}</div>}
         </button>
-      </div>
+      ))}
+    </div>
+  );
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
-        {DOC_TYPES.map(t => (
-          <button
-            key={t.key}
-            onClick={() => { setActiveType(t.key); setShowRecords(false); }}
-            style={{
-              textAlign: 'left', borderRadius: 16, padding: '13px 12px',
-              border: `1px solid ${activeType === t.key ? 'var(--primary)' : 'var(--border)'}`,
-              background: activeType === t.key ? 'var(--primary-light)' : 'white',
-              boxShadow: activeType === t.key ? '0 8px 18px rgba(79,127,255,0.12)' : 'var(--shadow-sm)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-              <span style={{ fontSize: 18 }}>{t.icon}</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: activeType === t.key ? 'var(--primary)' : 'var(--text-primary)' }}>{t.label}</span>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{t.desc}</div>
-          </button>
-        ))}
-      </div>
-
+  const GeneratePanel = (
+    <>
       <div style={{ background: 'linear-gradient(135deg, var(--gray-800), var(--gray-700))', color: 'white', borderRadius: 18, padding: 18, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
@@ -200,6 +194,48 @@ export default function DocsPage({ onNavigate }) {
       ) : (
         <EmptyGuide activeType={activeType} onNavigate={onNavigate} />
       )}
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <div style={{ padding: '32px 36px' }}>
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
+            <Sparkles size={13} /> 문서 자동화 센터
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            보육일지부터 부모상담자료, 발달평가, 행사평가, 원장 검토자료까지 한 번에 초안을 만듭니다.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 28, alignItems: 'start' }}>
+          {/* 왼쪽: 문서 유형 선택 */}
+          <div>
+            {DateNav}
+            {TypeSelector}
+          </div>
+          {/* 오른쪽: 생성 영역 */}
+          <div>{GeneratePanel}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
+          <Sparkles size={13} /> 문서 자동화 센터
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
+        <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          보육일지부터 부모상담자료, 발달평가, 행사평가, 원장 검토자료까지 한 번에 초안을 만듭니다.
+        </div>
+      </div>
+      {DateNav}
+      {TypeSelector}
+      {GeneratePanel}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc, processRecord } from '../utils/ai';
-import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
+import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
 
 const PERIOD_LABELS = {
   '1month': '최근 1개월',
@@ -19,7 +19,7 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-export default function ChildrenPage({ onNavigate }) {
+export default function ChildrenPage({ onNavigate, isDesktop }) {
   const [children, setChildren] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
@@ -112,6 +112,8 @@ export default function ChildrenPage({ onNavigate }) {
     setRecords(loadRecords(selected));
   };
 
+  const containerPad = isDesktop ? '32px 36px' : '20px';
+
   if (selected) {
     const catCounts = {};
     records.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
@@ -119,7 +121,7 @@ export default function ChildrenPage({ onNavigate }) {
     const lastRecord = records[0];
 
     return (
-      <div style={{ padding: '20px' }}>
+      <div style={{ padding: containerPad }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
           <button onClick={() => setSelected(null)} style={{ color: 'var(--primary)', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
             <X size={18} /> 목록
@@ -235,7 +237,7 @@ export default function ChildrenPage({ onNavigate }) {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: containerPad }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
@@ -288,6 +290,7 @@ export default function ChildrenPage({ onNavigate }) {
         />
       </div>
 
+      <div style={isDesktop ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } : {}}>
       {filtered.map(child => {
         const recs = getRecordsByChild(child.id);
         const lastRec = recs[0];
@@ -304,7 +307,7 @@ export default function ChildrenPage({ onNavigate }) {
             className="card-lift"
             style={{
               width: '100%', background: 'white', border: '1px solid var(--border)',
-              borderRadius: 18, padding: '15px 16px', marginBottom: 10,
+              borderRadius: 18, padding: '15px 16px', marginBottom: isDesktop ? 0 : 10,
               display: 'flex', alignItems: 'center', gap: 14,
               boxShadow: 'var(--shadow-sm)', textAlign: 'left',
             }}
@@ -364,6 +367,7 @@ export default function ChildrenPage({ onNavigate }) {
       })}
 
       {filtered.length === 0 && <EmptyState text="해당하는 아이가 없어요" />}
+      </div>
     </div>
   );
 }

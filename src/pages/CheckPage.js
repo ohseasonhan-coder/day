@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getChildren, getRecords, today, formatDate, CATEGORIES } from '../utils/storage';
 import { CheckCircle2, AlertCircle, XCircle, ChevronRight, BarChart2 } from 'lucide-react';
 
-export default function CheckPage({ onNavigate }) {
+export default function CheckPage({ onNavigate, isDesktop }) {
   const [children, setChildren] = useState([]);
   const [records, setRecords] = useState([]);
   const [period, setPeriod] = useState('thisMonth');
@@ -57,24 +57,27 @@ export default function CheckPage({ onNavigate }) {
     ((Object.keys(CATEGORIES).length - missingCats.length) / Object.keys(CATEGORIES).length) * 50)
   );
 
-  return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>점검</div>
-      <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>기록 현황과 누락을 확인해요</div>
+  const pad = isDesktop ? '32px 36px' : '20px';
 
-      {/* Period selector */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {[['thisWeek', '이번 주'], ['thisMonth', '이번 달'], ['last30', '최근 30일']].map(([k, v]) => (
-          <button key={k} onClick={() => setPeriod(k)} style={{
-            padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 500,
-            background: period === k ? 'var(--primary)' : 'var(--gray-100)',
-            color: period === k ? 'white' : 'var(--text-secondary)',
-            border: 'none', cursor: 'pointer',
-          }}>
-            {v}
-          </button>
-        ))}
-      </div>
+  const PeriodSelector = (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      {[['thisWeek', '이번 주'], ['thisMonth', '이번 달'], ['last30', '최근 30일']].map(([k, v]) => (
+        <button key={k} onClick={() => setPeriod(k)} style={{
+          padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 700,
+          background: period === k ? 'var(--primary)' : 'var(--gray-100)',
+          color: period === k ? 'white' : 'var(--text-secondary)',
+        }}>
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: pad }}>
+      <div style={{ fontSize: isDesktop ? 24 : 20, fontWeight: 900, marginBottom: 4, letterSpacing: '-0.5px' }}>점검</div>
+      <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>기록 현황과 누락을 확인해요</div>
+      {PeriodSelector}
 
       {/* Score Card */}
       <div style={{
@@ -99,6 +102,9 @@ export default function CheckPage({ onNavigate }) {
         </div>
       </div>
 
+      {/* 데스크톱 2컬럼 */}
+      <div style={isDesktop ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 } : {}}>
+      <div>
       {/* Alerts */}
       {noRecordChildren.length > 0 && (
         <CheckSection title="기록 없는 아이" type="error">
@@ -140,6 +146,8 @@ export default function CheckPage({ onNavigate }) {
         </CheckSection>
       )}
 
+      </div>{/* left col */}
+      <div>
       {/* Category Balance */}
       <CheckSection title="카테고리별 기록 현황" type="info">
         {Object.entries(CATEGORIES).map(([k, meta]) => {
@@ -185,6 +193,8 @@ export default function CheckPage({ onNavigate }) {
           </div>
         ))}
       </CheckSection>
+      </div>{/* right col */}
+      </div>{/* grid */}
     </div>
   );
 }

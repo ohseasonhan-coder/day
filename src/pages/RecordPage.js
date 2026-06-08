@@ -26,7 +26,7 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-export default function RecordPage({ context, onNavigate }) {
+export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [children, setChildren]         = useState([]);
   const [classes, setClasses]           = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
@@ -97,8 +97,107 @@ export default function RecordPage({ context, onNavigate }) {
 
   const cat = result?.category ? CATEGORIES[result.category] : null;
 
+  /* 데스크톱: 결과 있을 때 2컬럼 */
+  if (isDesktop && result) {
+    return (
+      <div style={{ padding: '32px 36px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, alignItems: 'start' }}>
+          {/* 왼쪽: 입력 요약 */}
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
+              <Zap size={13} /> 입력 내용
+            </div>
+            <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                {selectedChild && (() => {
+                  const color = getAvatarColor(selectedChild.name);
+                  return (
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: 'white', flexShrink: 0 }}>
+                      {selectedChild.name[0]}
+                    </div>
+                  );
+                })()}
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedChild?.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{currentPreset?.emoji} {currentPreset?.label}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-secondary)', background: 'var(--gray-50)', borderRadius: 12, padding: '12px 14px' }}>
+                {rawText}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button onClick={handleReset} style={{
+                padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)',
+                background: 'white', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+                <RotateCcw size={15} /> 다시 입력
+              </button>
+              <button onClick={handleSave} disabled={saved} style={{
+                padding: '15px', borderRadius: 14, border: 'none',
+                background: saved ? 'var(--cat-play)' : 'var(--primary)',
+                fontSize: 14, fontWeight: 800, color: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                boxShadow: saved ? 'none' : '0 4px 14px rgba(79,127,255,0.3)',
+              }}>
+                {saved ? <><Check size={15} /> 저장 완료</> : <><Save size={15} /> 저장하기</>}
+              </button>
+            </div>
+            {saved && (
+              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button onClick={handleReset} style={{ padding: '13px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 14, fontWeight: 800 }}>
+                  + 다음 기록
+                </button>
+                <button onClick={() => onNavigate('docs')} style={{ padding: '13px', borderRadius: 12, background: 'var(--gray-800)', color: 'white', fontSize: 14, fontWeight: 800 }}>
+                  문서 만들기
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 오른쪽: AI 결과 */}
+          <div className="slide-up">
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
+              <Sparkles size={13} /> AI 자동 정리 결과
+            </div>
+            {cat && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                <span style={{ background: cat.bg, color: cat.color, padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 800 }}>
+                  {cat.emoji} {cat.label}
+                </span>
+                {result.tags?.map(tag => (
+                  <span key={tag} style={{ background: 'var(--gray-100)', color: 'var(--text-secondary)', padding: '5px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600 }}>
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {result.devAreas?.length > 0 && (
+              <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8 }}>자동 연결 발달영역</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {result.devAreas.map(area => (
+                    <span key={area} style={{ fontSize: 12, color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: 100, fontWeight: 700 }}>
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <ResultSection title="관찰일지 문장"        text={result.observation} />
+            <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent />
+            <ResultSection title="교사 지원계획"        text={result.support} />
+            <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} />
+            <ResultSection title="원문 순화본"          text={result.softened} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: isDesktop ? '32px 36px' : '20px' }}>
 
       {/* ── 페이지 헤더 ─────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
