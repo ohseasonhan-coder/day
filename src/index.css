@@ -1,0 +1,136 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+:root {
+  /* Brand Colors */
+  --primary: #4F7FFF;
+  --primary-light: #EBF0FF;
+  --primary-dark: #3461D1;
+  --accent: #FF6B6B;
+  --accent-light: #FFF0F0;
+
+  /* Category Colors */
+  --cat-peer: #6C63FF;
+  --cat-peer-light: #F0EFFF;
+  --cat-habit: #FF8C42;
+  --cat-habit-light: #FFF4EC;
+  --cat-comm: #00B4D8;
+  --cat-comm-light: #E6F9FD;
+  --cat-play: #4CAF50;
+  --cat-play-light: #EBF7EC;
+  --cat-nature: #8BC34A;
+  --cat-nature-light: #F3FAE8;
+  --cat-art: #E91E9A;
+  --cat-art-light: #FDE8F4;
+  --cat-body: #FF5722;
+  --cat-body-light: #FFF0ED;
+  --cat-special: #607D8B;
+  --cat-special-light: #ECEFF1;
+
+  /* Neutrals */
+  --gray-50: #F8FAFE;
+  --gray-100: #F0F2FA;
+  --gray-200: #E4E8F4;
+  --gray-300: #CDD3E8;
+  --gray-400: #9AA5C4;
+  --gray-500: #6B7AAE;
+  --gray-600: #4A5680;
+  --gray-700: #2E3A5C;
+  --gray-800: #1A2340;
+  --gray-900: #0D1220;
+
+  /* Semantic */
+  --bg: #F8FAFE;
+  --surface: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --text-primary: #1A2340;
+  --text-secondary: #6B7AAE;
+  --text-tertiary: #9AA5C4;
+  --border: #E4E8F4;
+  --border-strong: #CDD3E8;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(79,127,255,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(79,127,255,0.10), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 40px rgba(79,127,255,0.14), 0 4px 12px rgba(0,0,0,0.06);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --nav-height: 64px;
+  --bottom-nav: 72px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, textarea {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 2px; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.slide-up {
+  animation: slideUp 0.4s ease forwards;
+}

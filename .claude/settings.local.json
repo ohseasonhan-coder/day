@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"\\(Get-Content ChildrenPage.js\\) -replace \\\\\"from '../utils/claude'\\\\\", \\\\\"from '../utils/gemini'\\\\\" | Set-Content ChildrenPage.js; \\(Get-Content DocsPage.js\\) -replace \\\\\"from '../utils/claude'\\\\\", \\\\\"from '../utils/gemini'\\\\\" | Set-Content DocsPage.js; \\(Get-Content RecordPage.js\\) -replace \\\\\"from '../utils/claude'\\\\\", \\\\\"from '../utils/gemini'\\\\\" | Set-Content RecordPage.js\")",
+      "Bash(powershell -Command \"\\(Get-Content ChildrenPage.js\\) -replace \\\\\"from '../utils/gemini'\\\\\", \\\\\"from '../utils/ai'\\\\\" | Set-Content ChildrenPage.js; \\(Get-Content DocsPage.js\\) -replace \\\\\"from '../utils/gemini'\\\\\", \\\\\"from '../utils/ai'\\\\\" | Set-Content DocsPage.js; \\(Get-Content RecordPage.js\\) -replace \\\\\"from '../utils/gemini'\\\\\", \\\\\"from '../utils/ai'\\\\\" | Set-Content RecordPage.js\")",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx react-scripts *)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\한승훈\\\\Desktop\\\\개인분석\\\\1028\\\\일지\\\\src\\\\pages\\\\DocsPage.js' | Select-Object -Index 210,211,212,213,214,215\")",
+      "Bash(powershell -Command ' *)",
+      "Bash(grep \"src\\\\\\\\\")"
+    ]
+  }
+}
