@@ -70,6 +70,65 @@ const DEV_AREA_RULES = [
   { id: '기본생활습관', keywords: ['밥', '식사', '잠', '낮잠', '화장실', '씻', '정리', '치우', '스스로', '혼자', '옷', '가방'] },
 ];
 
+const CATEGORY_RULE_EXTENSIONS = {
+  peer: [
+    '기다렸', '순서', '차례를', '빌려', '빌려줌', '빌려달', '함께하자', '같이하자', '놀이에 끼', '참여하고 싶',
+    '속상해', '서운해', '미안', '괜찮아', '도와줌', '도와주', '나눠줌', '번갈아', '양보함', '초대', '놀이 약속',
+    '친구가 가지고', '친구 것', '친구와 캠핑', '친구와 블록', '친구와 역할', '친구에게 말', '친구에게 표현',
+    '함께 정리', '같이 만들', '의견', '의견을 말', '의견 차이', '기분을 말', '화가 나', '갈등 후', '다시 놀이',
+  ],
+  habit: [
+    '반찬을', '밥을', '국을', '먹어봄', '맛봄', '천천히 먹', '흘렸', '닦았', '손 씻', '비누', '수건', '양말',
+    '외투', '지퍼', '단추', '신발 정리', '가방 정리', '물 마', '물병', '이불', '잠자리', '휴식', '컨디션',
+    '배변 의사', '화장실 다녀', '기저귀', '팬티', '정리시간', '놀이감 정리', '자리 정돈', '스스로 먹',
+  ],
+  comm: [
+    '나도', '할래', '싫어', '좋아', '하고 싶어', '도와주세요', '왜냐하면', '설명함', '표정', '몸짓', '손짓',
+    '눈빛', '요청', '거절', '감정을 말', '생각을 말', '친구에게 말', '교사에게 말', '반복해서 말',
+    '이름을 부르', '문장을 사용', '단어로 표현', '문장으로 표현', '질문함', '대답함', '듣고', '이야기를 들',
+  ],
+  nature: [
+    '돋보기', '확대경', '애벌레', '장수풍뎅이', '개구리', '올챙이', '열매', '잎', '씨앗', '흙놀이', '물놀이',
+    '얼음', '녹', '떠', '가라앉', '무겁', '가볍', '길이', '높이', '많다', '적다', '분류', '비교함',
+    '냄새', '소리', '변화', '움직인다', '자란다', '살아있', '죽었', '계절', '봄', '여름', '가을', '겨울',
+  ],
+  art: [
+    '물감', '크레파스', '색연필', '사인펜', '종이', '가위질', '풀칠', '스티커', '종이접기', '점토', '클레이',
+    '리본', '무늬', '선', '동그라미', '소리내', '노래부', '따라 부', '박자', '율동', '상상', '표현놀이',
+  ],
+  body: [
+    '계단', '오르내리', '매달리', '구르기', '걷기', '빠르게', '천천히', '균형잡', '공 던지', '공 받',
+    '공 차', '자르', '접', '끼우', '집게', '핀셋', '블록 끼우', '작은 조각', '손가락', '손목', '몸을 움직',
+  ],
+  play: [
+    '캠핑놀이', '텐트', '불멍', '낚시놀이', '가게놀이', '가족놀이', '엄마아빠', '동물놀이', '공룡', '로봇',
+    '기찻길', '도로', '주차장', '쌓기놀이', '역할놀이', '상상놀이', '소꿉놀이', '요리놀이', '병원놀이',
+    '규칙놀이', '놀이를 이어', '놀이를 확장', '만든 뒤', '구성한 뒤',
+  ],
+  special: [
+    '코피', '기침', '콧물', '열감', '복통', '두통', '피곤', '졸려', '멍', '상처', '부딪', '넘어짐', '미끄러짐',
+    '투약의뢰', '귀가', '등원', '하원', '알레르기', '불안해', '낯가림', '평소와 다르게', '부모 요청',
+  ],
+};
+
+const DEV_AREA_EXTENSIONS = [
+  { id: '신체운동·건강', keywords: ['계단', '오르내리', '공 던지', '공 받', '공 차', '가위질', '끼우기', '점토', '손 조작', '컨디션', '투약', '상처', '기침', '콧물'] },
+  { id: '의사소통', keywords: ['나도', '할래', '싫어', '좋아', '요청', '거절', '감정을 말', '생각을 말', '문장으로', '단어로', '이야기를 듣', '친구에게 말'] },
+  { id: '사회관계', keywords: ['순서', '기다렸', '번갈아', '빌려', '의견', '놀이 약속', '친구 것', '친구와 캠핑', '다시 놀이', '갈등 후', '미안', '괜찮아'] },
+  { id: '예술경험', keywords: ['물감', '크레파스', '색연필', '스티커', '종이접기', '점토', '박자', '율동', '상상', '무늬'] },
+  { id: '자연탐구', keywords: ['애벌레', '장수풍뎅이', '돋보기', '확대경', '얼음', '녹', '뜨다', '가라앉다', '분류', '변화', '계절'] },
+  { id: '기본생활습관', keywords: ['물병', '손 씻', '비누', '수건', '신발 정리', '가방 정리', '이불', '배변 의사', '정리시간'] },
+];
+
+CATEGORY_RULES.forEach(rule => {
+  rule.keywords.push(...(CATEGORY_RULE_EXTENSIONS[rule.id] || []));
+});
+
+DEV_AREA_EXTENSIONS.forEach(extra => {
+  const target = DEV_AREA_RULES.find(area => area.id === extra.id);
+  if (target) target.keywords.push(...extra.keywords);
+});
+
 // ─── 부정 표현 순화 사전 ───────────────────────────────────────────
 const SOFTEN_MAP = [
   { pattern: /산만하다|산만해|집중을 못|집중하지 못|집중 안/g, replace: '관심이 다양한 곳으로 이동하는 모습이 있다' },
@@ -84,11 +143,45 @@ const SOFTEN_MAP = [
   { pattern: /소리를 지른다|소리를 질렀|소리 질러/g, replace: '큰 목소리로 자신의 감정을 표현하는 모습이 있다' },
   { pattern: /말이 느리다|말이 늦다|언어가 느린|발음이 안 좋|발음이 부정확/g, replace: '언어 표현이 발달하는 과정에 있으며 교사의 지원이 이루어지고 있다' },
   { pattern: /못 한다|할 줄 모른다|어려워한다/g, replace: '아직 경험이 적어 교사의 도움을 받아 익히고 있다' },
+  { pattern: /빼앗았다|빼앗으려 했다|가져갔다/g, replace: '원하는 놀잇감에 관심을 보이며 사용하고 싶어 하는 모습을 보였다' },
+  { pattern: /울고불고|떼썼다|떼를 부렸다/g, replace: '속상한 마음을 울음과 말로 표현하는 모습이 있었다' },
+  { pattern: /짜증냈다|짜증을 냈다|화냈다|화를 냈다/g, replace: '불편한 감정을 표정과 말로 표현하는 모습이 있었다' },
+  { pattern: /안 하려고 했다|하기 싫어했다|거부했다/g, replace: '활동 참여에 조심스러운 모습을 보이며 시간이 필요하였다' },
+  { pattern: /가만히 있지 못했다|계속 돌아다녔다/g, replace: '몸을 움직이며 주변 환경을 탐색하려는 모습이 있었다' },
+  { pattern: /말대꾸했다|대들었다/g, replace: '자신의 생각을 강하게 표현하는 모습이 있었다' },
+  { pattern: /이기적이다|자기 것만 챙긴다/g, replace: '자신이 원하는 것을 분명히 표현하며 소유 개념을 경험하고 있다' },
+  { pattern: /겁이 많다|무서워한다/g, replace: '새로운 상황에서 신중하게 반응하며 안정적인 안내가 필요하다' },
+  { pattern: /느리다|꾸물거린다/g, replace: '자신의 속도에 맞추어 천천히 시도하는 모습이 있다' },
+  { pattern: /엉망으로|마구|대충/g, replace: '자신의 방식으로 탐색하고 표현하는 모습이 있다' },
+  { pattern: /싫다고 했다|싫어했다/g, replace: '자신의 선호와 감정을 말로 표현하였다' },
+  { pattern: /잘기다린다|잘 기다린다/g, replace: '차례를 기다리는 모습이 보였다' },
+  { pattern: /잘한다/g, replace: '익숙하게 시도하는 모습이 보였다' },
+];
+
+const POSITIVE_REPHRASE_MAP = [
+  { pattern: /순서를 기다렸|순서를 기다리|차례를 기다렸|차례를 기다리/g, replace: '차례를 기다리며 놀이에 참여하였다' },
+  { pattern: /친구와 캠핑놀이를 하며/g, replace: '친구와 캠핑놀이를 함께 구성하며' },
+  { pattern: /친구와 함께/g, replace: '또래와 함께' },
+  { pattern: /나도 할래/g, replace: '"나도 할래"라고 자신의 의사를 표현하였다' },
+  { pattern: /움직인다/g, replace: '"움직인다"라고 말하며 변화를 관찰하였다' },
+  { pattern: /스스로/g, replace: '스스로 시도하며' },
+  { pattern: /도와줬다|도와주었다/g, replace: '친구를 도와주는 모습을 보였다' },
+  { pattern: /양보했다|양보하였다/g, replace: '친구에게 양보하는 모습을 보였다' },
+  { pattern: /정리했다|정리하였다/g, replace: '놀이 후 정리에 참여하였다' },
+  { pattern: /말했다/g, replace: '말로 표현하였다' },
 ];
 
 function softenText(text) {
   let result = text;
   for (const { pattern, replace } of SOFTEN_MAP) {
+    result = result.replace(pattern, replace);
+  }
+  return result;
+}
+
+function applyPositiveRephrase(text) {
+  let result = text;
+  for (const { pattern, replace } of POSITIVE_REPHRASE_MAP) {
     result = result.replace(pattern, replace);
   }
   return result;
@@ -107,9 +200,11 @@ function subject(name) {
 }
 
 function cleanObservationInput(text) {
-  return softenText(text)
+  return applyPositiveRephrase(softenText(text))
     .replace(/^\s*[가-힣A-Za-z0-9]+(?:이\/가|이\s*\/\s*가|이가|가|은|는)\s*/u, '')
     .replace(/\b([가-힣]+)이\/가\b/gu, '$1이가')
+    .replace(/하였으며/g, '하고')
+    .replace(/하였다/g, '하였다')
     .replace(/\s+/g, ' ')
     .replace(/잘기다린다/g, '차례를 기다리는 모습이 보였다')
     .replace(/잘 기다린다/g, '차례를 기다리는 모습이 보였다')
@@ -120,7 +215,11 @@ function cleanObservationInput(text) {
 }
 
 function finishSentence(text) {
-  const clean = text.trim().replace(/[.。]+$/g, '');
+  const clean = text
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.])/g, '$1')
+    .replace(/[.。]+$/g, '');
   return clean ? `${clean}.` : '';
 }
 
@@ -135,12 +234,65 @@ function observationDetail(text, limit = 90) {
     .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
 }
 
+function includesAny(text, words) {
+  return words.some(word => text.includes(word));
+}
+
+function makeParentMessage(name, category, text) {
+  const s = subject(name);
+  if (includesAny(text, ['순서', '차례', '기다'])) {
+    return `${s} 또래와 함께 놀이하며 차례를 기다리는 경험을 하고 있습니다. 원하는 놀이를 바로 하기 어려운 순간에도 교사의 안내를 받아 기다려보는 모습이 나타나고 있어요.`;
+  }
+  if (includesAny(text, ['울', '속상', '화', '짜증', '싫어'])) {
+    return `${s} 자신의 감정을 표현하는 모습이 나타나고 있습니다. 아직 감정이 커질 때는 울음이나 강한 표현으로 나타나기도 하지만, 교사의 도움을 받아 감정을 말로 표현하는 경험을 하고 있어요.`;
+  }
+  if (includesAny(text, ['말', '이야기', '질문', '대답', '나도', '할래'])) {
+    return `${s} 자신의 생각과 요구를 말로 표현하려는 모습이 늘고 있습니다. 원에서는 아이의 말을 충분히 기다려 주며 짧은 문장으로 표현해볼 수 있도록 돕고 있습니다.`;
+  }
+  if (includesAny(text, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
+    return `${s} 일상 속에서 스스로 해보려는 시도가 보이고 있습니다. 작은 성공 경험을 통해 자신감이 쌓일 수 있도록 원에서도 차근차근 지원하고 있습니다.`;
+  }
+  if (includesAny(text, ['곤충', '애벌레', '장수풍뎅이', '관찰', '돋보기', '왜', '궁금'])) {
+    return `${s} 주변 사물과 자연에 호기심을 보이며 관찰하는 모습이 나타나고 있습니다. 궁금한 점을 말로 표현하고 직접 탐색해보는 경험을 즐기고 있어요.`;
+  }
+  if (includesAny(text, ['그림', '색', '만들', '노래', '춤', '꾸미'])) {
+    return `${s} 예술 활동에서 자신의 생각을 자유롭게 표현하고 있습니다. 결과보다는 과정 안에서 즐거움을 느끼며 다양한 재료와 방법을 경험하고 있어요.`;
+  }
+
+  return PARENT_TEMPLATES[category]?.(name) || PARENT_TEMPLATES.play(name);
+}
+
+function makeSupportPlan(category, text) {
+  if (includesAny(text, ['순서', '차례', '기다'])) {
+    return '또래와의 놀이에서 차례를 기다리는 경험을 반복적으로 제공하고, 기다리는 동안 할 수 있는 말과 행동을 교사가 구체적으로 모델링한다.';
+  }
+  if (includesAny(text, ['울', '속상', '화', '짜증', '싫어'])) {
+    return '감정이 커지는 상황에서 아이의 마음을 먼저 읽어주고, “속상했구나”, “기다리고 싶지 않았구나”처럼 감정을 말로 표현하는 모델링을 제공한다.';
+  }
+  if (includesAny(text, ['빼앗', '가져가', '친구 것', '빌려'])) {
+    return '놀잇감 사용 순서를 시각적으로 안내하고, “빌려줘”, “다 쓰면 알려줘”와 같은 또래 간 요청 표현을 반복적으로 연습한다.';
+  }
+  if (includesAny(text, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
+    return '스스로 시도할 수 있는 시간을 충분히 제공하고, 과정 중 필요한 부분만 짧게 도와 자립 경험이 이어지도록 지원한다.';
+  }
+  if (includesAny(text, ['말', '질문', '대답', '표현', '나도', '할래'])) {
+    return '아이의 표현을 충분히 기다린 뒤 짧은 문장으로 확장해 들려주고, 또래와 교사에게 자신의 생각을 말해볼 기회를 자주 제공한다.';
+  }
+  if (includesAny(text, ['곤충', '애벌레', '관찰', '돋보기', '궁금', '왜'])) {
+    return '관찰 도구와 관련 자료를 제공하여 탐색을 확장하고, 관찰한 내용을 말이나 그림으로 표현해볼 수 있도록 지원한다.';
+  }
+  return SUPPORT_TEMPLATES[category] || SUPPORT_TEMPLATES.play;
+}
+
 // ─── 키워드 기반 분류 ─────────────────────────────────────────────
 function detectCategory(text) {
   const scores = CATEGORY_RULES.map(cat => ({
     id: cat.id,
     label: cat.label,
-    score: cat.keywords.filter(k => text.includes(k)).length,
+    score: cat.keywords.reduce((sum, keyword) => {
+      if (!text.includes(keyword)) return sum;
+      return sum + (keyword.length >= 4 ? 2 : 1);
+    }, 0),
   }));
   scores.sort((a, b) => b.score - a.score);
   return scores[0].score > 0 ? scores[0].id : 'play';
@@ -174,6 +326,12 @@ function extractTags(text, categoryId) {
   if (text.includes('스스로') || text.includes('혼자')) extra.push('자립심');
   if (text.includes('왜') || text.includes('어떻게') || text.includes('궁금')) extra.push('호기심');
   if (text.includes('도와') || text.includes('배려')) extra.push('배려심');
+  if (text.includes('순서') || text.includes('차례') || text.includes('기다')) extra.push('기다리기');
+  if (text.includes('빌려') || text.includes('나눠') || text.includes('양보')) extra.push('나눔경험');
+  if (text.includes('캠핑') || text.includes('역할') || text.includes('상상')) extra.push('상상놀이');
+  if (text.includes('관찰') || text.includes('돋보기')) extra.push('관찰하기');
+  if (text.includes('정리') || text.includes('치우')) extra.push('정리습관');
+  if (text.includes('말') || text.includes('표현') || text.includes('나도')) extra.push('언어표현');
 
   return [...new Set([...base.slice(0, 3), ...extra])].slice(0, 5);
 }
@@ -254,8 +412,8 @@ export async function processRecord({ childName, rawText, classAge }) {
     tags,
     softened,
     observation: observeFn(name, rawText),
-    parent: parentFn(name),
-    support: SUPPORT_TEMPLATES[category] || SUPPORT_TEMPLATES.play,
+    parent: makeParentMessage(name, category, rawText) || parentFn(name),
+    support: makeSupportPlan(category, rawText),
     title: makeTitle(rawText, category),
   };
 }
