@@ -429,9 +429,6 @@ export default function DocsPage({ onNavigate, isDesktop }) {
 }
 
 
-function daysBetween(later, earlier) {
-  return Math.floor((later - earlier) / 86400000);
-}
 
 // ── 문서 빌더 ─────────────────────────────────────────────────────────────────
 function buildDocument(type, records, date, cl, children, selChild, period) {
