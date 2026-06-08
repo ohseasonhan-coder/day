@@ -620,6 +620,33 @@ function observationDetail(text, limit = 90) {
     .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
 }
 
+function makeSceneObservation(name, text) {
+  const s = subject(name);
+  const detail = observationDetail(text);
+  const sceneRule = findSceneRule(text);
+  if (!sceneRule) return null;
+
+  const sceneObservations = {
+    sharingOwnership: `${s} 놀잇감 사용 상황에서 ${detail} 또래와 함께 사용하는 방법을 경험하였다.`,
+    repairApology: `${s} 또래와의 상호작용 이후 ${detail} 관계를 회복하는 표현을 경험하였다.`,
+    attentionSeeking: `${s} 교사와 또래의 반응을 기대하며 ${detail} 관심을 적절히 요청하는 경험이 필요하였다.`,
+    truthRetell: `${s} 일어난 상황을 설명하는 과정에서 ${detail} 사실과 감정을 차분히 정리해보는 경험이 이루어졌다.`,
+    initiativeChoice: `${s} 활동 중 ${detail} 자신의 선택과 의사를 표현하며 주도적으로 참여하였다.`,
+    persistenceRetry: `${s} 활동 과정에서 ${detail} 다시 시도하며 문제를 해결해보는 경험을 하였다.`,
+    foodUtensil: `${s} 식사 시간에 ${detail} 식사 도구를 조절하여 사용하는 경험을 이어갔다.`,
+    dressing: `${s} 옷 입고 벗기 과정에서 ${detail} 생활 속 자립 기술을 익혀가는 모습이 관찰되었다.`,
+    cleanupResponsibility: `${s} 정리 상황에서 ${detail} 사용한 물건과 공간을 마무리하는 경험을 하였다.`,
+    weatherSeason: `${s} 날씨와 계절 변화에 관심을 보이며 ${detail} 주변 환경을 관찰하였다.`,
+    measurementCompare: `${s} 놀이 자료를 탐색하며 ${detail} 크기, 길이, 양 등을 비교하는 경험을 하였다.`,
+    pretendStory: `${s} 상상놀이에서 ${detail} 역할과 상황을 구성하며 놀이를 확장하였다.`,
+    observationToParticipation: `${s} 또래의 놀이를 관찰한 뒤 ${detail} 모방과 참여를 통해 놀이 방법을 익혀갔다.`,
+    fatigueRest: `${s} 컨디션 변화가 있는 상황에서 ${detail} 휴식과 활동을 조절하는 경험이 필요하였다.`,
+    minorInjuryCare: `${s} 몸의 불편함이나 작은 상처 상황에서 ${detail} 도움을 받고 상태를 표현하는 경험을 하였다.`,
+  };
+
+  return sceneObservations[sceneRule.id] ? finishSentence(sceneObservations[sceneRule.id]) : null;
+}
+
 function includesAny(text, words) {
   return words.some(word => text.includes(word));
 }
@@ -1159,21 +1186,21 @@ function extractTags(text, categoryId) {
 // ─── 문장 생성 템플릿 ─────────────────────────────────────────────
 const OBSERVATION_TEMPLATES = {
   peer: (name, text) =>
-    finishSentence(`${subject(name)} 또래와의 놀이에서 ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 또래와의 놀이에서 ${observationDetail(text)}`),
   habit: (name, text) =>
-    finishSentence(`${subject(name)} 일상생활 중 ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 일상생활 중 ${observationDetail(text)}`),
   comm: (name, text) =>
-    finishSentence(`${subject(name)} ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} ${observationDetail(text)}`),
   nature: (name, text) =>
-    finishSentence(`${subject(name)} 자연물에 관심을 보이며 ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 자연물에 관심을 보이며 ${observationDetail(text)}`),
   art: (name, text) =>
-    finishSentence(`${subject(name)} 예술 활동에 참여하며 ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 예술 활동에 참여하며 ${observationDetail(text)}`),
   body: (name, text) =>
-    finishSentence(`${subject(name)} 신체 활동 중 ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 신체 활동 중 ${observationDetail(text)}`),
   play: (name, text) =>
-    finishSentence(`${subject(name)} 놀이 활동에 참여하며 ${observationDetail(text)}`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 놀이 활동에 참여하며 ${observationDetail(text)}`),
   special: (name, text) =>
-    finishSentence(`${subject(name)} ${observationDetail(text)} 교사가 세심히 살피며 지원하였다`),
+    makeSceneObservation(name, text) || finishSentence(`${subject(name)} ${observationDetail(text)} 교사가 세심히 살피며 지원하였다`),
 };
 
 const PARENT_TEMPLATES = {
