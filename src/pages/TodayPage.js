@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES } from '../utils/storage';
-import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle } from 'lucide-react';
+import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen } from 'lucide-react';
 
 const SERVICE_CARDS = [
   { title: '보육일지',          desc: '오늘 기록으로 일일 문서 작성',    icon: '📄', nav: 'docs' },
@@ -147,8 +147,9 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   ) : null;
 
   const QuickActions = (
-    <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr 1fr' : '1fr 1fr', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr 1fr 1fr' : '1fr 1fr', gap: 10 }}>
       <QuickAction icon={<PenLine size={20} />}    label="3분 기록"     desc="관찰·알림장·특이사항" color="var(--primary)"  onClick={() => onNavigate('record')} />
+      <QuickAction icon={<BookOpen size={20} />}   label="알림장 쓰기"  desc="아이별 일괄 자동 작성" color="#E91E9A"        onClick={() => onNavigate('note')} />
       <QuickAction icon={<FileText size={20} />}   label="문서 자동화"  desc="8종 문서 초안 생성"  color="var(--cat-comm)" onClick={() => onNavigate('docs')} />
       <QuickAction icon={<Users size={20} />}      label="아이별 리포트" desc="상담자료·발달평가"   color="var(--cat-peer)" onClick={() => onNavigate('children')} />
       <QuickAction icon={<CheckSquare size={20} />} label="누락 점검"   desc="평가제 준비 체크"    color="var(--cat-play)" onClick={() => onNavigate('check')} />

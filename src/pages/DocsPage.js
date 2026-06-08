@@ -1,47 +1,94 @@
 import React, { useState, useEffect } from 'react';
-import { getRecords, getRecordsByDate, getClasses, getChildren, today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft } from '../utils/storage';
+import {
+  getRecords, getRecordsByDate, getClasses, getChildren,
+  today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
+} from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
-import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users } from 'lucide-react';
 
 const DOC_TYPES = [
-  { key: 'daily', label: '보육일지', icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
-  { key: 'weekly', label: '주간 놀이평가', icon: '🗓️', desc: '최근 7일 놀이 흐름과 다음 지원계획 정리' },
-  { key: 'monthly', label: '월간 놀이평가', icon: '📊', desc: '이번 달 놀이 흐름·평가·확장계획 정리' },
-  { key: 'parent', label: '부모상담자료', icon: '💬', desc: '아이별 상담에 바로 쓰는 문장 묶음' },
-  { key: 'development', label: '발달평가', icon: '🌱', desc: '발달영역별 관찰 근거와 지원계획' },
-  { key: 'safety', label: '안전·행사평가', icon: '🛡️', desc: '안전교육·견학·행사 후 평가 문서' },
-  { key: 'teacher', label: '교사교육일지', icon: '👩‍🏫', desc: '교사교육 후 적용계획까지 정리' },
-  { key: 'review', label: '원장 검토', icon: '✅', desc: '누락·표현·지원계획 검토용 요약' },
+  { key: 'daily',       label: '보육일지',      icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
+  { key: 'weekly',      label: '주간 놀이평가',  icon: '🗓️', desc: '최근 7일 놀이 흐름과 다음 지원계획 정리' },
+  { key: 'monthly',     label: '월간 놀이평가',  icon: '📊', desc: '이번 달 놀이 흐름·평가·확장계획 정리' },
+  { key: 'parent',      label: '부모상담자료',   icon: '💬', desc: '아이별 상담에 바로 쓰는 문장 묶음' },
+  { key: 'development', label: '발달평가',       icon: '🌱', desc: '발달영역별 관찰 근거와 지원계획' },
+  { key: 'safety',      label: '안전·행사평가',  icon: '🛡️', desc: '안전교육·견학·행사 후 평가 문서' },
+  { key: 'teacher',     label: '교사교육일지',   icon: '👩‍🏫', desc: '교사교육 후 적용계획까지 정리' },
+  { key: 'review',      label: '원장 검토',      icon: '✅', desc: '누락·표현·지원계획 검토용 요약' },
 ];
 
+const PERIOD_OPTIONS = [
+  { key: 'date',    label: '선택 날짜' },
+  { key: '1month',  label: '1개월' },
+  { key: '3months', label: '3개월' },
+  { key: '6months', label: '6개월' },
+  { key: '1year',   label: '1년' },
+];
+const PERIOD_DAYS = { date: 0, '1month': 30, '3months': 90, '6months': 180, '1year': 365 };
+
+const AVATAR_COLORS = [
+  '#4F7FFF','#6C63FF','#FF8C42','#00B4D8',
+  '#4CAF50','#E91E9A','#FF5722','#607D8B',
+];
+function getAvatarColor(name) {
+  if (!name) return AVATAR_COLORS[0];
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
 export default function DocsPage({ onNavigate, isDesktop }) {
-  const [viewDate, setViewDate] = useState(today());
-  const [dayRecords, setDayRecords] = useState([]);
+  const [viewDate, setViewDate]     = useState(today());
   const [allRecords, setAllRecords] = useState([]);
-  const [children, setChildren] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [doc, setDoc] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [children, setChildren]     = useState([]);
+  const [classes, setClasses]       = useState([]);
+  const [doc, setDoc]               = useState(null);
+  const [loading, setLoading]       = useState(false);
   const [activeType, setActiveType] = useState('daily');
   const [showRecords, setShowRecords] = useState(false);
 
+  // 아이 선택 (null = 전체 반)
+  const [selectedChildId, setSelectedChildId] = useState(null);
+  // 기간 선택
+  const [period, setPeriod] = useState('date');
+
   useEffect(() => {
-    setDayRecords(getRecordsByDate(viewDate));
     setAllRecords(getRecords());
     setChildren(getChildren());
     setClasses(getClasses());
     setDoc(null);
-  }, [viewDate, activeType]);
+  }, [viewDate, activeType, selectedChildId, period]);
 
-  const cl = classes[0];
-  const current = DOC_TYPES.find(t => t.key === activeType) || DOC_TYPES[0];
-  const targetRecords = getTargetRecords(activeType, viewDate, dayRecords, allRecords);
-  const isToday = viewDate === today();
+  const cl        = classes[0];
+  const isToday   = viewDate === today();
+  const current   = DOC_TYPES.find(t => t.key === activeType) || DOC_TYPES[0];
+  const selChild  = children.find(c => c.id === selectedChildId) || null;
+
+  // ── 대상 기록 계산 ──────────────────────────────────────────────────────────
+  const targetRecords = (() => {
+    const base = period === 'date'
+      ? allRecords.filter(r => r.date === viewDate)
+      : (() => {
+          const days = PERIOD_DAYS[period];
+          const now  = new Date();
+          return allRecords.filter(r => (now - new Date(r.date)) / 86400000 <= days);
+        })();
+
+    // 특정 아이 필터
+    return selectedChildId ? base.filter(r => r.childId === selectedChildId) : base;
+  })();
 
   const changeDate = (delta) => {
     const d = new Date(viewDate);
     d.setDate(d.getDate() + delta);
     setViewDate(d.toISOString().split('T')[0]);
+  };
+
+  const handleSelectChild = (childId) => {
+    setSelectedChildId(childId);
+    setDoc(null);
+    // 아이 선택 시 기간 옵션 보임 — 기본 '1month'로
+    if (childId !== null && period === 'date') setPeriod('1month');
+    // 전체 선택 시 기간 리셋
+    if (childId === null) setPeriod('date');
   };
 
   const handleGenerate = async () => {
@@ -52,33 +99,30 @@ export default function DocsPage({ onNavigate, isDesktop }) {
     setLoading(true);
     try {
       let generated;
-      if (activeType === 'daily') {
+      if (activeType === 'daily' && !selChild) {
         const res = await generateDailyJournal({
-          records: targetRecords,
-          date: viewDate,
-          classAge: cl?.age,
-          className: cl?.name,
+          records: targetRecords, date: viewDate,
+          classAge: cl?.age, className: cl?.name,
         });
         generated = {
           title: '보육일지 초안',
           badge: `${formatDateKo(viewDate)} · ${targetRecords.length}건 반영`,
           sections: [
             { title: '놀이 흐름 및 활동', text: res.playFlow },
-            { title: '유아 반응', text: res.childResponse },
-            { title: '교사 지원', text: res.teacherSupport },
-            { title: '오늘 평가', text: res.evaluation },
-            { title: '다음 지원계획', text: res.nextPlan, accent: true },
+            { title: '유아 반응',         text: res.childResponse },
+            { title: '교사 지원',         text: res.teacherSupport },
+            { title: '오늘 평가',         text: res.evaluation },
+            { title: '다음 지원계획',     text: res.nextPlan, accent: true },
           ],
         };
       } else {
-        generated = buildDocument(activeType, targetRecords, viewDate, cl, children);
+        generated = buildDocument(activeType, targetRecords, viewDate, cl, children, selChild, period);
       }
       const savedDraft = addDocumentDraft({
-        ...generated,
-        type: activeType,
-        date: viewDate,
-        classId: cl?.id,
-        className: cl?.name,
+        ...generated, type: activeType, date: viewDate,
+        classId: cl?.id, className: cl?.name,
+        childId: selChild?.id, childName: selChild?.name,
+        period,
         sourceRecordIds: targetRecords.map(r => r.id),
       });
       setDoc(savedDraft);
@@ -89,58 +133,151 @@ export default function DocsPage({ onNavigate, isDesktop }) {
     }
   };
 
+  // ── 공통 UI 블록 ─────────────────────────────────────────────────────────────
+
   const DateNav = (
     <div style={{
-      background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: '12px 16px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16,
+      background: 'white', border: '1px solid var(--border)', borderRadius: 16,
+      padding: '12px 16px', marginBottom: 14,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       boxShadow: 'var(--shadow-sm)',
     }}>
-      <button onClick={() => changeDate(-1)} style={{ color: 'var(--text-secondary)', padding: 4 }}>
-        <ChevronLeft size={20} />
-      </button>
+      <button onClick={() => changeDate(-1)} style={{ color: 'var(--text-secondary)', padding: 4 }}><ChevronLeft size={20} /></button>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontWeight: 800, fontSize: 16 }}>{formatDateKo(viewDate)}</div>
         <div style={{ fontSize: 12, color: isToday ? 'var(--primary)' : 'var(--text-tertiary)', fontWeight: isToday ? 700 : 400 }}>
           {isToday ? '오늘' : viewDate}
         </div>
       </div>
-      <button onClick={() => changeDate(1)} style={{ color: 'var(--text-secondary)', padding: 4 }} disabled={isToday}>
+      <button onClick={() => changeDate(1)} disabled={isToday} style={{ color: 'var(--text-secondary)', padding: 4 }}>
         <ChevronRight size={20} style={{ opacity: isToday ? 0.3 : 1 }} />
       </button>
     </div>
   );
 
+  // 아이 선택 스크롤
+  const ChildSelector = (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Users size={14} /> 대상 선택
+      </div>
+      <div className="avatar-scroll" style={{ marginLeft: isDesktop ? 0 : -20, marginRight: isDesktop ? 0 : -20, paddingLeft: isDesktop ? 0 : 20, paddingRight: isDesktop ? 0 : 20, paddingBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 10, width: 'max-content' }}>
+          {/* 전체 반 */}
+          <button
+            onClick={() => handleSelectChild(null)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              padding: '4px 2px', minWidth: 52,
+            }}
+          >
+            <div style={{
+              width: 50, height: 50, borderRadius: '50%',
+              background: selectedChildId === null ? 'var(--primary)' : 'var(--gray-100)',
+              border: `3px solid ${selectedChildId === null ? 'var(--primary)' : 'transparent'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, boxShadow: selectedChildId === null ? '0 6px 18px rgba(79,127,255,0.4)' : 'none',
+              transition: 'all 0.18s',
+            }}>
+              👥
+            </div>
+            <span style={{ fontSize: 11, fontWeight: selectedChildId === null ? 800 : 500, color: selectedChildId === null ? 'var(--primary)' : 'var(--text-secondary)' }}>
+              전체 반
+            </span>
+          </button>
+
+          {children.map(child => {
+            const color    = getAvatarColor(child.name);
+            const isActive = selectedChildId === child.id;
+            return (
+              <button
+                key={child.id}
+                onClick={() => handleSelectChild(child.id)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '4px 2px', minWidth: 52 }}
+              >
+                <div style={{
+                  width: 50, height: 50, borderRadius: '50%',
+                  background: isActive ? color : `${color}18`,
+                  border: `3px solid ${isActive ? color : 'transparent'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 18, fontWeight: 900,
+                  color: isActive ? 'white' : color,
+                  boxShadow: isActive ? `0 6px 18px ${color}44` : 'none',
+                  transition: 'all 0.18s',
+                }}>
+                  {child.name[0]}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: isActive ? 800 : 500, color: isActive ? color : 'var(--text-secondary)', maxWidth: 52, textAlign: 'center', lineHeight: 1.3 }}>
+                  {child.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  // 기간 선택 (아이 선택 시 표시)
+  const PeriodSelector = selectedChildId ? (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8 }}>기간 선택</div>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        {PERIOD_OPTIONS.map(p => (
+          <button key={p.key} onClick={() => { setPeriod(p.key); setDoc(null); }} style={{
+            padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 700,
+            background: period === p.key ? 'var(--primary)' : 'var(--gray-100)',
+            color:      period === p.key ? 'white' : 'var(--text-secondary)',
+          }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {/* 기간 선택 요약 */}
+      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-light)', padding: '7px 12px', borderRadius: 9, display: 'inline-block' }}>
+        {selChild?.name} · {PERIOD_OPTIONS.find(p => p.key === period)?.label} · {targetRecords.length}건 기록
+      </div>
+    </div>
+  ) : null;
+
+  // 문서 유형 선택 그리드
   const TypeSelector = (
-    <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 18 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr' : '1fr 1fr', gap: 8, marginBottom: 16 }}>
       {DOC_TYPES.map(t => (
         <button
           key={t.key}
-          onClick={() => { setActiveType(t.key); setShowRecords(false); }}
+          onClick={() => { setActiveType(t.key); setDoc(null); setShowRecords(false); }}
           style={{
-            textAlign: 'left', borderRadius: 16, padding: '13px 12px',
+            textAlign: 'left', borderRadius: 14, padding: isDesktop ? '11px 12px' : '13px 12px',
             border: `1px solid ${activeType === t.key ? 'var(--primary)' : 'var(--border)'}`,
             background: activeType === t.key ? 'var(--primary-light)' : 'white',
-            boxShadow: activeType === t.key ? '0 8px 18px rgba(79,127,255,0.12)' : 'var(--shadow-sm)',
+            boxShadow: activeType === t.key ? '0 6px 16px rgba(79,127,255,0.12)' : 'var(--shadow-sm)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: isDesktop ? 0 : 5 }}>
             <span style={{ fontSize: 18 }}>{t.icon}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: activeType === t.key ? 'var(--primary)' : 'var(--text-primary)' }}>{t.label}</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: activeType === t.key ? 'var(--primary)' : 'var(--text-primary)' }}>{t.label}</span>
           </div>
-          {!isDesktop && <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{t.desc}</div>}
+          {!isDesktop && <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{t.desc}</div>}
         </button>
       ))}
     </div>
   );
 
+  // 생성 패널 + 결과
   const GeneratePanel = (
     <>
-      <div style={{ background: 'linear-gradient(135deg, var(--gray-800), var(--gray-700))', color: 'white', borderRadius: 18, padding: 18, marginBottom: 16 }}>
+      {/* 생성 카드 */}
+      <div style={{ background: 'linear-gradient(135deg, var(--gray-800), var(--gray-700))', color: 'white', borderRadius: 18, padding: 18, marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 4 }}>{current.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 900 }}>{current.icon} {current.label} 초안</div>
-            <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.6, marginTop: 4 }}>{current.desc}</div>
+            {selChild && (
+              <div style={{ fontSize: 12, background: 'rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 10px', display: 'inline-block', marginBottom: 6 }}>
+                👤 {selChild.name} · {PERIOD_OPTIONS.find(p => p.key === period)?.label}
+              </div>
+            )}
+            <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 3 }}>{current.icon} {current.label} 초안</div>
+            <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.6 }}>{current.desc}</div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 28, fontWeight: 900 }}>{targetRecords.length}</div>
@@ -157,32 +294,75 @@ export default function DocsPage({ onNavigate, isDesktop }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
-          {loading ? <><Spinner dark /> 문서 작성 중...</> : <><FileText size={17} /> {current.label} 생성하기</>}
+          {loading
+            ? <><Spinner dark /> 문서 작성 중...</>
+            : <><FileText size={17} /> {current.label} 생성하기</>
+          }
         </button>
       </div>
 
+      {/* 기록 확인 토글 */}
       <button
         onClick={() => setShowRecords(v => !v)}
-        style={{ width: '100%', marginBottom: 14, padding: '12px 14px', borderRadius: 14, background: 'white', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}
+        style={{
+          width: '100%', marginBottom: 14, padding: '11px 14px', borderRadius: 14,
+          background: 'white', border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: 'var(--shadow-sm)',
+        }}
       >
-        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)' }}>반영되는 기록 확인</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)' }}>
+          반영되는 기록 확인
+        </span>
         <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 800 }}>{targetRecords.length}건</span>
       </button>
-
       {showRecords && <RecordPreview records={targetRecords} onNavigate={onNavigate} />}
 
+      {/* 결과 */}
       {doc ? (
         <div className="slide-up">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <FileText size={18} color="var(--primary)" />
-            <span style={{ fontWeight: 900, fontSize: 17 }}>{doc.title}</span>
-            <span style={{ fontSize: 11, color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 9px', borderRadius: 100, fontWeight: 800 }}>
-              {doc.badge}
-            </span>
+          {/* 결과 헤더 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <FileText size={18} color="var(--primary)" style={{ flexShrink: 0 }} />
+              <span style={{ fontWeight: 900, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</span>
+              <span style={{ fontSize: 11, color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 9px', borderRadius: 100, fontWeight: 800, flexShrink: 0 }}>
+                {doc.badge}
+              </span>
+            </div>
+            {/* 인쇄 버튼 */}
+            <button
+              onClick={() => window.print()}
+              className="no-print"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 10,
+                border: '1.5px solid var(--border)', background: 'white',
+                fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)',
+                flexShrink: 0,
+              }}
+            >
+              <Printer size={14} color="var(--primary)" /> 인쇄 / PDF
+            </button>
           </div>
-          {doc.sections.map((s, i) => (
-            <DocumentSection key={`${s.title}-${i}`} title={s.title} text={s.text} accent={s.accent} />
-          ))}
+
+          {/* 인쇄용 숨김 헤더 */}
+          <div className="print-header" style={{ display: 'none' }}>
+            <div>
+              <div style={{ fontSize: '16pt', fontWeight: 900 }}>{doc.title}</div>
+              {selChild && <div style={{ fontSize: '11pt' }}>대상: {selChild.name}</div>}
+              <div style={{ fontSize: '11pt', color: '#666' }}>{cl ? `${cl.name} · ${cl.age}세반` : ''}</div>
+            </div>
+            <div style={{ fontSize: '11pt', color: '#444' }}>{doc.badge}</div>
+          </div>
+
+          {/* 섹션들 */}
+          <div className="print-area">
+            {doc.sections.map((s, i) => (
+              <DocumentSection key={`${s.title}-${i}`} title={s.title} text={s.text} accent={s.accent} />
+            ))}
+          </div>
+
           <CopyAllButton doc={doc} />
           <button
             onClick={() => { setDoc(null); handleGenerate(); }}
@@ -197,6 +377,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
     </>
   );
 
+  // ── 데스크톱 레이아웃 ─────────────────────────────────────────────────────────
   if (isDesktop) {
     return (
       <div style={{ padding: '32px 36px' }}>
@@ -206,40 +387,48 @@ export default function DocsPage({ onNavigate, isDesktop }) {
           </div>
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-            보육일지부터 부모상담자료, 발달평가, 행사평가, 원장 검토자료까지 한 번에 초안을 만듭니다.
+            보육일지부터 발달평가, 부모상담자료까지. 아이 선택 + 기간 조합으로 맞춤 문서를 만들어보세요.
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 28, alignItems: 'start' }}>
-          {/* 왼쪽: 문서 유형 선택 */}
-          <div>
-            {DateNav}
-            {TypeSelector}
-          </div>
-          {/* 오른쪽: 생성 영역 */}
+
+        {/* 아이 선택 + 기간 */}
+        <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
+          {ChildSelector}
+          {PeriodSelector}
+          {!selectedChildId && DateNav}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 28, alignItems: 'start' }}>
+          <div>{TypeSelector}</div>
           <div>{GeneratePanel}</div>
         </div>
       </div>
     );
   }
 
+  // ── 모바일 레이아웃 ───────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '20px' }}>
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
           <Sparkles size={13} /> 문서 자동화 센터
         </div>
         <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
-        <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          보육일지부터 부모상담자료, 발달평가, 행사평가, 원장 검토자료까지 한 번에 초안을 만듭니다.
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          아이를 선택하거나 전체 반 단위로 문서를 만들어보세요.
         </div>
       </div>
-      {DateNav}
+
+      {ChildSelector}
+      {PeriodSelector}
+      {!selectedChildId && DateNav}
       {TypeSelector}
       {GeneratePanel}
     </div>
   );
 }
 
+// ── 기록 필터링 헬퍼 ──────────────────────────────────────────────────────────
 function getTargetRecords(type, viewDate, dayRecords, allRecords) {
   if (type === 'daily') return dayRecords;
   const target = new Date(viewDate);
@@ -262,73 +451,93 @@ function daysBetween(later, earlier) {
   return Math.floor((later - earlier) / 86400000);
 }
 
-function buildDocument(type, records, date, cl, children) {
-  const childNames = [...new Set(records.map(r => r.childName))];
+// ── 문서 빌더 ─────────────────────────────────────────────────────────────────
+function buildDocument(type, records, date, cl, children, selChild, period) {
+  const childNames      = selChild
+    ? [selChild.name]
+    : [...new Set(records.map(r => r.childName))];
   const categorySummary = summarizeCategories(records);
-  const commonBadge = `${formatDateKo(date)} 기준 · ${records.length}건 반영`;
+  const periodLabel     = selChild
+    ? (PERIOD_OPTIONS.find(p => p.key === period)?.label || '')
+    : '';
+  const subjectLabel    = selChild ? selChild.name : (cl?.name || '우리 반');
+  const commonBadge     = selChild
+    ? `${subjectLabel} · ${periodLabel} · ${records.length}건 반영`
+    : `${formatDateKo(date)} 기준 · ${records.length}건 반영`;
+
+  if (type === 'daily' && selChild) {
+    return {
+      title: `${selChild.name} 보육일지 초안`,
+      badge: commonBadge,
+      sections: [
+        { title: '놀이 흐름 및 활동', text: records.length ? `${selChild.name}은(는) ${periodLabel} 동안 ${categorySummary.mainLabels}을(를) 중심으로 놀이를 이어갔다.` : `${selChild.name}의 해당 기간 기록이 없습니다.` },
+        { title: '관찰된 발달 모습', text: makeChildSummaryText(selChild.name, records, categorySummary) },
+        { title: '교사 지원 방향', text: `${selChild.name}의 흥미와 발달 수준을 고려하여 개별 상호작용 기회를 늘리고, 기록을 바탕으로 다음 지원계획을 구체화한다.`, accent: true },
+      ],
+    };
+  }
 
   if (type === 'weekly') {
     return {
-      title: '주간 놀이평가 초안',
+      title: selChild ? `${selChild.name} 주간 놀이평가 초안` : '주간 놀이평가 초안',
       badge: commonBadge,
       sections: [
-        { title: '주간 놀이 흐름', text: `${cl?.name || '우리 반'} 유아들은 이번 주 ${categorySummary.mainLabels}을 중심으로 놀이를 이어갔다. 기록 속에서 유아들은 관심 있는 자료를 스스로 선택하고, 또래와 상호작용하며 놀이를 확장하는 모습이 나타났다.` },
-        { title: '유아 반응 및 배움', text: `${childNames.join(', ') || '유아들'}의 기록을 통해 호기심, 표현, 협력, 자립 시도가 관찰되었다. 특히 ${categorySummary.topLabel} 관련 경험이 반복되며 놀이 주제에 대한 몰입이 높아졌다.` },
-        { title: '교사 지원 평가', text: '교사는 유아의 흥미가 이어질 수 있도록 자료와 공간을 조정하고, 갈등 상황에서는 말로 표현하는 모델링을 제공하였다. 개별 유아의 발달 수준에 맞춰 기다림과 격려를 함께 제공한 점이 적절했다.' },
-        { title: '다음 주 예상놀이 및 지원계획', text: `다음 주에는 ${categorySummary.topLabel} 경험을 확장할 수 있는 자료를 추가로 제공하고, 기록이 적은 유아도 자연스럽게 참여할 수 있도록 소집단 놀이를 계획한다.`, accent: true },
+        { title: '주간 놀이 흐름', text: `${subjectLabel}은(는) 이번 주 ${categorySummary.mainLabels}을 중심으로 놀이를 이어갔다. 기록 속에서 유아들은 관심 있는 자료를 스스로 선택하고, 또래와 상호작용하며 놀이를 확장하는 모습이 나타났다.` },
+        { title: '유아 반응 및 배움', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : `${childNames.join(', ') || '유아들'}의 기록을 통해 호기심, 표현, 협력, 자립 시도가 관찰되었다.` },
+        { title: '교사 지원 평가', text: '교사는 유아의 흥미가 이어질 수 있도록 자료와 공간을 조정하고, 갈등 상황에서는 말로 표현하는 모델링을 제공하였다.' },
+        { title: '다음 주 예상놀이 및 지원계획', text: `다음 주에는 ${categorySummary.topLabel} 경험을 확장할 수 있는 자료를 추가로 제공한다.`, accent: true },
       ],
     };
   }
 
   if (type === 'monthly') {
     return {
-      title: '월간 놀이평가 초안',
+      title: selChild ? `${selChild.name} 월간 놀이평가 초안` : '월간 놀이평가 초안',
       badge: commonBadge,
       sections: [
-        { title: '월간 놀이 흐름', text: `이번 달 ${cl?.name || '우리 반'}의 놀이 기록은 ${categorySummary.mainLabels} 영역을 중심으로 누적되었다. 유아들은 반복 놀이를 통해 익숙함을 느끼고, 새로운 자료가 제공될 때 놀이 방법을 스스로 바꾸어보는 모습을 보였다.` },
-        { title: '발달적 의미', text: `기록 전반에서 ${categorySummary.topLabel} 관련 성장 모습이 두드러졌다. 또래관계, 의사소통, 신체 움직임, 탐구 태도 등 여러 발달영역이 놀이 안에서 통합적으로 나타났다.` },
-        { title: '보육과정 평가', text: '놀이 중심 보육과정의 방향에 맞게 유아의 흥미가 활동 전개에 반영되었다. 다만 특정 영역이나 특정 유아에게 기록이 집중되지 않도록 다음 달에는 관찰 균형을 더 점검할 필요가 있다.' },
-        { title: '다음 달 운영 방향', text: '유아가 주도하는 놀이 흐름을 유지하되, 기록이 부족한 발달영역을 보완할 수 있는 환경을 구성한다. 가정과 공유할 수 있는 놀이 사진과 짧은 배움 문장도 함께 정리한다.', accent: true },
+        { title: '월간 놀이 흐름', text: `${selChild ? `${selChild.name}은(는)` : `${cl?.name || '우리 반'} 유아들은`} 이번 달 ${categorySummary.mainLabels} 영역을 중심으로 놀이 기록이 누적되었다.` },
+        { title: '발달적 의미', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : `기록 전반에서 ${categorySummary.topLabel} 관련 성장 모습이 두드러졌다.` },
+        { title: '보육과정 평가', text: '놀이 중심 보육과정의 방향에 맞게 유아의 흥미가 활동 전개에 반영되었다.' },
+        { title: '다음 달 운영 방향', text: '유아가 주도하는 놀이 흐름을 유지하되, 기록이 부족한 발달영역을 보완할 수 있는 환경을 구성한다.', accent: true },
       ],
     };
   }
 
   if (type === 'parent') {
     return {
-      title: '부모상담자료 초안',
-      badge: `${childNames.length}명 · ${records.length}건 반영`,
+      title: selChild ? `${selChild.name} 부모상담자료 초안` : '부모상담자료 초안',
+      badge: commonBadge,
       sections: [
-        { title: '상담 시작 인사말', text: `바쁘신 중에도 상담에 함께해 주셔서 감사합니다. 오늘은 ${cl?.name || '우리 반'}에서 관찰된 아이의 생활 모습과 성장 흐름을 중심으로 이야기 나누겠습니다.` },
-        { title: '최근 성장 흐름', text: `${childNames.join(', ') || '유아'}의 최근 기록에서는 ${categorySummary.mainLabels} 영역의 경험이 많이 관찰되었습니다. 원에서는 아이가 자신의 관심을 표현하고 또래와 함께 놀이를 이어가는 모습을 세심하게 살피고 있습니다.` },
-        { title: '강점 및 긍정적 모습', text: '아이는 자신이 좋아하는 활동에 몰입하며, 교사의 안내를 통해 새로운 경험을 시도하는 모습을 보입니다. 작은 성공 경험을 통해 자신감이 쌓이고 있으며, 일상 속 자립 시도도 점차 늘고 있습니다.' },
-        { title: '가정 연계 제안', text: '가정에서도 아이의 이야기를 충분히 들어주시고, 스스로 해볼 수 있는 작은 역할을 맡겨 주세요. 원과 가정이 같은 방향으로 격려하면 아이의 안정감과 표현력이 더 잘 자랄 수 있습니다.', accent: true },
+        { title: '상담 시작 인사말', text: `바쁘신 중에도 상담에 함께해 주셔서 감사합니다. 오늘은 ${selChild ? selChild.name : cl?.name || '우리 반 아이'}의 생활 모습과 성장 흐름을 중심으로 이야기 나누겠습니다.` },
+        { title: '최근 성장 흐름', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : `${childNames.join(', ') || '유아'}의 최근 기록에서는 ${categorySummary.mainLabels} 영역의 경험이 많이 관찰되었습니다.` },
+        { title: '강점 및 긍정적 모습', text: `${selChild ? selChild.name + '은(는)' : '아이들은'} 자신이 좋아하는 활동에 몰입하며 교사의 안내를 통해 새로운 경험을 시도하는 모습을 보입니다.` },
+        { title: '가정 연계 제안', text: '가정에서도 아이의 이야기를 충분히 들어주시고, 스스로 해볼 수 있는 작은 역할을 맡겨 주세요.', accent: true },
       ],
     };
   }
 
   if (type === 'development') {
     return {
-      title: '발달평가 초안',
+      title: selChild ? `${selChild.name} 발달평가 초안` : '발달평가 초안',
       badge: commonBadge,
       sections: [
-        { title: '신체운동·건강', text: makeAreaText(records, 'body', '신체 활동에 참여하며 몸을 조절하고 움직임을 즐기는 모습이 관찰된다.') },
-        { title: '의사소통', text: makeAreaText(records, 'comm', '자신의 생각과 감정을 말이나 행동으로 표현하려는 모습이 나타난다.') },
-        { title: '사회관계', text: makeAreaText(records, 'peer', '또래와 함께 놀이하며 차례, 협력, 감정 조절을 경험하고 있다.') },
-        { title: '예술경험', text: makeAreaText(records, 'art', '다양한 재료와 표현 방법에 관심을 보이며 자신만의 방식으로 표현한다.') },
-        { title: '자연탐구', text: makeAreaText(records, 'nature', '주변 사물과 자연현상에 관심을 갖고 탐색하는 태도가 보인다.') },
-        { title: '종합평가 및 지원계획', text: `전반적으로 ${categorySummary.topLabel} 영역의 경험이 풍부하게 관찰된다. 앞으로는 기록이 적은 영역도 균형 있게 경험할 수 있도록 놀이 환경과 교사 상호작용을 조정한다.`, accent: true },
+        { title: '신체운동·건강', text: makeAreaText(records, 'body', `${selChild ? selChild.name + '은(는) ' : ''}신체 활동에 참여하며 몸을 조절하고 움직임을 즐기는 모습이 관찰된다.`) },
+        { title: '의사소통',     text: makeAreaText(records, 'comm', `${selChild ? selChild.name + '은(는) ' : ''}자신의 생각과 감정을 말이나 행동으로 표현하려는 모습이 나타난다.`) },
+        { title: '사회관계',     text: makeAreaText(records, 'peer', `${selChild ? selChild.name + '은(는) ' : ''}또래와 함께 놀이하며 차례, 협력, 감정 조절을 경험하고 있다.`) },
+        { title: '예술경험',     text: makeAreaText(records, 'art',  `${selChild ? selChild.name + '은(는) ' : ''}다양한 재료와 표현 방법에 관심을 보이며 자신만의 방식으로 표현한다.`) },
+        { title: '자연탐구',     text: makeAreaText(records, 'nature', `${selChild ? selChild.name + '은(는) ' : ''}주변 사물과 자연현상에 관심을 갖고 탐색하는 태도가 보인다.`) },
+        { title: '종합평가 및 지원계획', text: `${selChild ? selChild.name + '의 ' : ''}전반적으로 ${categorySummary.topLabel} 영역의 경험이 풍부하게 관찰된다. 기록이 적은 영역도 균형 있게 경험할 수 있도록 환경을 조정한다.`, accent: true },
       ],
     };
   }
 
   if (type === 'safety') {
     return {
-      title: '안전교육·행사평가 초안',
-      badge: commonBadge,
+      title: '안전교육·행사평가 초안', badge: commonBadge,
       sections: [
-        { title: '활동 개요', text: `${formatDateKo(date)} 진행한 안전교육 또는 행사에서 유아들은 교사의 안내를 들으며 활동에 참여하였다. 활동 전 안전 약속을 확인하고, 상황에 맞는 행동을 경험할 수 있도록 지원하였다.` },
+        { title: '활동 개요', text: `${formatDateKo(date)} 진행한 안전교육 또는 행사에서 유아들은 교사의 안내를 들으며 활동에 참여하였다.` },
         { title: '유아 반응', text: records.length ? `관련 기록 ${records.length}건을 바탕으로 볼 때 유아들은 활동에 관심을 보이며 질문하거나 직접 시도하는 모습을 보였다.` : '유아들은 교사의 시범과 안내를 보며 안전한 행동 방법을 경험하였다.' },
-        { title: '평가', text: '활동은 유아의 발달 수준에 맞게 진행되었으며, 반복 안내와 시각적 자료 제공이 안전 이해에 도움이 되었다. 다음 활동에서는 실제 상황과 연결한 짧은 역할놀이를 추가하면 좋겠다.' },
+        { title: '평가', text: '활동은 유아의 발달 수준에 맞게 진행되었으며, 반복 안내와 시각적 자료 제공이 안전 이해에 도움이 되었다.' },
         { title: '추후 지원', text: '가정과도 안전 약속을 공유하고, 원 생활 속에서 반복적으로 실천할 수 있도록 교사가 일상 장면에서 안내한다.', accent: true },
       ],
     };
@@ -336,27 +545,36 @@ function buildDocument(type, records, date, cl, children) {
 
   if (type === 'teacher') {
     return {
-      title: '교사교육일지 초안',
-      badge: commonBadge,
+      title: '교사교육일지 초안', badge: commonBadge,
       sections: [
         { title: '교육 주제', text: '영유아 관찰기록과 놀이 중심 보육과정 운영의 실제' },
         { title: '교육 내용', text: '유아의 놀이 장면을 짧고 객관적으로 기록하고, 기록을 바탕으로 보육일지·발달평가·부모상담자료로 연결하는 방법을 학습하였다.' },
-        { title: '배운 점', text: '관찰기록은 단순한 업무 문서가 아니라 유아의 흥미와 발달을 이해하는 근거가 되며, 교사의 지원 방향을 결정하는 중요한 자료임을 확인하였다.' },
-        { title: '현장 적용 계획', text: '매일 짧은 기록을 누적하고, 주간 단위로 놀이 흐름과 지원계획을 점검한다. 기록 누락이 생기지 않도록 아이별·영역별 균형도 함께 확인한다.', accent: true },
+        { title: '배운 점', text: '관찰기록은 단순한 업무 문서가 아니라 유아의 흥미와 발달을 이해하는 근거가 됨을 확인하였다.' },
+        { title: '현장 적용 계획', text: '매일 짧은 기록을 누적하고, 주간 단위로 놀이 흐름과 지원계획을 점검한다.', accent: true },
       ],
     };
   }
 
+  // review
   return {
-    title: '원장 검토자료 초안',
+    title: selChild ? `${selChild.name} 원장 검토자료 초안` : '원장 검토자료 초안',
     badge: commonBadge,
     sections: [
-      { title: '기록 현황', text: `${formatDateKo(date)} 기준 이번 달 누적 기록은 ${records.length}건이며, 기록된 유아는 ${childNames.length}/${children.length || childNames.length}명입니다.` },
-      { title: '주요 놀이·발달 흐름', text: `현재 기록은 ${categorySummary.mainLabels} 영역에 집중되어 있습니다. ${categorySummary.topLabel} 관련 놀이와 상호작용이 많이 관찰됩니다.` },
-      { title: '검토 필요 사항', text: '기록이 없는 유아, 기록이 적은 발달영역, 부정적 표현의 순화 여부, 다음 지원계획의 구체성을 확인하면 좋습니다.' },
-      { title: '원장 검토 메모', text: '보육과정 운영 방향은 적절하며, 기록 누락을 보완하고 가정 연계 문장을 조금 더 구체화하면 기관용 문서 완성도가 높아질 것으로 보입니다.', accent: true },
+      { title: '기록 현황', text: `${selChild ? selChild.name + '의 ' : ''}${periodLabel} 누적 기록은 ${records.length}건입니다.` },
+      { title: '주요 놀이·발달 흐름', text: `현재 기록은 ${categorySummary.mainLabels} 영역에 집중되어 있습니다.` },
+      { title: '검토 필요 사항', text: '기록이 없는 유아, 기록이 적은 발달영역, 부정적 표현의 순화 여부를 확인하면 좋습니다.' },
+      { title: '원장 검토 메모', text: '보육과정 운영 방향은 적절하며, 기록 누락을 보완하면 기관용 문서 완성도가 높아질 것으로 보입니다.', accent: true },
     ],
   };
+}
+
+// 아이별 요약 텍스트
+function makeChildSummaryText(name, records, categorySummary) {
+  if (records.length === 0)
+    return `${name}의 해당 기간 기록이 충분하지 않아 상세 내용을 작성하기 어렵습니다. 추가 관찰기록 후 재생성해 주세요.`;
+  const obs = records.map(r => r.observation || r.rawText).filter(Boolean);
+  const sample = obs.slice(0, 2).join(' / ');
+  return `${name}은(는) 해당 기간 동안 ${categorySummary.mainLabels}을(를) 중심으로 활동하였다. 관찰 내용: "${sample}"${obs.length > 2 ? ' 외 ' + (obs.length - 2) + '건' : ''}.`;
 }
 
 function summarizeCategories(records) {
@@ -365,24 +583,27 @@ function summarizeCategories(records) {
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const labels = sorted.slice(0, 3).map(([k]) => CATEGORIES[k]?.label || '놀이·활동');
   return {
-    topLabel: labels[0] || '놀이·활동',
+    topLabel:   labels[0] || '놀이·활동',
     mainLabels: labels.length ? labels.join(', ') : '놀이·활동',
   };
 }
 
 function makeAreaText(records, category, fallback) {
   const samples = records.filter(r => r.category === category);
-  if (samples.length === 0) return `${fallback} 아직 해당 영역의 기록이 충분하지 않아, 다음 관찰에서 관련 놀이와 일상 장면을 더 살펴볼 필요가 있다.`;
-  const names = [...new Set(samples.map(r => r.childName))].slice(0, 4).join(', ');
-  return `${names}의 기록에서 ${fallback} 관련 관찰이 ${samples.length}건 확인되었다. 기록 내용을 바탕으로 볼 때 해당 경험을 반복적으로 제공하면 발달을 더 안정적으로 지원할 수 있다.`;
+  if (samples.length === 0)
+    return `${fallback} 아직 해당 영역의 기록이 충분하지 않아, 다음 관찰에서 더 살펴볼 필요가 있다.`;
+  const names = [...new Set(samples.map(r => r.childName))].slice(0, 3).join(', ');
+  return `${names}의 기록에서 ${fallback} 관련 관찰이 ${samples.length}건 확인되었다.`;
 }
+
+// ── 서브 컴포넌트 ────────────────────────────────────────────────────────────
 
 function RecordPreview({ records, onNavigate }) {
   if (records.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '32px 16px', background: 'white', borderRadius: 16, border: '1px solid var(--border)', marginBottom: 16 }}>
+      <div style={{ textAlign: 'center', padding: '28px 16px', background: 'white', borderRadius: 16, border: '1px solid var(--border)', marginBottom: 14 }}>
         <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 12 }}>반영할 기록이 없어요</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 10 }}>반영할 기록이 없어요</div>
         <button onClick={() => onNavigate('record')} style={{ padding: '10px 18px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontWeight: 800 }}>
           기록하러 가기
         </button>
@@ -390,14 +611,14 @@ function RecordPreview({ records, onNavigate }) {
     );
   }
   return (
-    <div style={{ marginBottom: 16 }}>
-      {records.slice(0, 6).map(r => {
+    <div style={{ marginBottom: 14 }}>
+      {records.slice(0, 5).map(r => {
         const cat = CATEGORIES[r.category] || CATEGORIES.special;
         return (
-          <div key={r.id} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontWeight: 800, fontSize: 14 }}>{r.childName}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, background: cat.bg, padding: '3px 9px', borderRadius: 100 }}>{cat.emoji} {cat.label}</span>
+          <div key={r.id} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <span style={{ fontWeight: 800, fontSize: 13 }}>{r.childName}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, background: cat.bg, padding: '2px 8px', borderRadius: 100 }}>{cat.emoji} {cat.label}</span>
               <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{formatDate(r.date)}</span>
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
@@ -406,7 +627,7 @@ function RecordPreview({ records, onNavigate }) {
           </div>
         );
       })}
-      {records.length > 6 && <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>외 {records.length - 6}건 더 반영됩니다.</div>}
+      {records.length > 5 && <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>외 {records.length - 5}건 더 반영됩니다.</div>}
     </div>
   );
 }
@@ -415,20 +636,24 @@ function DocumentSection({ title, text, accent }) {
   const [copied, setCopied] = useState(false);
   if (!text) return null;
   return (
-    <div style={{
+    <div className="print-section" style={{
       background: accent ? 'var(--primary-light)' : 'white',
       border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`,
       borderRadius: 15, padding: 16, marginBottom: 11,
       boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
+      <div className="print-section-title no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
         <span style={{ fontSize: 13, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
-        <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
-          style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+        <button
+          onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+          style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
+        >
           {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
         </button>
       </div>
-      <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
+      {/* 인쇄용 제목 */}
+      <div className="print-section-title" style={{ display: 'none' }}>{title}</div>
+      <div className="print-section-body" style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
     </div>
   );
 }
@@ -441,12 +666,10 @@ function CopyAllButton({ doc }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
-
   return (
-    <button onClick={handleCopyAll} style={{
+    <button onClick={handleCopyAll} className="no-print" style={{
       width: '100%', padding: '14px', borderRadius: 14, background: 'var(--gray-800)', color: 'white',
-      fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-      marginTop: 4,
+      fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 4,
     }}>
       {copied ? <><Check size={16} /> 전체 복사 완료</> : <><Copy size={16} /> 전체 복사하기</>}
     </button>
@@ -456,7 +679,7 @@ function CopyAllButton({ doc }) {
 function EmptyGuide({ activeType, onNavigate }) {
   const isManagement = ['teacher', 'safety'].includes(activeType);
   return (
-    <div style={{ background: 'white', border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 18, textAlign: 'center', color: 'var(--text-secondary)' }}>
+    <div style={{ background: 'white', border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 20, textAlign: 'center', color: 'var(--text-secondary)' }}>
       <div style={{ fontSize: 36, marginBottom: 8 }}>{isManagement ? '🧩' : '✨'}</div>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>생성 버튼을 누르면 초안이 만들어져요</div>
       <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>짧은 기록이 많을수록 문서가 더 개인화됩니다.</div>

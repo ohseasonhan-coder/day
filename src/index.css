@@ -223,3 +223,79 @@ input:focus, textarea:focus {
 .page-enter {
   animation: fadeIn 0.22s ease forwards;
 }
+
+/* ── 인쇄/PDF ──────────────────────────────────── */
+@media print {
+  /* 네비, 헤더, 버튼류 숨기기 */
+  .no-print, nav, header,
+  aside, button:not(.print-copy-btn) { display: none !important; }
+
+  body { background: white !important; font-size: 13pt; }
+
+  /* 인쇄 영역 */
+  .print-area {
+    display: block !important;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* 인쇄 헤더 */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #333;
+    margin-bottom: 18px;
+  }
+
+  .print-section {
+    break-inside: avoid;
+    margin-bottom: 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+
+  .print-section-title {
+    font-size: 11pt;
+    font-weight: 800;
+    color: #444;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 6px;
+  }
+
+  .print-section-body {
+    font-size: 11pt;
+    line-height: 1.9;
+    color: #222;
+    white-space: pre-wrap;
+  }
+
+  /* 알림장 인쇄 - 아이별 카드 */
+  .print-note-card {
+    break-inside: avoid;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .print-note-name {
+    font-size: 12pt;
+    font-weight: 900;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .print-note-body {
+    font-size: 11pt;
+    line-height: 2;
+    color: #222;
+    white-space: pre-wrap;
+    min-height: 60px;
+  }
+}
