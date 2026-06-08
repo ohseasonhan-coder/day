@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc } from '../utils/ai';
-import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User } from 'lucide-react';
+import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, User, FileText, BarChart3 } from 'lucide-react';
+
+const PERIOD_LABELS = {
+  '1month': '최근 1개월',
+  '3months': '최근 3개월',
+  '6months': '최근 6개월',
+  '1year': '최근 1년',
+};
 
 export default function ChildrenPage({ onNavigate }) {
   const [children, setChildren] = useState([]);
@@ -25,16 +32,23 @@ export default function ChildrenPage({ onNavigate }) {
   const filtered = children.filter(c => c.name.includes(search));
   const cl = classes[0];
 
-  const selectChild = (child) => {
-    setSelected(child);
+  const loadRecords = (child, nextPeriod = period) => {
     const recs = getRecordsByChild(child.id);
-    // Filter by period
     const now = new Date();
-    const days = period === '1month' ? 30 : period === '3months' ? 90 : period === '6months' ? 180 : 365;
-    const filtered = recs.filter(r => (now - new Date(r.date)) / 86400000 <= days);
-    setRecords(filtered);
+    const days = nextPeriod === '1month' ? 30 : nextPeriod === '3months' ? 90 : nextPeriod === '6months' ? 180 : 365;
+    return recs.filter(r => (now - new Date(r.date)) / 86400000 <= days);
+  };
+
+  const selectChild = (child, nextPeriod = period) => {
+    setSelected(child);
+    setRecords(loadRecords(child, nextPeriod));
     setSummary(null);
     setConsultDoc(null);
+  };
+
+  const handlePeriodChange = (nextPeriod) => {
+    setPeriod(nextPeriod);
+    if (selected) selectChild(selected, nextPeriod);
   };
 
   const handleGenerateSummary = async () => {
@@ -50,7 +64,7 @@ export default function ChildrenPage({ onNavigate }) {
       });
       setSummary(res);
     } catch (e) {
-      alert(e.message);
+      alert(e.message || '성장 요약 생성 중 오류가 발생했어요.');
     } finally {
       setLoadingSum(false);
     }
@@ -68,7 +82,7 @@ export default function ChildrenPage({ onNavigate }) {
       });
       setConsultDoc(res);
     } catch (e) {
-      alert(e.message);
+      alert(e.message || '상담자료 생성 중 오류가 발생했어요.');
     } finally {
       setLoadingConsult(false);
     }
@@ -88,31 +102,44 @@ export default function ChildrenPage({ onNavigate }) {
     const catCounts = {};
     records.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
     const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+    const lastRecord = records[0];
 
     return (
       <div style={{ padding: '20px' }}>
-        {/* Back + Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <button onClick={() => setSelected(null)} style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <X size={18} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <button onClick={() => setSelected(null)} style={{ color: 'var(--primary)', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <X size={18} /> 목록
           </button>
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{selected.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>湲곕줉 {records.length}占?쨌 {PERIOD_LABELS[period]}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.7px' }}>{selected.name}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              기록 {records.length}건 · {PERIOD_LABELS[period]} {lastRecord ? `· 최근 ${formatDate(lastRecord.date)}` : ''}
+            </div>
           </div>
         </div>
 
-        {/* Period Selector */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', borderRadius: 18, padding: 18, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <BarChart3 size={18} />
+            <span style={{ fontSize: 15, fontWeight: 900 }}>개인화 성장 리포트</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <MiniStat label="누적 기록" value={`${records.length}건`} />
+            <MiniStat label="영역 수" value={`${sortedCats.length}개`} />
+            <MiniStat label="대표 영역" value={sortedCats[0] ? CATEGORIES[sortedCats[0][0]]?.label : '-'} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, overflowX: 'auto', paddingBottom: 4 }}>
           {Object.entries(PERIOD_LABELS).map(([k, v]) => (
             <button
               key={k}
-              onClick={() => { setPeriod(k); selectChild(selected); }}
+              onClick={() => handlePeriodChange(k)}
               style={{
-                padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 500,
+                padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 800,
                 background: period === k ? 'var(--primary)' : 'var(--gray-100)',
                 color: period === k ? 'white' : 'var(--text-secondary)',
-                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                whiteSpace: 'nowrap', flexShrink: 0,
               }}
             >
               {v}
@@ -120,73 +147,72 @@ export default function ChildrenPage({ onNavigate }) {
           ))}
         </div>
 
-        {/* Category breakdown */}
         {sortedCats.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <SectionTitle>移댄뀒怨좊━占?湲곕줉</SectionTitle>
+          <Card title="카테고리별 기록 균형">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {sortedCats.map(([cat, count]) => {
                 const catMeta = CATEGORIES[cat] || CATEGORIES.special;
                 return (
                   <div key={cat} style={{
                     background: catMeta.bg, color: catMeta.color,
-                    padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600,
+                    padding: '7px 13px', borderRadius: 100, fontSize: 13, fontWeight: 800,
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}>
                     {catMeta.emoji} {catMeta.label}
-                    <span style={{ background: catMeta.color, color: 'white', width: 20, height: 20, borderRadius: '50%', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ background: catMeta.color, color: 'white', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 100, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {count}
                     </span>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </Card>
         )}
 
-        {/* AI Actions */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
           <AIButton
             icon={<Sparkles size={16} />}
-            label="?占쎌옣 ?占쎌빟"
+            label="성장 요약"
+            sub="발달평가 기반"
             loading={loadingSum}
             onClick={handleGenerateSummary}
           />
           <AIButton
-            icon={<Sparkles size={16} />}
-            label="?占쎈떞?占쎈즺 ?占쎌꽦"
+            icon={<FileText size={16} />}
+            label="상담자료"
+            sub="가정연계 문장"
             loading={loadingConsult}
             onClick={handleGenerateConsult}
             accent
           />
         </div>
 
-        {/* Growth Summary */}
         {summary && (
-          <div style={{ marginBottom: 20 }} className="slide-up">
-            <SectionTitle>?占쎌옣 ?占쎌빟</SectionTitle>
+          <div style={{ marginBottom: 18 }} className="slide-up">
+            <SectionTitle>성장 요약</SectionTitle>
             <CopyCard title="전체 요약" text={summary.overall} />
-            <CopyCard title="媛뺤젏" text={summary.strengths} />
+            <CopyCard title="강점" text={summary.strengths} />
             <CopyCard title="지원이 필요한 부분" text={summary.support} />
             <CopyCard title="부모상담 문장" text={summary.parentMessage} accent />
+            <CopyCard title="다음 지원계획" text={summary.nextSteps} />
           </div>
         )}
 
-        {/* Consultation Doc */}
         {consultDoc && (
-          <div style={{ marginBottom: 20 }} className="slide-up">
-            <SectionTitle>?占쎈떞?占쎈즺</SectionTitle>
-            <CopyCard title="理쒓렐 ?占쎌옣 ?占쎈쫫" text={consultDoc.recentGrowth} />
-            <CopyCard title="媛뺤젏" text={consultDoc.strengths} />
-            <CopyCard title="媛???占쎄퀎 ?占쎌븞" text={consultDoc.homeLinks} />
+          <div style={{ marginBottom: 18 }} className="slide-up">
+            <SectionTitle>부모상담자료</SectionTitle>
             <CopyCard title="상담 시작 인사말" text={consultDoc.openingMessage} accent />
+            <CopyCard title="최근 성장 흐름" text={consultDoc.recentGrowth} />
+            <CopyCard title="강점" text={consultDoc.strengths} />
+            <CopyCard title="지원이 필요한 부분" text={consultDoc.supportNeeded} />
+            <CopyCard title="가정 연계 제안" text={consultDoc.homeLinks} />
+            <CopyCard title="교사 지원 방향" text={consultDoc.teacherSupport} />
           </div>
         )}
 
-        {/* Record List */}
-        <SectionTitle>湲곕줉 紐⑸줉</SectionTitle>
+        <SectionTitle>기록 목록</SectionTitle>
         {records.length === 0 ? (
-          <EmptyState text="이 기간의 기록이 없어요" />
+          <EmptyState text="이 기간의 기록이 없어요" action="기록 추가하기" onAction={() => onNavigate('record', { childId: selected.id })} />
         ) : (
           records.map(r => <RecordCard key={r.id} record={r} />)
         )}
@@ -198,42 +224,53 @@ export default function ChildrenPage({ onNavigate }) {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>아이들</div>
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{children.length}명</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
+            <Sparkles size={13} /> 아이별 개인화
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.7px' }}>아이들</div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{children.length}명 · 기록 기반 성장관리</div>
         </div>
         <button onClick={() => setShowAddChild(!showAddChild)} style={{
-          background: 'var(--primary)', color: 'white', width: 36, height: 36,
-          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          background: 'var(--primary)', color: 'white', width: 42, height: 42,
+          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 18px rgba(79,127,255,0.28)',
         }}>
-          <Plus size={18} />
+          <Plus size={20} />
         </button>
       </div>
 
       {showAddChild && (
-        <div style={{ background: 'var(--primary-light)', borderRadius: 12, padding: 16, marginBottom: 16 }} className="slide-up">
+        <div style={{ background: 'var(--primary-light)', borderRadius: 14, padding: 16, marginBottom: 16 }} className="slide-up">
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               value={newChildName}
               onChange={e => setNewChildName(e.target.value)}
-              placeholder="?占쎌씠 ?占쎈쫫 ?占쎈젰"
+              placeholder="아이 이름 입력"
               onKeyDown={e => e.key === 'Enter' && handleAddChild()}
-              style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: '1.5px solid var(--primary)', fontSize: 15, outline: 'none', fontFamily: 'inherit' }}
+              style={{ flex: 1, padding: '11px 14px', borderRadius: 12, border: '1.5px solid var(--primary)', fontSize: 15, outline: 'none', fontFamily: 'inherit' }}
             />
-            <button onClick={handleAddChild} style={{ background: 'var(--primary)', color: 'white', padding: '0 16px', borderRadius: 10, fontWeight: 600, cursor: 'pointer', border: 'none', fontSize: 14 }}>
-              異뷂옙?
+            <button onClick={handleAddChild} style={{ background: 'var(--primary)', color: 'white', padding: '0 16px', borderRadius: 12, fontWeight: 800, fontSize: 14 }}>
+              추가
             </button>
           </div>
         </div>
       )}
 
-      {/* Search */}
+      <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: 14, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <DashboardStat label="전체 아이" value={`${children.length}명`} />
+          <DashboardStat label="누적 기록" value={`${children.reduce((sum, c) => sum + getRecordsByChild(c.id).length, 0)}건`} />
+          <DashboardStat label="자동 문서" value="상담·평가" />
+        </div>
+      </div>
+
       <div style={{ position: 'relative', marginBottom: 16 }}>
         <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-                    placeholder="아이 이름으로 검색"
-          style={{ width: '100%', padding: '11px 16px 11px 38px', borderRadius: 12, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', background: 'white', color: 'var(--text-primary)' }}
+          placeholder="아이 이름으로 검색"
+          style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: 14, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', background: 'white', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }}
         />
       </div>
 
@@ -251,14 +288,13 @@ export default function ChildrenPage({ onNavigate }) {
             onClick={() => selectChild(child)}
             style={{
               width: '100%', background: 'white', border: '1px solid var(--border)',
-              borderRadius: 14, padding: '14px 16px', marginBottom: 10,
-              display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)', transition: 'box-shadow 0.15s',
-              textAlign: 'left',
+              borderRadius: 16, padding: '15px 16px', marginBottom: 10,
+              display: 'flex', alignItems: 'center', gap: 14,
+              boxShadow: 'var(--shadow-sm)', textAlign: 'left',
             }}
           >
             <div style={{
-              width: 44, height: 44, borderRadius: '50%',
+              width: 46, height: 46, borderRadius: '50%',
               background: topCatMeta?.bg || 'var(--gray-100)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 20, flexShrink: 0,
@@ -266,13 +302,14 @@ export default function ChildrenPage({ onNavigate }) {
               {topCatMeta?.emoji || <User size={20} color="var(--gray-400)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{child.name}</div>
+              <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 3 }}>{child.name}</div>
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                湲곕줉 {recs.length}占?{lastRec ? `쨌 理쒓렐 ${formatDate(lastRec.date)}` : '쨌 湲곕줉 ?占쎌쓬'}
+                기록 {recs.length}건{lastRec ? ` · 최근 ${formatDate(lastRec.date)}` : ' · 아직 기록 없음'}
               </div>
               {topCatMeta && (
-                <div style={{ fontSize: 11, color: topCatMeta.color, marginTop: 3, fontWeight: 500 }}>
-                  {topCatMeta.emoji} {topCatMeta.label} 湲곕줉??媛??留롮븘??                </div>
+                <div style={{ fontSize: 11, color: topCatMeta.color, marginTop: 4, fontWeight: 800 }}>
+                  {topCatMeta.emoji} {topCatMeta.label} 기록이 가장 많아요
+                </div>
               )}
             </div>
             <ChevronRight size={16} color="var(--text-tertiary)" />
@@ -280,37 +317,59 @@ export default function ChildrenPage({ onNavigate }) {
         );
       })}
 
-        {filtered.length === 0 && <EmptyState text="해당하는 아이가 없어요" />}
+      {filtered.length === 0 && <EmptyState text="해당하는 아이가 없어요" />}
     </div>
   );
 }
 
-const PERIOD_LABELS = {
-  '1month': '理쒓렐 1媛쒖썡',
-  '3months': '理쒓렐 3媛쒖썡',
-  '6months': '理쒓렐 6媛쒖썡',
-  '1year': '1???占쎌껜',
-};
-
-function SectionTitle({ children }) {
-  return <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>{children}</div>;
+function MiniStat({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+      <div style={{ fontSize: 11, opacity: 0.75 }}>{label}</div>
+    </div>
+  );
 }
 
-function AIButton({ icon, label, loading, onClick, accent }) {
+function DashboardStat({ label, value }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--primary)' }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function SectionTitle({ children }) {
+  return <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 12, color: 'var(--text-primary)' }}>{children}</div>;
+}
+
+function Card({ title, children }) {
+  return (
+    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <SectionTitle>{title}</SectionTitle>
+      {children}
+    </div>
+  );
+}
+
+function AIButton({ icon, label, sub, loading, onClick, accent }) {
   return (
     <button onClick={onClick} disabled={loading} style={{
-      padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer',
-      background: accent ? 'var(--primary)' : 'var(--gray-100)',
-      color: accent ? 'white' : 'var(--text-secondary)',
-      fontSize: 13, fontWeight: 600,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-      boxShadow: accent ? '0 4px 12px rgba(79,127,255,0.25)' : 'none',
+      padding: '13px 12px', borderRadius: 15, border: 'none',
+      background: accent ? 'var(--primary)' : 'white',
+      color: accent ? 'white' : 'var(--text-primary)',
+      fontSize: 13, fontWeight: 900,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+      boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.25)' : 'var(--shadow-sm)',
+      minHeight: 72,
     }}>
       {loading
-        ? <div style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,0.15)', borderTopColor: accent ? 'white' : 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        ? <div style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.15)', borderTopColor: accent ? 'white' : 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         : icon
       }
-      {label}
+      <span>{label}</span>
+      <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{sub}</span>
     </button>
   );
 }
@@ -323,22 +382,23 @@ function CopyCard({ title, text, accent }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(textStr);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   return (
     <div style={{
       background: accent ? 'var(--primary-light)' : 'white',
       border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`,
-      borderRadius: 12, padding: 14, marginBottom: 10,
+      borderRadius: 15, padding: 15, marginBottom: 10,
+      boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
-        <button onClick={handleCopy} style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer', background: 'transparent', border: 'none' }}>
-          {copied ? <><Check size={11} /> 蹂듭궗</> : <><Copy size={11} /> 蹂듭궗</>}
+        <span style={{ fontSize: 12, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
+        <button onClick={handleCopy} style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+          {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
         </button>
       </div>
-      <div style={{ fontSize: 13, lineHeight: 1.8, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{textStr}</div>
+      <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{textStr}</div>
     </div>
   );
 }
@@ -346,21 +406,21 @@ function CopyCard({ title, text, accent }) {
 function RecordCard({ record }) {
   const cat = CATEGORIES[record.category] || CATEGORIES.special;
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>
           {cat.emoji} {cat.label}
         </span>
         <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatDate(record.date)}</span>
       </div>
       {record.observation && (
-        <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-primary)' }}>{record.observation}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.75, color: 'var(--text-primary)' }}>{record.observation}</div>
       )}
       {record.tags?.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
           {record.tags.map(tag => (
             <span key={tag} style={{ fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 100 }}>
-              {tag}
+              #{tag}
             </span>
           ))}
         </div>
@@ -369,10 +429,11 @@ function RecordCard({ record }) {
   );
 }
 
-function EmptyState({ text }) {
+function EmptyState({ text, action, onAction }) {
   return (
-    <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 14, padding: '40px 0' }}>
-      {text}
+    <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 14, padding: '36px 0' }}>
+      <div style={{ marginBottom: 10 }}>{text}</div>
+      {action && <button onClick={onAction} style={{ padding: '10px 16px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontWeight: 800 }}>{action}</button>}
     </div>
   );
 }
