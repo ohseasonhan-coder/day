@@ -908,12 +908,33 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
   const [editSupport, setEditSupport] = useState(record.support || '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expanded, setExpanded]     = useState({});
+  const [regenBanner, setRegenBanner] = useState(false);
+  const [regenLoading, setRegenLoading] = useState(false);
 
   const cat = record.category ? CATEGORIES[record.category] : null;
 
   const handleSave = () => {
     onUpdate(record.id, { rawText: editRaw, observation: editObs, parent: editParent, support: editSupport });
     setEditMode(false);
+    // Show regen banner if record had AI result
+    if (record.observation || record.parent || record.support) {
+      setRegenBanner(true);
+    }
+  };
+
+  const handleRegen = async () => {
+    setRegenBanner(false);
+    setRegenLoading(true);
+    try {
+      const classes = getClasses();
+      const cl = classes[0];
+      const res = await processRecord({ childName: record.childName, rawText: editRaw || record.rawText, classAge: cl?.age, recordType: record.recordType || 'observe' });
+      onUpdate(record.id, { ...res });
+    } catch (e) {
+      alert('재생성 중 오류가 발생했어요: ' + (e.message || ''));
+    } finally {
+      setRegenLoading(false);
+    }
   };
 
   const toggleSection = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
@@ -958,6 +979,22 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
 
         {/* 내용 */}
         <div style={{ overflowY: 'auto', padding: '16px 20px 24px', flex: 1 }}>
+
+          {/* AI 재생성 배너 */}
+          {regenBanner && (
+            <div style={{ background: '#FFF8E1', border: '1px solid #F5A623', borderRadius: 12, padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#E65100' }}>✏️ 내용이 수정됐어요. 문서를 다시 생성할까요?</div>
+              <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+                <button onClick={handleRegen} style={{ padding: '6px 14px', borderRadius: 9, background: '#E65100', color: 'white', fontSize: 12, fontWeight: 800 }}>재생성</button>
+                <button onClick={() => setRegenBanner(false)} style={{ padding: '6px 10px', borderRadius: 9, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>유지</button>
+              </div>
+            </div>
+          )}
+          {regenLoading && (
+            <div style={{ background: 'var(--primary-light)', borderRadius: 12, padding: '12px 14px', marginBottom: 14, fontSize: 13, fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Spinner /> AI가 문서 문장으로 다시 정리 중...
+            </div>
+          )}
 
           {/* 카테고리 & 태그 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>

@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, storage } from '../utils/storage';
-import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3 } from 'lucide-react';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines } from '../utils/storage';
+import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 const SERVICE_CARDS = [
   { title: '보육일지',          desc: '오늘 기록으로 일일 문서 작성',    icon: '📄', nav: 'docs' },
@@ -17,11 +17,19 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
+function getDayStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export default function TodayPage({ onNavigate, isDesktop }) {
   const [todayRecords, setTodayRecords] = useState([]);
   const [children, setChildren]         = useState([]);
   const [classes, setClasses]           = useState([]);
   const [allRecords, setAllRecords]     = useState([]);
+  const [todayMedicineCount, setTodayMedicineCount] = useState(0);
 
   const todayStr  = today();
   const dateLabel = formatDateKo(todayStr);
@@ -42,7 +50,12 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     setChildren(getChildren());
     setClasses(getClasses());
     setTodayRecords(getRecordsByDate(todayStr));
-    setAllRecords(getRecords());
+    const recs = getRecords();
+    setAllRecords(recs);
+    try {
+      const meds = getMedicines();
+      setTodayMedicineCount(meds.filter(m => m.date === todayStr).length);
+    } catch {}
   }, [todayStr]);
 
   const cl                 = classes[0];
@@ -272,6 +285,100 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     </div>
   ) : null;
 
+  // ── 7일 히트맵 데이터 ────────────────────────────
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6 + i);
+    return getDayStr(d);
+  });
+  const recordsByDay = weekDays.map(ds => allRecords.filter(r => r.date === ds).length);
+
+  // ── 이번 달 문서 수 ──────────────────────────────
+  const thisMonthStr = todayStr.slice(0, 7);
+  // can't import getDocuments here simply, skip count
+
+  // ── 이번 주 카테고리 분포 ────────────────────────
+  const weekCatCount = {};
+  weeklyRecords.forEach(r => {
+    if (r.category) weekCatCount[r.category] = (weekCatCount[r.category] || 0) + 1;
+  });
+  const topCats = Object.entries(weekCatCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const totalCatCount = topCats.reduce((s, [, c]) => s + c, 0) || 1;
+
+  // ── 평균 기록/일 ─────────────────────────────────
+  const uniqueDays = new Set(allRecords.slice(0, 100).map(r => r.date)).size;
+  const avgPerDay = uniqueDays > 0 ? (allRecords.slice(0, 100).length / uniqueDays).toFixed(1) : '0.0';
+
+  // ── 미기록 아이 수 ───────────────────────────────
+  const unrecordedThisWeek = children.filter(c => {
+    const childRecs = weeklyRecords.filter(r => r.childId === c.id);
+    return childRecs.length === 0;
+  }).length;
+
+  const QuickStatsRow = (
+    <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(4,1fr)' : 'repeat(2,1fr)', gap: 10, marginBottom: 16 }}>
+      <QuickStatCard label="이번 주 기록" value={`${weeklyCount}건`} color="var(--primary)" />
+      <QuickStatCard label="미기록 아이" value={`${unrecordedThisWeek}명`} color={unrecordedThisWeek > 0 ? 'var(--accent)' : 'var(--cat-play)'} />
+      <QuickStatCard label="평균 기록/일" value={`${avgPerDay}건`} color="var(--cat-comm)" />
+      <QuickStatCard label="이번 달 기록" value={`${allRecords.filter(r => r.date?.startsWith(thisMonthStr)).length}건`} color="var(--cat-nature)" />
+    </div>
+  );
+
+  const HeatmapSection = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>이번 주 기록 현황</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+        {weekDays.map((ds, i) => {
+          const count = recordsByDay[i];
+          const isToday_ = ds === todayStr;
+          const intensity = count === 0 ? 0 : count <= 2 ? 1 : count <= 4 ? 2 : 3;
+          const bg = ['var(--gray-100)', '#BBDEFB', '#64B5F6', '#1976D2'][intensity];
+          const dayLabel = ['월','화','수','목','금','토','일'][new Date(ds + 'T00:00:00').getDay() === 0 ? 6 : new Date(ds + 'T00:00:00').getDay() - 1];
+          return (
+            <div key={ds} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 4, fontWeight: isToday_ ? 900 : 400 }}>{dayLabel}</div>
+              <div style={{ height: 40, borderRadius: 10, background: bg, border: isToday_ ? '2.5px solid var(--primary)' : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 900, color: intensity >= 2 ? 'white' : 'var(--text-secondary)' }}>{count > 0 ? count : ''}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const QuickLinks = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>빠른 바로가기</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <QuickLinkBtn icon={<Pill size={18} />} label="오늘 투약" sub={`${todayMedicineCount}건`} color="#7C4DFF" onClick={() => onNavigate('medicine')} />
+        <QuickLinkBtn icon={<AlertTriangle size={18} />} label="사고 기록" sub="" color="var(--accent)" onClick={() => onNavigate('accident')} />
+        <QuickLinkBtn icon={<Newspaper size={18} />} label="가정통신문" sub="" color="var(--cat-comm)" onClick={() => onNavigate('newsletter')} />
+        <QuickLinkBtn icon={<Users size={18} />} label="아이 포트폴리오" sub="" color="var(--cat-peer)" onClick={() => onNavigate('children')} />
+      </div>
+    </div>
+  );
+
+  const CatDistribution = topCats.length > 0 ? (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>이번 주 카테고리 분포</div>
+      {topCats.map(([cat, count]) => {
+        const c = CATEGORIES[cat] || CATEGORIES.special;
+        const pct = Math.round((count / totalCatCount) * 100);
+        return (
+          <div key={cat} style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: c.color, marginBottom: 4 }}>
+              <span>{c.emoji} {c.label}</span><span>{pct}%</span>
+            </div>
+            <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 100 }}>
+              <div style={{ height: 8, borderRadius: 100, background: c.color, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
   /* ── 데스크톱 레이아웃 ─────────────────────────── */
   if (isDesktop) {
     return (
@@ -290,6 +397,10 @@ export default function TodayPage({ onNavigate, isDesktop }) {
 
         {/* 오른쪽 사이드 */}
         <div style={{ position: 'sticky', top: 80 }}>
+          {QuickStatsRow}
+          {HeatmapSection}
+          {QuickLinks}
+          {CatDistribution}
           {ChecklistSection}
           {WeeklyStats}
           {TodayRecordList}
@@ -303,6 +414,10 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
       {UnrecordedSection}
+      {QuickStatsRow}
+      {HeatmapSection}
+      {QuickLinks}
+      {CatDistribution}
 
       {ChecklistSection}
       <Section title="오늘 핵심 업무">{QuickActions}</Section>
@@ -394,5 +509,26 @@ function MiniBox({ label, value }) {
       <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--primary)' }}>{value}</div>
       <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{label}</div>
     </div>
+  );
+}
+
+function QuickStatCard({ label, value, color }) {
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 12px', boxShadow: 'var(--shadow-sm)', textAlign: 'center' }}>
+      <div style={{ fontSize: 22, fontWeight: 900, color }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 3 }}>{label}</div>
+    </div>
+  );
+}
+
+function QuickLinkBtn({ icon, label, sub, color, onClick }) {
+  return (
+    <button onClick={onClick} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 12px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: 'var(--shadow-sm)', textAlign: 'left' }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>{icon}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        {sub && <div style={{ fontSize: 11, color, fontWeight: 700, marginTop: 1 }}>{sub}</div>}
+      </div>
+    </button>
   );
 }

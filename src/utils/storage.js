@@ -19,6 +19,10 @@ const KEYS = {
   get DRAFT()           { return `sw_${_getUid()}_draft`; },
   get FORM_TEMPLATES()  { return `sw_${_getUid()}_form_templates`; },
   get ROUTINES()        { return `sw_${_getUid()}_routines`; },
+  get MEDICINES()       { return `sw_${_getUid()}_medicines`; },
+  get ACCIDENTS()       { return `sw_${_getUid()}_accidents`; },
+  get NEWSLETTERS()     { return `sw_${_getUid()}_newsletters`; },
+  get ACTIVE_CLASS()    { return `sw_${_getUid()}_active_class`; },
 };
 
 // Generic storage helpers
@@ -268,3 +272,27 @@ export const addRoutine     = (r) => {
   return n;
 };
 export const deleteRoutine  = (id) => saveRoutines(getRoutines().filter(r => r.id !== id));
+
+// ── 투약 관리 ──────────────────────────────────────────────────────────────────
+export const getMedicines   = () => storage.get(KEYS.MEDICINES) || [];
+export const saveMedicines  = (v) => storage.set(KEYS.MEDICINES, v);
+export const addMedicine    = (m) => { const list = getMedicines(); const n = {...m, id: genId(), createdAt: new Date().toISOString()}; saveMedicines([...list, n]); return n; };
+export const updateMedicine = (id, updates) => saveMedicines(getMedicines().map(m => m.id === id ? {...m,...updates} : m));
+export const deleteMedicine = (id) => saveMedicines(getMedicines().filter(m => m.id !== id));
+
+// ── 사고·상해 기록 ────────────────────────────────────────────────────────────
+export const getAccidents   = () => storage.get(KEYS.ACCIDENTS) || [];
+export const saveAccidents  = (v) => storage.set(KEYS.ACCIDENTS, v);
+export const addAccident    = (a) => { const list = getAccidents(); const n = {...a, id: genId(), createdAt: new Date().toISOString()}; saveAccidents([...list, n]); return n; };
+export const deleteAccident = (id) => saveAccidents(getAccidents().filter(a => a.id !== id));
+export const updateAccident = (id, updates) => saveAccidents(getAccidents().map(a => a.id === id ? {...a,...updates} : a));
+
+// ── 가정통신문 ────────────────────────────────────────────────────────────────
+export const getNewsletters   = () => storage.get(KEYS.NEWSLETTERS) || [];
+export const saveNewsletters  = (v) => storage.set(KEYS.NEWSLETTERS, v);
+export const addNewsletter    = (n) => { const list = getNewsletters(); const item = {...n, id: genId(), createdAt: new Date().toISOString()}; saveNewsletters([...list, item]); return item; };
+export const deleteNewsletter = (id) => saveNewsletters(getNewsletters().filter(n => n.id !== id));
+
+// ── 활성 반 ───────────────────────────────────────────────────────────────────
+export const getActiveClassId = () => storage.get(KEYS.ACTIVE_CLASS);
+export const setActiveClassId = (id) => storage.set(KEYS.ACTIVE_CLASS, id);

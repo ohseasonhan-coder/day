@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef } from 'react';
-import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
+import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
@@ -34,12 +34,15 @@ const PLAN_LABELS = {
   [PLANS.PREMIUM]: { label: '프리미엄',          color: 'var(--primary)', bg: 'var(--primary-light)', badge: '⭐ 프리미엄' },
   [PLANS.FREE]:    { label: '무료 플랜',          color: 'var(--text-secondary)', bg: 'var(--gray-100)', badge: '무료' },
 };
-export default function SettingsPage({ onBack, currentUser, onLogout, isDark, toggleTheme }) {
+export default function SettingsPage({ onBack, currentUser, onLogout, isDark, toggleTheme, activeClassId, onSetActiveClass }) {
   const [settings, setSettings]   = useState(getSettings());
-  const [classes]                 = useState(getClasses());
+  const [classes, setClasses]     = useState(getClasses());
   const [children, setChildren]   = useState(getChildren());
   const [activeTab, setActiveTab] = useState('general');
   const [newChildName, setNewChildName] = useState('');
+  const [newClassName, setNewClassName] = useState('');
+  const [newClassYear, setNewClassYear] = useState(String(new Date().getFullYear()));
+  const [newClassAge,  setNewClassAge]  = useState('3');
   const [saved, setSaved]         = useState(false);
   // 반복일정 상태
   const [routines, setRoutines]     = useState(() => getRoutines());
@@ -71,7 +74,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
 
   const handleAddChild = () => {
     if (!newChildName.trim()) return;
-    const cl = classes[0];
+    const cl = classes.find(c => c.id === activeClassId) || classes[0];
     const newChild = { id: genId(), name: newChildName.trim(), classId: cl?.id };
     const updated = [...children, newChild];
     saveChildren(updated);
@@ -136,7 +139,16 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
 
   const refreshForms = () => setFormTemplates(getFormTemplates());
 
-  const cl = classes[0];
+  const handleAddClass = () => {
+    if (!newClassName.trim()) return;
+    const newClass = { id: genId(), name: newClassName.trim(), year: newClassYear, age: newClassAge };
+    const updated = [...classes, newClass];
+    saveClasses(updated);
+    setClasses(updated);
+    setNewClassName(''); setNewClassYear(String(new Date().getFullYear())); setNewClassAge('3');
+  };
+
+  const cl = classes.find(c => c.id === activeClassId) || classes[0];
   const TABS = [
     ['general',  '⚙️ 일반'],
     ['routines', '🔄 반복일정'],
@@ -411,9 +423,62 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
         {/* ── 아이 관리 ─────────────────────────────────────── */}
         {activeTab === 'children' && (
           <div>
+            {/* 반 목록 및 활성 반 선택 */}
+            <SettingCard title="반 목록">
+              {classes.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>등록된 반이 없어요.</div>
+              ) : (
+                classes.map(c => {
+                  const isActive = (activeClassId ? c.id === activeClassId : c === classes[0]);
+                  return (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>{c.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{c.year}학년도 · {c.age}세반</div>
+                      </div>
+                      <button onClick={() => onSetActiveClass && onSetActiveClass(c.id)} style={{
+                        padding: '6px 14px', borderRadius: 9, fontSize: 12, fontWeight: 800,
+                        background: isActive ? 'var(--primary)' : 'var(--gray-100)',
+                        color: isActive ? 'white' : 'var(--text-secondary)',
+                      }}>
+                        {isActive ? '✓ 활성' : '선택'}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </SettingCard>
+
+            {/* 반 추가 */}
+            <SettingCard title="반 추가">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>반 이름</div>
+                  <input value={newClassName} onChange={e => setNewClassName(e.target.value)} placeholder="예: 햇님반"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>연도</div>
+                  <input value={newClassYear} onChange={e => setNewClassYear(e.target.value)} placeholder="2025"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>연령 (세)</div>
+                <div style={{ display: 'flex', gap: 7 }}>
+                  {['1','2','3','4','5'].map(a => (
+                    <button key={a} onClick={() => setNewClassAge(a)} style={{ width: 40, height: 40, borderRadius: 10, fontWeight: 800, fontSize: 14, background: newClassAge === a ? 'var(--primary)' : 'var(--gray-100)', color: newClassAge === a ? 'white' : 'var(--text-secondary)' }}>{a}세</button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={handleAddClass} style={{ width: '100%', background: 'var(--primary)', color: 'white', borderRadius: 10, padding: '11px', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Plus size={15} /> 반 추가
+              </button>
+            </SettingCard>
+
             {cl && (
               <div style={{ background: 'var(--primary-light)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>현재 반</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>현재 활성 반</div>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{cl.name}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{cl.year}학년도 · {cl.age}세반</div>
               </div>

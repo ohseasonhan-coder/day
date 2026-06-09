@@ -2,10 +2,10 @@
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
-  getDocumentHistory, getFormTemplates,
+  getDocumentHistory, getFormTemplates, updateDocumentDraft,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
-import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate } from 'lucide-react';
+import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star } from 'lucide-react';
 
 const DOC_TYPES = [
   { key: 'daily',       label: '보육일지',      icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
@@ -50,6 +50,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const [showRecords, setShowRecords] = useState(false);
   const [historyDocs, setHistoryDocs] = useState([]);
   const [historyPreview, setHistoryPreview] = useState(null);
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   // 양식 적용
   const [formApplied, setFormApplied] = useState(false);
   const [matchedForm, setMatchedForm] = useState(null);
@@ -451,8 +452,38 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   );
 
   // ── 문서 이력 탭 ──────────────────────────────────────────────────────────────
+  const handleTogglePin = (id, e) => {
+    e.stopPropagation();
+    const doc = historyDocs.find(d => d.id === id);
+    if (!doc) return;
+    updateDocumentDraft(id, { pinned: !doc.pinned });
+    setHistoryDocs(getDocumentHistory());
+  };
+
+  const sortedHistoryDocs = [...historyDocs].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  });
+  const displayedHistoryDocs = showPinnedOnly ? sortedHistoryDocs.filter(d => d.pinned) : sortedHistoryDocs;
+
   const HistoryTab = (
     <div>
+      {/* 즐겨찾기 필터 */}
+      {historyDocs.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <button onClick={() => setShowPinnedOnly(v => !v)} style={{
+            padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 700,
+            background: showPinnedOnly ? '#FFF8E1' : 'var(--gray-100)',
+            color: showPinnedOnly ? '#E65100' : 'var(--text-secondary)',
+            border: `1.5px solid ${showPinnedOnly ? '#F5A623' : 'transparent'}`,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Star size={13} fill={showPinnedOnly ? '#F5A623' : 'none'} color={showPinnedOnly ? '#F5A623' : 'var(--text-secondary)'} />
+            즐겨찾기만 보기
+          </button>
+        </div>
+      )}
       {historyDocs.length === 0 ? (
         <div style={{ textAlign:'center', padding:'48px 20px', color:'var(--text-secondary)' }}>
           <div style={{ fontSize:40, marginBottom:12 }}>📭</div>
@@ -462,22 +493,29 @@ export default function DocsPage({ onNavigate, isDesktop }) {
             문서 만들러 가기
           </button>
         </div>
+      ) : displayedHistoryDocs.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'32px 20px', color:'var(--text-secondary)', fontSize:14 }}>즐겨찾기한 문서가 없어요.</div>
       ) : (
-        historyDocs.map(d => {
+        displayedHistoryDocs.map(d => {
           const docType = DOC_TYPES.find(t => t.key === d.type) || { icon:'📄', label:'문서' };
           return (
             <div key={d.id}
               onClick={() => setHistoryPreview(d)}
-              style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px', marginBottom:10, cursor:'pointer', boxShadow:'var(--shadow-sm)', display:'flex', alignItems:'center', gap:12 }}
+              style={{ background:'var(--white)', border: d.pinned ? '1.5px solid #F5A623' : '1px solid var(--border)', borderRadius:14, padding:'14px 16px', marginBottom:10, cursor:'pointer', boxShadow:'var(--shadow-sm)', display:'flex', alignItems:'center', gap:12 }}
             >
               <div style={{ fontSize:28, flexShrink:0 }}>{docType.icon}</div>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:800, fontSize:14, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.title}</div>
+                <div style={{ fontWeight:800, fontSize:14, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:6 }}>
+                  {d.pinned && <Star size={13} fill="#F5A623" color="#F5A623" style={{ flexShrink:0 }} />}
+                  {d.title}
+                </div>
                 <div style={{ fontSize:12, color:'var(--text-secondary)' }}>
                   {d.badge} · {d.createdAt ? new Date(d.createdAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}
                 </div>
               </div>
-              <Share2 size={16} color="var(--text-tertiary)" style={{ flexShrink:0 }} />
+              <button onClick={(e) => handleTogglePin(d.id, e)} style={{ padding: 6, borderRadius: 8, background: d.pinned ? '#FFF8E1' : 'var(--gray-100)', flexShrink:0 }}>
+                <Star size={16} fill={d.pinned ? '#F5A623' : 'none'} color={d.pinned ? '#F5A623' : 'var(--text-tertiary)'} />
+              </button>
             </div>
           );
         })

@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecordsByDate, today } from './utils/storage';
+import { getClasses, getChildren, getRecordsByDate, today, getActiveClassId, setActiveClassId } from './utils/storage';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
@@ -12,10 +12,13 @@ import NotePage     from './pages/NotePage';
 import SetupPage    from './pages/SetupPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage    from './pages/LoginPage';
-import StatsPage    from './pages/StatsPage';
-import PortfolioPage from './pages/PortfolioPage';
+import StatsPage      from './pages/StatsPage';
+import PortfolioPage  from './pages/PortfolioPage';
+import MedicinePage   from './pages/MedicinePage';
+import AccidentPage   from './pages/AccidentPage';
+import NewsletterPage from './pages/NewsletterPage';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3 } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
@@ -28,20 +31,24 @@ const MOBILE_NAV = [
   { id: 'check',    label: '점검',   icon: CheckSquare },
 ];
 
-// 데스크톱 사이드바 (통계 포함 7개)
+// 데스크톱 사이드바
 const DESKTOP_NAV = [
-  { id: 'today',    label: '오늘',    icon: Home },
-  { id: 'record',   label: '기록',    icon: PenLine },
-  { id: 'note',     label: '알림장',  icon: BookOpen },
-  { id: 'children', label: '아이들',  icon: Users },
-  { id: 'docs',     label: '문서함',  icon: FolderOpen },
-  { id: 'check',    label: '점검',    icon: CheckSquare },
-  { id: 'stats',    label: '통계',    icon: BarChart3 },
+  { id: 'today',      label: '오늘',     icon: Home },
+  { id: 'record',     label: '기록',     icon: PenLine },
+  { id: 'note',       label: '알림장',   icon: BookOpen },
+  { id: 'children',   label: '아이들',   icon: Users },
+  { id: 'docs',       label: '문서함',   icon: FolderOpen },
+  { id: 'check',      label: '점검',     icon: CheckSquare },
+  { id: 'stats',      label: '통계',     icon: BarChart3 },
+  { id: 'medicine',   label: '투약',     icon: Pill },
+  { id: 'accident',   label: '사고기록', icon: AlertTriangle },
+  { id: 'newsletter', label: '가정통신문', icon: Newspaper },
 ];
 
 const PAGE_TITLES = {
   today: '오늘', record: '기록', note: '알림장',
   children: '아이들', docs: '문서함', check: '점검', stats: '통계',
+  medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
 };
 
 function useIsDesktop() {
@@ -66,7 +73,13 @@ export default function App() {
   const [recordContext, setRecordContext]     = useState(null);
   const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
+  const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
   const isDesktop = useIsDesktop();
+
+  const handleSetActiveClass = (id) => {
+    setActiveClassId(id);
+    setActiveClassIdState(id);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -90,7 +103,7 @@ export default function App() {
 
   if (!user)        return <LoginPage    onLogin={(u) => { setUser(u); setPage('today'); }} />;
   if (isSetup)      return <SetupPage    onComplete={() => setIsSetup(false)} />;
-  if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} />;
+  if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} activeClassId={activeClassId} onSetActiveClass={handleSetActiveClass} />;
 
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
@@ -98,7 +111,7 @@ export default function App() {
     setPortfolioChild(p === 'portfolio' ? ctx : null);
   };
 
-  const pageProps = { onNavigate: handleNavigate, isDesktop, isDark, toggleTheme };
+  const pageProps = { onNavigate: handleNavigate, isDesktop, isDark, toggleTheme, activeClassId };
 
   const renderPage = () => {
     switch (page) {
@@ -108,7 +121,10 @@ export default function App() {
       case 'children': return <ChildrenPage {...pageProps} />;
       case 'docs':     return <DocsPage     {...pageProps} />;
       case 'check':    return <CheckPage    {...pageProps} />;
-      case 'stats':    return <StatsPage    {...pageProps} />;
+      case 'stats':      return <StatsPage      {...pageProps} />;
+      case 'medicine':   return <MedicinePage   {...pageProps} />;
+      case 'accident':   return <AccidentPage   {...pageProps} />;
+      case 'newsletter': return <NewsletterPage {...pageProps} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }
