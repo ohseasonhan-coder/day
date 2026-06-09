@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
@@ -16,6 +16,8 @@ const DOC_TYPES = [
   { key: 'safety',      label: '안전·행사평가',  icon: '🛡️', desc: '안전교육·견학·행사 후 평가 문서' },
   { key: 'teacher',     label: '교사교육일지',   icon: '👩‍🏫', desc: '교사교육 후 적용계획까지 정리' },
   { key: 'review',      label: '원장 검토',      icon: '✅', desc: '누락·표현·지원계획 검토용 요약' },
+  { key: 'weekplan',   label: '주간 계획안',   icon: '📅', desc: '다음 주 놀이·활동 계획 초안 작성' },
+  { key: 'monthplan',  label: '월간 계획안',   icon: '🗒️', desc: '다음 달 보육과정 운영 계획 수립' },
 ];
 
 const PERIOD_OPTIONS = [
@@ -670,6 +672,36 @@ function buildDocument(type, records, date, cl, children, selChild, period) {
         { title: '교육 내용', text: '유아의 놀이 장면을 짧고 객관적으로 기록하고, 기록을 바탕으로 보육일지·발달평가·부모상담자료로 연결하는 방법을 학습하였다.' },
         { title: '배운 점', text: '관찰기록은 단순한 업무 문서가 아니라 유아의 흥미와 발달을 이해하는 근거가 됨을 확인하였다.' },
         { title: '현장 적용 계획', text: '매일 짧은 기록을 누적하고, 주간 단위로 놀이 흐름과 지원계획을 점검한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'weekplan') {
+    const cs = summarizeCategories(records);
+    const badge = selChild ? (subjectLabel + ' · 주간 계획안') : ((cl ? cl.name : '우리 반') + ' 주간 계획안');
+    return {
+      title: '주간 계획안 초안', badge: commonBadge,
+      sections: [
+        { title: '목표 및 방향', text: '이번 주는 ' + cs.topLabel + ' 영역을 중심으로 유아의 자발적 놀이 흐름을 지원하며, 또래 상호작용과 탐구심 확장을 도모한다.' },
+        { title: '놀이 주제', text: cs.mainLabels + ' 관련 놀이 주제를 중심으로 이번 주 활동을 계획한다. 유아의 흥미와 지난 주 놀이 흐름을 반영하여 확장한다.' },
+        { title: '월요일~금요일 활동', text: '월: 주제 소개 및 재료 탐색\n화: 소그룹 탐구 활동\n수: 바깥놀이 및 자유선택\n목: 창의 표현 활동\n금: 한 주 놀이 되돌아보기 및 정리' },
+        { title: '환경 구성 계획', text: cs.topLabel + ' 영역을 지원하기 위해 관련 그림책, 자연물, 재료를 영역별로 배치한다. 유아가 스스로 선택하고 탐색할 수 있도록 접근성을 높인다.' },
+        { title: '가정연계 내용', text: '가정에서도 이번 주 주제와 연계한 놀이를 함께할 수 있도록 안내장을 발송한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'monthplan') {
+    const cs = summarizeCategories(records);
+    return {
+      title: '월간 계획안 초안', badge: commonBadge,
+      sections: [
+        { title: '이달의 목표', text: '유아가 주도하는 놀이 흐름 속에서 ' + cs.mainLabels + ' 영역의 경험을 확장한다. 또래와의 협력과 자립심을 기르는 일상을 지원한다.' },
+        { title: '보육 주제', text: '이달의 중심 주제는 유아의 흥미와 계절적 특성을 반영하여 선정한다. 주제는 고정되지 않으며 유아의 놀이 흐름에 따라 유연하게 변화할 수 있다.' },
+        { title: '놀이 흐름 계획', text: '1주: 이달 주제 도입 및 탐색\n2주: 또래와 협력하는 놀이 확장\n3주: 표현 및 심화 활동\n4주: 한 달 놀이 되돌아보기 및 다음 달 준비' },
+        { title: '발달영역별 지원 계획', text: '신체: 대근육 활동 기회 확대\n의사소통: 그림책 읽기, 이야기 나누기\n사회관계: 소그룹 협력놀이\n예술: 다양한 매체 표현 경험\n자연탐구: 계절 자연물 탐색' },
+        { title: '특별 행사·체험', text: '이달 예정된 행사, 견학, 안전교육 등을 기록하고 사전 안내를 준비한다.' },
+        { title: '가정연계 및 안내', text: '월간 안내장 발송, 부모 상담 일정 안내, 가정 연계 놀이 제안을 포함한다.', accent: true },
       ],
     };
   }

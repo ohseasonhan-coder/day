@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES } from '../utils/storage';
+﻿import React, { useState, useEffect } from 'react';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, storage } from '../utils/storage';
 import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3 } from 'lucide-react';
 
 const SERVICE_CARDS = [
@@ -25,6 +25,18 @@ export default function TodayPage({ onNavigate, isDesktop }) {
 
   const todayStr  = today();
   const dateLabel = formatDateKo(todayStr);
+  const [todayChecks, setTodayChecks] = useState(() => {
+    try {
+      const s = localStorage.getItem('sw_session');
+      const uid = s ? (JSON.parse(s)?.userId || 'default') : 'default';
+      return JSON.parse(localStorage.getItem('sw_' + uid + '_checklist_' + today()) || '{}');
+    } catch { return {}; }
+  });
+  const [todayRoutines, setTodayRoutines] = useState([]);
+  useEffect(() => {
+    const day = new Date().getDay();
+    setTodayRoutines(getRoutines().filter(r => Array.isArray(r.days) && r.days.includes(day)));
+  }, []);
 
   useEffect(() => {
     setChildren(getChildren());
@@ -49,6 +61,28 @@ export default function TodayPage({ onNavigate, isDesktop }) {
 
   const hour     = new Date().getHours();
   const greeting = hour < 12 ? '좋은 아침이에요' : hour < 17 ? '오후도 힘내세요' : '오늘도 수고하셨어요';
+
+  // 체크리스트 저장 함수
+  const saveCheck = (key, value) => {
+    try {
+      const s = localStorage.getItem('sw_session');
+      const uid = s ? (JSON.parse(s)?.userId || 'default') : 'default';
+      const storageKey = 'sw_' + uid + '_checklist_' + todayStr;
+      const prev = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const next = { ...prev, [key]: value };
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      setTodayChecks(next);
+    } catch {}
+  };
+
+  const allCheckItems = [
+    ...unrecordedChildren.map(c => ({ id: 'rec_' + c.id, label: c.name + ' 기록', type: 'record', childId: c.id })),
+    { id: 'doc_daily', label: '보육일지 작성', type: 'doc', nav: 'docs' },
+    { id: 'doc_note',  label: '알림장 작성',  type: 'doc', nav: 'note' },
+    ...todayRoutines.map(r => ({ id: 'routine_' + r.id, label: r.title + ' 완료', type: 'routine' })),
+  ];
+  const checkedCount = allCheckItems.filter(item => todayChecks[item.id]).length;
+  const checkPct = allCheckItems.length > 0 ? Math.round((checkedCount / allCheckItems.length) * 100) : 100;
 
   /* ── 공통 블록들 ──────────────────────────────── */
   const HeroCard = (
@@ -173,6 +207,37 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     </div>
   );
 
+  const ChecklistSection = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 900, fontSize: 15 }}>오늘 할 일</span>
+          <span style={{ fontSize: 12, color: checkPct === 100 ? 'var(--cat-play)' : 'var(--primary)', fontWeight: 800, background: checkPct === 100 ? 'var(--cat-play-light)' : 'var(--primary-light)', padding: '3px 9px', borderRadius: 100 }}>{checkedCount}/{allCheckItems.length}</span>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 900, color: checkPct === 100 ? 'var(--cat-play)' : 'var(--primary)' }}>{checkPct}%</span>
+      </div>
+      <div style={{ height: 7, background: 'var(--gray-100)', borderRadius: 100, marginBottom: 14 }}>
+        <div style={{ height: 7, borderRadius: 100, background: checkPct === 100 ? 'var(--cat-play)' : 'var(--primary)', width: checkPct + '%', transition: 'width 0.5s ease' }} />
+      </div>
+      {allCheckItems.length === 0 ? (
+        <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' }}>오늘 할 일이 없어요 🎉</div>
+      ) : (
+        allCheckItems.map(item => (
+          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', opacity: todayChecks[item.id] ? 0.55 : 1 }}>
+            <input type='checkbox' checked={!!todayChecks[item.id]} onChange={e => saveCheck(item.id, e.target.checked)} style={{ width: 17, height: 17, accentColor: 'var(--primary)', flexShrink: 0, cursor: 'pointer' }} />
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 600, textDecoration: todayChecks[item.id] ? 'line-through' : 'none', color: todayChecks[item.id] ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>{item.label}</span>
+            {!todayChecks[item.id] && item.type === 'record' && (
+              <button onClick={() => onNavigate('record', { childId: item.childId })} style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 800, background: 'var(--primary-light)', borderRadius: 8, padding: '4px 8px' }}>기록</button>
+            )}
+            {!todayChecks[item.id] && item.type === 'doc' && (
+              <button onClick={() => onNavigate(item.nav)} style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 800, background: 'var(--primary-light)', borderRadius: 8, padding: '4px 8px' }}>이동</button>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   const WeeklyStats = (
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -225,6 +290,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
 
         {/* 오른쪽 사이드 */}
         <div style={{ position: 'sticky', top: 80 }}>
+          {ChecklistSection}
           {WeeklyStats}
           {TodayRecordList}
         </div>
@@ -238,6 +304,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       {HeroCard}
       {UnrecordedSection}
 
+      {ChecklistSection}
       <Section title="오늘 핵심 업무">{QuickActions}</Section>
       <Section title="자동화 서비스 범위" action="문서함" onAction={() => onNavigate('docs')}>
         {ServiceCards}

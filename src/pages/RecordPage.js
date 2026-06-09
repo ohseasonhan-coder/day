@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   getChildren,
   getClasses,
@@ -659,6 +659,18 @@ function RecordsWorkspace({
           <input value={searchText} onChange={e => setSearchText(e.target.value)} placeholder="아이 이름, 기록 내용, 태그로 검색"
             style={{ width: '100%', padding: '12px 14px 12px 38px', borderRadius: 13, border: '1.5px solid var(--border)', fontSize: 14, background: 'var(--gray-50)' }} />
         </div>
+        {/* 카테고리 필터 칩 */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <button onClick={() => setFilterCategory('all')} style={{ padding: '5px 12px', borderRadius: 100, fontSize: 12, fontWeight: 800, background: filterCategory === 'all' ? 'var(--primary)' : 'var(--gray-100)', color: filterCategory === 'all' ? 'white' : 'var(--text-secondary)' }}>전체</button>
+          {Object.entries(CATEGORIES).map(([key, cat]) => (
+            <button key={key} onClick={() => setFilterCategory(filterCategory === key ? 'all' : key)} style={{ padding: '5px 12px', borderRadius: 100, fontSize: 12, fontWeight: 800, background: filterCategory === key ? cat.color : cat.bg, color: filterCategory === key ? 'white' : cat.color, border: '1px solid ' + cat.color + '30' }}>
+              {cat.emoji} {cat.label}
+            </button>
+          ))}
+        </div>
+        {searchText && (
+          <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 800, marginBottom: 8 }}>검색 결과 {filteredRecords.length}건</div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr auto' : '1fr', gap: 8 }}>
           <select value={filterDate} onChange={e => setFilterDate(e.target.value)} style={selectStyle}>
             <option value="">전체 날짜</option>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './index.css';
 import { getClasses, getChildren, getRecordsByDate, today } from './utils/storage';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
@@ -13,6 +13,7 @@ import SetupPage    from './pages/SetupPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage    from './pages/LoginPage';
 import StatsPage    from './pages/StatsPage';
+import PortfolioPage from './pages/PortfolioPage';
 
 import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3 } from 'lucide-react';
 
@@ -63,6 +64,7 @@ export default function App() {
   const [isSetup, setIsSetup]                 = useState(false);
   const [showSettings, setShowSettings]       = useState(false);
   const [recordContext, setRecordContext]     = useState(null);
+  const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const isDesktop = useIsDesktop();
 
@@ -93,6 +95,7 @@ export default function App() {
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
     setRecordContext(p === 'record' ? ctx : null);
+    setPortfolioChild(p === 'portfolio' ? ctx : null);
   };
 
   const pageProps = { onNavigate: handleNavigate, isDesktop, isDark, toggleTheme };
@@ -106,6 +109,7 @@ export default function App() {
       case 'docs':     return <DocsPage     {...pageProps} />;
       case 'check':    return <CheckPage    {...pageProps} />;
       case 'stats':    return <StatsPage    {...pageProps} />;
+      case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }
   };

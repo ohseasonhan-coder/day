@@ -1,4 +1,4 @@
-// ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
+﻿// ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
 // 로그인한 사용자의 userId를 prefix로 사용 → 멀티 계정 지원
 // auth.js import를 피하기 위해 직접 localStorage에서 읽음
 function _getUid() {
@@ -18,6 +18,7 @@ const KEYS = {
   get TEMPLATES()  { return `sw_${_getUid()}_templates`; },
   get DRAFT()           { return `sw_${_getUid()}_draft`; },
   get FORM_TEMPLATES()  { return `sw_${_getUid()}_form_templates`; },
+  get ROUTINES()        { return `sw_${_getUid()}_routines`; },
 };
 
 // Generic storage helpers
@@ -255,3 +256,15 @@ export function importBackup(jsonString) {
     return { ok: false, error: `파일 형식이 올바르지 않아요. (${e.message})` };
   }
 }
+
+// ── 반복 일정 (루틴) ──────────────────────────────────────────────────────────
+// 루틴 shape: { id, title, days: [0-6], category, template }
+export const getRoutines    = () => storage.get(KEYS.ROUTINES) || [];
+export const saveRoutines   = (v) => storage.set(KEYS.ROUTINES, v);
+export const addRoutine     = (r) => {
+  const list = getRoutines();
+  const n = { ...r, id: genId() };
+  saveRoutines([...list, n]);
+  return n;
+};
+export const deleteRoutine  = (id) => saveRoutines(getRoutines().filter(r => r.id !== id));

@@ -1,6 +1,7 @@
 ﻿import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
-  getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate } from '../utils/storage';
+  getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
+  getRoutines, addRoutine, deleteRoutine, CATEGORIES } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -40,6 +41,13 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [activeTab, setActiveTab] = useState('general');
   const [newChildName, setNewChildName] = useState('');
   const [saved, setSaved]         = useState(false);
+  // 반복일정 상태
+  const [routines, setRoutines]     = useState(() => getRoutines());
+  const [newRoutineTitle, setNewRoutineTitle] = useState('');
+  const [newRoutineDays, setNewRoutineDays]   = useState([]);
+  const [newRoutineCat, setNewRoutineCat]     = useState('habit');
+  const [newRoutineTemplate, setNewRoutineTemplate] = useState('');
+  const DAY_LABELS = ['일','월','화','수','목','금','토'];
 
   // 비밀번호 변경
   const [oldPw, setOldPw]   = useState('');
@@ -131,6 +139,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const cl = classes[0];
   const TABS = [
     ['general',  '⚙️ 일반'],
+    ['routines', '🔄 반복일정'],
     ['forms',    '📋 원 양식'],
     ['children', '👶 아이 관리'],
     ['backup',   '💾 백업/복구'],
@@ -263,6 +272,67 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             }}>
               {saved ? '✓ 저장 완료!' : '설정 저장'}
             </button>
+          </div>
+        )}
+
+        {/* ── 반복일정 탭 ──────────────────────────────────────────── */}
+        {activeTab === 'routines' && (
+          <div>
+            <SettingCard title="반복 일정 관리">
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 14 }}>
+                요일별로 반복되는 일정을 등록하면 기록 페이지에서 빠르게 불러올 수 있어요.
+              </div>
+              {routines.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-tertiary)', fontSize: 13 }}>등록된 반복 일정이 없어요</div>
+              ) : (
+                routines.map(r => (
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>{r.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                        {(r.days || []).map(d => ['일','월','화','수','목','금','토'][d]).join('·')} · {CATEGORIES[r.category]?.label || r.category}
+                      </div>
+                    </div>
+                    <button onClick={() => { deleteRoutine(r.id); setRoutines(getRoutines()); }} style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </SettingCard>
+            <SettingCard title="반복 일정 추가">
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>일정 이름</div>
+                <input value={newRoutineTitle} onChange={e => setNewRoutineTitle(e.target.value)} placeholder='예: 아침 체조, 낮잠 관찰' style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 7 }}>반복 요일</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {DAY_LABELS.map((d, i) => (
+                    <button key={i} onClick={() => setNewRoutineDays(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{ width: 36, height: 36, borderRadius: '50%', fontSize: 13, fontWeight: 800, background: newRoutineDays.includes(i) ? 'var(--primary)' : 'var(--gray-100)', color: newRoutineDays.includes(i) ? 'white' : 'var(--text-secondary)' }}>{d}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>카테고리</div>
+                <select value={newRoutineCat} onChange={e => setNewRoutineCat(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', background: 'var(--white)' }}>
+                  {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>기본 문구 템플릿</div>
+                <textarea value={newRoutineTemplate} onChange={e => setNewRoutineTemplate(e.target.value)} placeholder='클릭 시 기록란에 자동 삽입될 문구를 입력하세요.' rows={3} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, lineHeight: 1.7, fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <button onClick={() => {
+                if (!newRoutineTitle.trim()) return alert('일정 이름을 입력해주세요.');
+                if (newRoutineDays.length === 0) return alert('반복 요일을 선택해주세요.');
+                addRoutine({ title: newRoutineTitle.trim(), days: newRoutineDays, category: newRoutineCat, template: newRoutineTemplate.trim() });
+                setRoutines(getRoutines());
+                setNewRoutineTitle(''); setNewRoutineDays([]); setNewRoutineTemplate('');
+              }} style={{ width: '100%', padding: '13px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                <Plus size={16} /> 반복 일정 추가
+              </button>
+            </SettingCard>
           </div>
         )}
 

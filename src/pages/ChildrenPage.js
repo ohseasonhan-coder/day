@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord, updateChild, deleteChild } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc, processRecord } from '../utils/ai';
 import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
@@ -165,6 +165,9 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
           </div>
           <button onClick={() => setEditingChild({ ...selected })} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 13px', borderRadius:10, background:'var(--gray-100)', color:'var(--text-secondary)', fontSize:13, fontWeight:800 }}>
             <Pencil size={14} /> 편집
+          </button>
+          <button onClick={() => onNavigate('portfolio', { childId: selected.id, childName: selected.name })} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 13px', borderRadius:10, background:'var(--primary-light)', color:'var(--primary)', fontSize:13, fontWeight:800 }}>
+            <BarChart3 size={14} /> 포트폴리오
           </button>
         </div>
 

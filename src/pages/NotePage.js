@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   getChildren, getRecords, getClasses,
   today, formatDateKo, formatDate,
@@ -35,6 +35,16 @@ function buildNoteText(childName, recs) {
   return `${intro}\n\n${body}\n\n${outro}`;
 }
 
+// 일괄 알림장 생성 함수 (Feature 2)
+function generateNotice(child, records, sharedContext) {
+  const recent = records.slice(0, 3);
+  const highlights = recent.map(r => r.rawText || '').filter(Boolean);
+  const body = highlights.length > 0
+    ? highlights.join(' ')
+    : (child.name + '이(가) 오늘도 즐겁게 생활했어요.');
+  return '안녕하세요, ' + child.name + ' 부모님! 오늘 ' + child.name + '이(가) ' + body + (sharedContext ? ' ' + sharedContext : '') + ' 오늘도 건강하게 잘 지냈습니다. 내일도 즐거운 하루 되세요! 🌟';
+}
+
 export default function NotePage({ onNavigate, isDesktop }) {
   const [viewDate, setViewDate]     = useState(today());
   const [children, setChildren]     = useState([]);
@@ -44,6 +54,10 @@ export default function NotePage({ onNavigate, isDesktop }) {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated]   = useState(false);
   const [filter, setFilter]         = useState('all'); // 'all' | 'recorded' | 'empty'
+  const [mainMode, setMainMode]     = useState('individual'); // 'individual' | 'bulk'
+  const [bulkChecked, setBulkChecked] = useState({});
+  const [sharedContext, setSharedContext] = useState('');
+  const [bulkNotes, setBulkNotes]   = useState({});
 
   const todayStr = today();
   const isToday  = viewDate === todayStr;
@@ -54,6 +68,8 @@ export default function NotePage({ onNavigate, isDesktop }) {
     setClasses(getClasses());
     setNotes({});
     setGenerated(false);
+    setBulkChecked({});
+    setBulkNotes({});
   }, []);
 
   const changeDate = (delta) => {
@@ -128,6 +144,26 @@ export default function NotePage({ onNavigate, isDesktop }) {
     </div>
   );
 
+  // 일괄 생성 핸들러
+  const handleBulkGenerate = () => {
+    const checked = children.filter(c => bulkChecked[c.id] !== false);
+    const newBulkNotes = {};
+    checked.forEach(child => {
+      const recs = getChildRecs(child.id);
+      newBulkNotes[child.id] = generateNotice(child, recs, sharedContext);
+    });
+    setBulkNotes(newBulkNotes);
+  };
+
+  const handleCopyAll = () => {
+    const checked = children.filter(c => bulkChecked[c.id] !== false);
+    const text = checked.map(child => {
+      const note = bulkNotes[child.id] || '';
+      return note ? '[' + child.name + ']\n' + note : '';
+    }).filter(Boolean).join('\n\n');
+    navigator.clipboard.writeText(text);
+  };
+
   return (
     <div style={{ padding: pad }}>
       {PrintArea}
@@ -200,6 +236,35 @@ export default function NotePage({ onNavigate, isDesktop }) {
         )}
       </div>
 
+      {mainMode === 'bulk' ? (
+        <div>
+          <div style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:16, padding:16, marginBottom:14, boxShadow:'var(--shadow-sm)' }}>
+            <div style={{ fontSize:14, fontWeight:900, marginBottom:10 }}>오늘의 공통 내용 (선택)</div>
+            <textarea value={sharedContext} onChange={e => setSharedContext(e.target.value)} placeholder='오늘 비가 왔어요. 내일은 체육복을 가져오세요.' style={{ width:'100%', minHeight:80, padding:'12px 14px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, lineHeight:1.7, resize:'vertical', fontFamily:'inherit', boxSizing:'border-box' }} />
+          </div>
+          <div style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:16, padding:16, marginBottom:14, boxShadow:'var(--shadow-sm)' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+              <div style={{ fontSize:14, fontWeight:900 }}>대상 아이 선택</div>
+              <button onClick={() => { const all = {}; children.forEach(c => { all[c.id] = true; }); setBulkChecked(all); }} style={{ fontSize:12, color:'var(--primary)', fontWeight:800 }}>전체 선택</button>
+            </div>
+            {children.map(child => (
+              <label key={child.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)', cursor:'pointer' }}>
+                <input type='checkbox' checked={bulkChecked[child.id] !== false} onChange={e => setBulkChecked(prev => ({...prev, [child.id]: e.target.checked}))} style={{ width:16, height:16, accentColor:'var(--primary)' }} />
+                <span style={{ fontSize:14, fontWeight:700 }}>{child.name}</span>
+                {bulkNotes[child.id] && <span style={{ fontSize:11, color:'var(--primary)', marginLeft:'auto' }}>생성됨</span>}
+              </label>
+            ))}
+          </div>
+          <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+            <button onClick={handleBulkGenerate} style={{ flex:1, padding:'13px', borderRadius:14, background:'linear-gradient(135deg, var(--primary), var(--primary-dark))', color:'white', fontSize:14, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>일괄 생성</button>
+            {Object.keys(bulkNotes).length > 0 && <button onClick={handleCopyAll} style={{ padding:'13px 18px', borderRadius:14, border:'1.5px solid var(--border)', background:'var(--white)', fontSize:14, fontWeight:800 }}>전체 복사</button>}
+          </div>
+          {children.filter(c => bulkNotes[c.id]).map(child => (
+            <BulkNoteCard key={child.id} child={child} text={bulkNotes[child.id]} onChange={text => setBulkNotes(prev => ({...prev, [child.id]: text}))} />
+          ))}
+        </div>
+      ) : (
+        <div>
       {/* ── 필터 탭 ──────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         {[
@@ -251,6 +316,25 @@ export default function NotePage({ onNavigate, isDesktop }) {
           })}
         </div>
       )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 일괄 알림장 카드 */
+function BulkNoteCard({ child, text, onChange }) {
+  const [copied, setCopied] = React.useState(false);
+  return (
+    <div style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:16, padding:16, marginBottom:12, boxShadow:'var(--shadow-sm)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <span style={{ fontWeight:900, fontSize:15 }}>{child.name}</span>
+        <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1800); }} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:9, background:'var(--gray-100)', fontSize:12, fontWeight:800, color:'var(--text-secondary)' }}>
+          {copied ? '복사됨' : '복사'}
+        </button>
+      </div>
+      <textarea value={text} onChange={e => onChange(e.target.value)}
+        style={{ width:'100%', minHeight:100, padding:'12px 14px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, lineHeight:1.8, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box' }} />
     </div>
   );
 }
@@ -358,7 +442,7 @@ function NoteCard({ child, color, recs, hasRec, noteText, generated, onRegenerat
             {hasRec
               ? '위 버튼으로 알림장을 생성할 수 있어요'
               : '기록을 추가하면 알림장이 자동으로 생성됩니다'}
-          </div>
+              </div>
         </div>
       )}
     </div>
