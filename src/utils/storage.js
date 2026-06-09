@@ -246,6 +246,155 @@ const makeChecklist = (children, records) => {
   };
 };
 
+const CATEGORY_GUIDES = {
+  peer: { label: '또래관계', prompt: '친구와 함께 놀이하거나 차례를 기다리는 장면을 기록해보세요.' },
+  habit: { label: '생활습관', prompt: '식사, 정리, 배변, 낮잠, 위생 중 하나를 짧게 기록해보세요.' },
+  comm: { label: '의사소통', prompt: '유아가 말로 표현하거나 질문한 장면을 기록해보세요.' },
+  play: { label: '놀이·활동', prompt: '오늘 이어진 놀이 흐름과 유아 반응을 기록해보세요.' },
+  nature: { label: '자연탐구', prompt: '곤충, 식물, 날씨, 수, 비교, 관찰 장면을 기록해보세요.' },
+  art: { label: '예술경험', prompt: '그리기, 만들기, 노래, 움직임 표현 장면을 기록해보세요.' },
+  body: { label: '신체운동', prompt: '대근육, 소근육, 바깥놀이, 도구 사용 장면을 기록해보세요.' },
+  special: { label: '특이사항', prompt: '건강, 안전, 투약, 부모 요청, 행사 관련 상황을 기록해보세요.' },
+};
+
+const firstText = (...values) => values.find(v => typeof v === 'string' && v.trim())?.trim() || '';
+
+const makeNoticeDrafts = (children, records) => {
+  const todayStr = today();
+  const todayRecords = records.filter(r => r.date === todayStr);
+  const byChild = {};
+
+  children.forEach(child => {
+    const childRecords = todayRecords.filter(r => r.childId === child.id);
+    const play = childRecords.filter(r => ['play', 'peer', 'nature', 'art', 'body'].includes(r.category));
+    const habit = childRecords.filter(r => r.category === 'habit');
+    const special = childRecords.filter(r => r.category === 'special' || r.recordType === 'special');
+    const samples = childRecords.map(r => firstText(r.parent, r.observation, r.rawText)).filter(Boolean);
+
+    byChild[child.id] = {
+      childId: child.id,
+      childName: child.name,
+      date: todayStr,
+      ready: childRecords.length > 0,
+      recordIds: childRecords.map(r => r.id),
+      sections: {
+        play: play.length ? firstText(play[0].parent, play[0].observation, play[0].rawText) : '',
+        habit: habit.length ? firstText(habit[0].parent, habit[0].observation, habit[0].rawText) : '',
+        special: special.length ? firstText(special[0].parent, special[0].observation, special[0].rawText) : '',
+      },
+      text: samples.length
+        ? `${child.name}은(는) 오늘 ${samples.slice(0, 2).join(' 또한 ')}`
+        : '',
+    };
+  });
+
+  return {
+    date: todayStr,
+    readyCount: Object.values(byChild).filter(v => v.ready).length,
+    totalChildren: children.length,
+    byChild,
+  };
+};
+
+const makeConsultAccumulations = (children, records) => {
+  const byChild = {};
+  children.forEach(child => {
+    const childRecords = records
+      .filter(r => r.childId === child.id && daysAgo(r.date) <= 30)
+      .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+    const consultRecords = childRecords.filter(r => r.parent || r.support || r.recordType === 'consult');
+    const categoryCounts = countBy(childRecords, r => r.category);
+    const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const topLabel = CATEGORY_GUIDES[topCategory]?.label || '일상생활';
+    const sample = firstText(consultRecords[0]?.parent, consultRecords[0]?.observation, childRecords[0]?.observation);
+
+    byChild[child.id] = {
+      childId: child.id,
+      childName: child.name,
+      ready: consultRecords.length > 0,
+      recordIds: consultRecords.map(r => r.id),
+      recentGrowth: consultRecords.length ? `${child.name}은(는) 최근 ${topLabel} 관련 경험이 누적되고 있습니다. ${sample}` : '',
+      strengths: consultRecords.length ? `${child.name}은(는) 자신의 경험과 감정을 표현하려는 모습이 관찰됩니다.` : '',
+      supportNeeded: consultRecords.some(r => r.support) ? firstText(consultRecords.find(r => r.support)?.support) : '',
+      homeLink: consultRecords.length ? '가정에서도 같은 상황을 짧은 말로 표현하고 기다려보는 경험을 이어가면 좋겠습니다.' : '',
+    };
+  });
+
+  return {
+    period: '최근 30일',
+    readyCount: Object.values(byChild).filter(v => v.ready).length,
+    byChild,
+  };
+};
+
+const makeGrowthSummaries = (children, records) => {
+  const byChild = {};
+  children.forEach(child => {
+    const childRecords = records.filter(r => r.childId === child.id && daysAgo(r.date) <= 30);
+    const categoryCounts = countBy(childRecords, r => r.category);
+    const devAreaCounts = countBy(childRecords.flatMap(r => toArray(r.devAreas)), area => area);
+    const missingCategoryKeys = Object.keys(CATEGORIES).filter(key => !categoryCounts[key]);
+    const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const topLabel = CATEGORY_GUIDES[topCategory]?.label || '여러 영역';
+
+    byChild[child.id] = {
+      childId: child.id,
+      childName: child.name,
+      ready: childRecords.length > 0,
+      recordIds: childRecords.map(r => r.id),
+      categoryCounts,
+      devAreaCounts,
+      missingCategoryKeys,
+      summary: childRecords.length
+        ? `${child.name}은(는) 최근 1개월 동안 ${topLabel}을(를) 중심으로 경험이 누적되고 있습니다. 기록 ${childRecords.length}건이 성장 요약에 반영됩니다.`
+        : '',
+    };
+  });
+
+  return {
+    period: '최근 1개월',
+    readyCount: Object.values(byChild).filter(v => v.ready).length,
+    byChild,
+  };
+};
+
+const makeDraftCandidates = (records, classes) => {
+  const cl = classes[0] || {};
+  const todayRecords = records.filter(r => r.date === today());
+  const weekRecords = records.filter(r => daysAgo(r.date) <= 7);
+  const monthRecords = records.filter(r => daysAgo(r.date) <= 30);
+  const makeCandidate = (type, title, sourceRecords) => ({
+    type,
+    title,
+    status: 'autoCandidate',
+    classId: cl.id || null,
+    className: cl.name || '',
+    count: sourceRecords.length,
+    ready: sourceRecords.length > 0,
+    sourceRecordIds: sourceRecords.map(r => r.id),
+    updatedAt: new Date().toISOString(),
+    preview: sourceRecords.length
+      ? sourceRecords.map(r => firstText(r.observation, r.parent, r.rawText)).filter(Boolean).slice(0, 3).join(' ')
+      : '',
+  });
+
+  return {
+    daily: makeCandidate('daily', '오늘 보육일지 자동 초안 후보', todayRecords),
+    weekly: makeCandidate('weekly', '주간 놀이평가 자동 초안 후보', weekRecords),
+    monthly: makeCandidate('monthly', '월간 놀이평가 자동 초안 후보', monthRecords),
+  };
+};
+
+const makeRecordRecommendations = (checklist) => {
+  const missing = checklist.missingCategoryKeys || [];
+  return missing.map(key => ({
+    key,
+    label: CATEGORY_GUIDES[key]?.label || key,
+    prompt: CATEGORY_GUIDES[key]?.prompt || '부족한 영역의 관찰 기록을 1건 추가해보세요.',
+    example: `${CATEGORY_GUIDES[key]?.label || '해당 영역'} 상황에서 유아가 보인 말, 행동, 교사 지원을 한 문장으로 기록해보세요.`,
+  }));
+};
+
 const makeAutomationAudit = (records, children) => {
   const latest = records[0] || null;
   const todayRecords = records.filter(r => r.date === today());
@@ -255,6 +404,9 @@ const makeAutomationAudit = (records, children) => {
   const supportRecords = monthRecords.filter(r => r.support);
   const developmentRecords = monthRecords.filter(r => toArray(r.devAreas).length > 0);
   const reviewRecords = records.filter(r => r.automation?.needsReview || toArray(r.documentMeta?.reviewFlags).length > 0);
+  const noticeDrafts = makeNoticeDrafts(children, records);
+  const growthSummaries = makeGrowthSummaries(children, records);
+  const draftCandidates = makeDraftCandidates(records, getClasses());
 
   const items = [
     {
@@ -317,6 +469,24 @@ const makeAutomationAudit = (records, children) => {
       ready: reviewRecords.length === 0,
       detail: reviewRecords.length ? `문서화 전 확인이 필요한 기록 ${reviewRecords.length}건이 있습니다.` : '확인 필요한 기록이 없습니다.',
     },
+    {
+      key: 'noticeDrafts',
+      label: '알림장 자동 초안',
+      ready: noticeDrafts.readyCount > 0,
+      detail: noticeDrafts.readyCount ? `오늘 알림장 초안 ${noticeDrafts.readyCount}명분이 준비됐습니다.` : '오늘 기록이 생기면 아이별 알림장 초안이 준비됩니다.',
+    },
+    {
+      key: 'growthSummary',
+      label: '아이별 성장 요약',
+      ready: growthSummaries.readyCount > 0,
+      detail: growthSummaries.readyCount ? `아이별 최근 1개월 성장 요약 ${growthSummaries.readyCount}명분이 갱신됐습니다.` : '기록이 누적되면 성장 요약이 자동 갱신됩니다.',
+    },
+    {
+      key: 'draftCandidates',
+      label: '문서 초안 후보',
+      ready: draftCandidates.daily.ready || draftCandidates.weekly.ready || draftCandidates.monthly.ready,
+      detail: '보육일지, 주간평가, 월간평가 초안 후보를 문서 이력과 분리해 준비합니다.',
+    },
   ];
 
   return {
@@ -338,6 +508,7 @@ const makeAutomationAudit = (records, children) => {
 export function rebuildAutomationState(records = getRecords(), children = getChildren(), classes = getClasses()) {
   const sortedRecords = [...records].sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
   const todayRecordIds = sortedRecords.filter(r => r.date === today()).map(r => r.id);
+  const checklist = makeChecklist(children, sortedRecords);
   const state = {
     version: 1,
     updatedAt: new Date().toISOString(),
@@ -352,8 +523,13 @@ export function rebuildAutomationState(records = getRecords(), children = getChi
     },
     documents: makeDocumentQueue(sortedRecords),
     children: makeChildAutomation(children, sortedRecords),
-    checklist: makeChecklist(children, sortedRecords),
+    checklist,
     audit: makeAutomationAudit(sortedRecords, children),
+    noticeDrafts: makeNoticeDrafts(children, sortedRecords),
+    consultAccumulations: makeConsultAccumulations(children, sortedRecords),
+    growthSummaries: makeGrowthSummaries(children, sortedRecords),
+    draftCandidates: makeDraftCandidates(sortedRecords, classes),
+    recommendations: makeRecordRecommendations(checklist),
   };
   storage.set(KEYS.AUTOMATION_STATE, state);
   return state;
