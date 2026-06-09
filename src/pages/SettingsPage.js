@@ -1,7 +1,31 @@
 import React, { useState, useRef } from 'react';
-import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup } from '../utils/storage';
+import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
+  getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
-import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
+
+// ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
+export const DOC_SECTION_MAP = {
+  daily:       ['놀이 흐름 및 활동', '유아 반응', '교사 지원', '오늘 평가', '다음 지원계획'],
+  weekly:      ['주간 놀이 흐름', '유아 반응 및 배움', '교사 지원 평가', '다음 주 예상놀이 및 지원계획'],
+  monthly:     ['월간 놀이 흐름', '발달적 의미', '보육과정 평가', '다음 달 운영 방향'],
+  parent:      ['상담 시작 인사말', '최근 성장 흐름', '강점 및 긍정적 모습', '가정 연계 제안'],
+  development: ['신체운동·건강', '의사소통', '사회관계', '예술경험', '자연탐구', '종합평가 및 지원계획'],
+  safety:      ['활동 개요', '유아 반응', '평가', '추후 지원'],
+  teacher:     ['교육 주제', '교육 내용', '배운 점', '현장 적용 계획'],
+  review:      ['기록 현황', '주요 놀이·발달 흐름', '검토 필요 사항', '원장 검토 메모'],
+};
+const AUTO_FIELDS = [
+  { key: '__date__',      label: '📅 날짜 (자동)' },
+  { key: '__childName__', label: '👤 아이 이름 (자동)' },
+  { key: '__className__', label: '🏫 반 이름 (자동)' },
+  { key: '__period__',    label: '📆 기간 (자동)' },
+];
+const DOC_TYPE_LABELS = {
+  daily: '보육일지', weekly: '주간 놀이평가', monthly: '월간 놀이평가',
+  parent: '부모상담자료', development: '발달평가', safety: '안전·행사평가',
+  teacher: '교사교육일지', review: '원장 검토',
+};
 
 const PLAN_LABELS = {
   [PLANS.VIP]:     { label: '영구 무료 (VIP)',  color: '#E91E9A', bg: '#FDE8F4', badge: '👑 VIP' },
@@ -97,9 +121,16 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     e.target.value = '';
   };
 
+  // 원 양식 상태
+  const [formTemplates, setFormTemplates] = useState(() => getFormTemplates());
+  const [editingForm, setEditingForm]     = useState(null); // null | 'new' | { ...template }
+
+  const refreshForms = () => setFormTemplates(getFormTemplates());
+
   const cl = classes[0];
   const TABS = [
     ['general',  '⚙️ 일반'],
+    ['forms',    '📋 원 양식'],
     ['children', '👶 아이 관리'],
     ['backup',   '💾 백업/복구'],
     ['account',  '👤 계정'],
@@ -231,6 +262,78 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             }}>
               {saved ? '✓ 저장 완료!' : '설정 저장'}
             </button>
+          </div>
+        )}
+
+        {/* ── 원 양식 탭 ────────────────────────────────���─────── */}
+        {activeTab === 'forms' && (
+          <div>
+            {editingForm ? (
+              <FormEditor
+                form={editingForm === 'new' ? null : editingForm}
+                onSave={(form) => {
+                  if (!form.id) { addFormTemplate(form); }
+                  else { updateFormTemplate(form.id, form); }
+                  refreshForms();
+                  setEditingForm(null);
+                }}
+                onCancel={() => setEditingForm(null)}
+              />
+            ) : (
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                  <div>
+                    <div style={{ fontSize:16, fontWeight:900 }}>원 양식 관리</div>
+                    <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:2 }}>문서 생성 후 원 양식 구조로 자동 변환해요</div>
+                  </div>
+                  <button onClick={() => setEditingForm('new')} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:12, background:'var(--primary)', color:'white', fontSize:13, fontWeight:800 }}>
+                    <Plus size={15}/> 새 양식 등록
+                  </button>
+                </div>
+
+                {formTemplates.length === 0 ? (
+                  <div style={{ textAlign:'center', padding:'48px 20px', background:'var(--white)', border:'1px dashed var(--border-strong)', borderRadius:16 }}>
+                    <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
+                    <div style={{ fontSize:14, fontWeight:800, color:'var(--text-secondary)' }}>등록된 양식이 없어요</div>
+                    <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:6, lineHeight:1.7 }}>
+                      원에서 쓰는 보육일지·발달평가 등의 양식을 등록하면<br/>
+                      문서 생성 후 해당 양식 구조로 자동 변환돼요.
+                    </div>
+                    <button onClick={() => setEditingForm('new')} style={{ marginTop:16, padding:'11px 22px', borderRadius:12, background:'var(--primary)', color:'white', fontWeight:800 }}>
+                      첫 양식 등록하기
+                    </button>
+                  </div>
+                ) : (
+                  formTemplates.map(tpl => (
+                    <div key={tpl.id} style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px', marginBottom:10, boxShadow:'var(--shadow-sm)' }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <FileText size={16} color="var(--primary)"/>
+                          <div>
+                            <div style={{ fontWeight:800, fontSize:14 }}>{tpl.name}</div>
+                            <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:1 }}>
+                              {DOC_TYPE_LABELS[tpl.docType] || tpl.docType} · {(tpl.fields||[]).length}개 칸
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display:'flex', gap:6 }}>
+                          <button onClick={() => setEditingForm(tpl)} style={{ padding:'6px 12px', borderRadius:9, background:'var(--primary-light)', color:'var(--primary)', fontSize:12, fontWeight:800 }}>편집</button>
+                          <button onClick={() => { deleteFormTemplate(tpl.id); refreshForms(); }} style={{ padding:'6px 12px', borderRadius:9, background:'var(--accent-light)', color:'var(--accent)', fontSize:12, fontWeight:800 }}>삭제</button>
+                        </div>
+                      </div>
+                      {/* 칸 미리보기 */}
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                        {(tpl.fields||[]).map((f,i) => (
+                          <span key={f.id||i} style={{ fontSize:11, background:'var(--gray-100)', color:'var(--text-secondary)', padding:'3px 8px', borderRadius:6, fontWeight:600 }}>
+                            {f.label}{f.charLimit ? ` (${f.charLimit}자)` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -511,6 +614,147 @@ function SettingCard({ title, children }) {
         {title}
       </div>
       {children}
+    </div>
+  );
+}
+
+// ── 원 양식 편집기 ─────────────────────────────────────────────────────────────
+function FormEditor({ form, onSave, onCancel }) {
+  const isNew = !form;
+  const [name, setName]       = useState(form?.name || '');
+  const [docType, setDocType] = useState(form?.docType || 'daily');
+  const [fields, setFields]   = useState(
+    form?.fields || [
+      { id: Date.now()+'a', label: '', mappedTo: '', charLimit: '' },
+    ]
+  );
+
+  const sectionOptions = [
+    ...AUTO_FIELDS,
+    ...(DOC_SECTION_MAP[docType] || []).map(s => ({ key: s, label: s })),
+  ];
+
+  const addField = () => setFields(f => [...f, { id: Date.now()+'', label: '', mappedTo: '', charLimit: '' }]);
+
+  const updateField = (idx, key, val) =>
+    setFields(f => f.map((item, i) => i === idx ? { ...item, [key]: val } : item));
+
+  const removeField = (idx) => setFields(f => f.filter((_, i) => i !== idx));
+
+  const moveField = (idx, dir) => {
+    const next = [...fields];
+    const swap = idx + dir;
+    if (swap < 0 || swap >= next.length) return;
+    [next[idx], next[swap]] = [next[swap], next[idx]];
+    setFields(next);
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) { alert('양식 이름을 입력해주세요.'); return; }
+    const cleaned = fields.filter(f => f.label.trim());
+    if (cleaned.length === 0) { alert('칸을 1개 이상 추가해주세요.'); return; }
+    onSave({
+      ...(form || {}),
+      name: name.trim(),
+      docType,
+      fields: cleaned.map(f => ({
+        id: f.id || (Date.now()+''),
+        label: f.label.trim(),
+        mappedTo: f.mappedTo,
+        charLimit: f.charLimit ? Number(f.charLimit) : null,
+      })),
+    });
+  };
+
+  const inputStyle = {
+    padding: '9px 11px', borderRadius: 9, border: '1.5px solid var(--border)',
+    fontSize: 13, fontFamily: 'inherit', outline: 'none',
+    background: 'var(--white)', color: 'var(--text-primary)',
+  };
+
+  return (
+    <div>
+      {/* 헤더 */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+        <button onClick={onCancel} style={{ padding:'7px 12px', borderRadius:10, background:'var(--gray-100)', color:'var(--text-secondary)', fontSize:13, fontWeight:700 }}>← 목록</button>
+        <div style={{ fontSize:16, fontWeight:900 }}>{isNew ? '새 양식 등록' : '양식 편집'}</div>
+      </div>
+
+      {/* 기본 정보 */}
+      <SettingCard title="기본 정보">
+        <div style={{ marginBottom:12 }}>
+          <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>양식 이름</div>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="예: ○○어린이집 보육일지" style={{ ...inputStyle, width:'100%', boxSizing:'border-box' }} />
+        </div>
+        <div>
+          <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>적용 문서 종류</div>
+          <select value={docType} onChange={e => { setDocType(e.target.value); setFields([{ id: Date.now()+'', label:'', mappedTo:'', charLimit:'' }]); }}
+            style={{ ...inputStyle, width:'100%', boxSizing:'border-box' }}>
+            {Object.entries(DOC_TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+      </SettingCard>
+
+      {/* 칸 목록 */}
+      <SettingCard title="원 양식 칸 구성">
+        <div style={{ fontSize:12, color:'var(--text-tertiary)', marginBottom:12, lineHeight:1.7 }}>
+          원 양식의 순서대로 칸을 등록하세요.<br/>
+          각 칸에 앱의 어느 섹션 내용을 채울지 연결해주세요.
+        </div>
+
+        {fields.map((f, idx) => (
+          <div key={f.id} style={{ background:'var(--gray-50)', border:'1px solid var(--border)', borderRadius:12, padding:12, marginBottom:8 }}>
+            {/* 순서 + 삭제 */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                <span style={{ fontSize:11, fontWeight:900, color:'var(--text-tertiary)', minWidth:18 }}>{idx+1}</span>
+                <button onClick={() => moveField(idx, -1)} disabled={idx===0}
+                  style={{ padding:4, borderRadius:6, background:'var(--white)', border:'1px solid var(--border)', opacity: idx===0 ? 0.3 : 1 }}>
+                  <ChevronUp size={12}/>
+                </button>
+                <button onClick={() => moveField(idx, 1)} disabled={idx===fields.length-1}
+                  style={{ padding:4, borderRadius:6, background:'var(--white)', border:'1px solid var(--border)', opacity: idx===fields.length-1 ? 0.3 : 1 }}>
+                  <ChevronDown size={12}/>
+                </button>
+              </div>
+              <button onClick={() => removeField(idx)} style={{ padding:'3px 8px', borderRadius:7, background:'var(--accent-light)', color:'var(--accent)', fontSize:11, fontWeight:800 }}>삭제</button>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1.4fr 80px', gap:7 }}>
+              {/* 원 양식 칸 이름 */}
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>원 양식 칸 이름</div>
+                <input value={f.label} onChange={e => updateField(idx, 'label', e.target.value)}
+                  placeholder="예: 놀이 흐름" style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:12 }}/>
+              </div>
+              {/* 앱 섹션 연결 */}
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>앱 섹션 연결</div>
+                <select value={f.mappedTo} onChange={e => updateField(idx, 'mappedTo', e.target.value)}
+                  style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:12 }}>
+                  <option value="">— 선택 안 함 —</option>
+                  {sectionOptions.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
+              </div>
+              {/* 글자수 제한 */}
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>글자 제한</div>
+                <input type="number" value={f.charLimit} onChange={e => updateField(idx, 'charLimit', e.target.value)}
+                  placeholder="없음" min={0} style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:12 }}/>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <button onClick={addField} style={{ width:'100%', padding:'11px', borderRadius:11, background:'var(--primary-light)', color:'var(--primary)', fontSize:13, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginTop:4, border:'1.5px dashed var(--primary)' }}>
+          <Plus size={15}/> 칸 추가
+        </button>
+      </SettingCard>
+
+      {/* 저장 */}
+      <button onClick={handleSave} style={{ width:'100%', padding:'14px', borderRadius:14, background:'var(--primary)', color:'white', fontSize:15, fontWeight:900, boxShadow:'0 4px 16px rgba(79,127,255,0.3)' }}>
+        {isNew ? '양식 등록하기' : '변경사항 저장'}
+      </button>
     </div>
   );
 }

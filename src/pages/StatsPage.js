@@ -8,9 +8,6 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-function toYMD(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
 
 const DAY_LABELS = ['일','월','화','수','목','금','토'];
 const MONTH_KO   = (m) => `${m+1}월`;

@@ -16,7 +16,8 @@ const KEYS = {
   get DOCUMENTS()  { return `sw_${_getUid()}_documents`; },
   get SETTINGS()   { return `sw_${_getUid()}_settings`; },
   get TEMPLATES()  { return `sw_${_getUid()}_templates`; },
-  get DRAFT()      { return `sw_${_getUid()}_draft`; },
+  get DRAFT()           { return `sw_${_getUid()}_draft`; },
+  get FORM_TEMPLATES()  { return `sw_${_getUid()}_form_templates`; },
 };
 
 // Generic storage helpers
@@ -181,6 +182,24 @@ export const updateDocumentDraft = (id, updates) => {
 
 export const deleteDocumentDraft = (id) => {
   saveDocuments(getDocuments().filter(d => d.id !== id));
+};
+
+// ── 원 양식 템플릿 ────────────────────────────────────────────────────────────
+// 각 양식: { id, name, docType, fields: [{ id, label, mappedTo, charLimit }] }
+// mappedTo: 앱 섹션 title 또는 '__date__' | '__childName__' | '__className__' | '__period__'
+export const getFormTemplates   = () => storage.get(KEYS.FORM_TEMPLATES) || [];
+export const saveFormTemplates  = (v) => storage.set(KEYS.FORM_TEMPLATES, v);
+export const addFormTemplate    = (tpl) => {
+  const list = getFormTemplates();
+  const newTpl = { ...tpl, id: genId(), createdAt: new Date().toISOString() };
+  saveFormTemplates([...list, newTpl]);
+  return newTpl;
+};
+export const updateFormTemplate = (id, updates) => {
+  saveFormTemplates(getFormTemplates().map(t => t.id === id ? { ...t, ...updates } : t));
+};
+export const deleteFormTemplate = (id) => {
+  saveFormTemplates(getFormTemplates().filter(t => t.id !== id));
 };
 
 // ── 백업 / 복구 ──────────────────────────────────────────────────────────────

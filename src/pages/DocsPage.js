@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
-  getDocumentHistory,
+  getDocumentHistory, getFormTemplates,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
-import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X } from 'lucide-react';
+import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate } from 'lucide-react';
 
 const DOC_TYPES = [
   { key: 'daily',       label: '보육일지',      icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
@@ -48,6 +48,9 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const [showRecords, setShowRecords] = useState(false);
   const [historyDocs, setHistoryDocs] = useState([]);
   const [historyPreview, setHistoryPreview] = useState(null);
+  // 양식 적용
+  const [formApplied, setFormApplied] = useState(false);
+  const [matchedForm, setMatchedForm] = useState(null);
 
   // 아이 선택 (null = 전체 반)
   const [selectedChildId, setSelectedChildId] = useState(null);
@@ -134,6 +137,11 @@ export default function DocsPage({ onNavigate, isDesktop }) {
         sourceRecordIds: targetRecords.map(r => r.id),
       });
       setDoc(savedDraft);
+      // 매칭 양식 자동 탐색
+      const forms = getFormTemplates();
+      const found = forms.find(f => f.docType === activeType);
+      setMatchedForm(found || null);
+      setFormApplied(false);
     } catch (e) {
       alert(e.message || '문서 생성 중 오류가 발생했어요.');
     } finally {
@@ -340,7 +348,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
             </div>
             {/* 공유 / 인쇄 버튼 */}
             <div style={{ display:'flex', gap:7, flexShrink:0 }}>
-              <ShareButton doc={doc} />
+              <ShareButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
               <button
                 onClick={() => window.print()}
                 className="no-print"
@@ -356,6 +364,39 @@ export default function DocsPage({ onNavigate, isDesktop }) {
             </div>
           </div>
 
+          {/* 양식 적용 배너 */}
+          {matchedForm && (
+            <div style={{
+              background: formApplied ? 'var(--primary-light)' : 'var(--gray-100)',
+              border: `1px solid ${formApplied ? 'var(--primary)' : 'var(--border)'}`,
+              borderRadius: 14, padding: '12px 16px', marginBottom: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            }}>
+              <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                <LayoutTemplate size={16} color={formApplied ? 'var(--primary)' : 'var(--text-secondary)'} />
+                <div>
+                  <div style={{ fontSize:13, fontWeight:800, color: formApplied ? 'var(--primary)' : 'var(--text-primary)' }}>
+                    {matchedForm.name}
+                  </div>
+                  <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:1 }}>
+                    {formApplied ? '원 양식 구조로 표시 중' : '원 양식에 맞게 변환할 수 있어요'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setFormApplied(v => !v)}
+                style={{
+                  padding:'8px 14px', borderRadius:10, fontSize:13, fontWeight:800, flexShrink:0,
+                  background: formApplied ? 'var(--primary)' : 'var(--white)',
+                  color: formApplied ? 'white' : 'var(--primary)',
+                  border: `1.5px solid var(--primary)`,
+                }}
+              >
+                {formApplied ? '✓ 적용 중' : '양식 적용'}
+              </button>
+            </div>
+          )}
+
           {/* 인쇄용 숨김 헤더 */}
           <div className="print-header" style={{ display: 'none' }}>
             <div>
@@ -366,16 +407,19 @@ export default function DocsPage({ onNavigate, isDesktop }) {
             <div style={{ fontSize: '11pt', color: '#444' }}>{doc.badge}</div>
           </div>
 
-          {/* 섹션들 */}
+          {/* 섹션들 — 양식 적용 여부에 따라 렌더링 분기 */}
           <div className="print-area">
-            {doc.sections.map((s, i) => (
-              <DocumentSection key={`${s.title}-${i}`} title={s.title} text={s.text} accent={s.accent} />
-            ))}
+            {formApplied && matchedForm
+              ? <FormAppliedView doc={doc} form={matchedForm} selChild={selChild} cl={cl} period={period} />
+              : doc.sections.map((s, i) => (
+                  <DocumentSection key={`${s.title}-${i}`} title={s.title} text={s.text} accent={s.accent} />
+                ))
+            }
           </div>
 
-          <CopyAllButton doc={doc} />
+          <CopyAllButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
           <button
-            onClick={() => { setDoc(null); handleGenerate(); }}
+            onClick={() => { setDoc(null); setMatchedForm(null); setFormApplied(false); handleGenerate(); }}
             style={{ width: '100%', marginTop: 10, padding: '12px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 800 }}
           >
             다시 생성하기
@@ -669,7 +713,118 @@ function makeAreaText(records, category, fallback) {
   return `${names}의 기록에서 ${fallback} 관련 관찰이 ${samples.length}건 확인되었다.`;
 }
 
+// ── 양식 적용 헬퍼 ────────────────────────────────────────────────────────────
+const PERIOD_LABELS_KO = { date:'선택 날짜', '1month':'1개월', '3months':'3개월', '6months':'6개월', '1year':'1년' };
+
+function resolveAutoField(key, { selChild, cl, period, doc }) {
+  if (key === '__date__')      return doc?.badge?.split(' · ')[0] || '';
+  if (key === '__childName__') return selChild?.name || '';
+  if (key === '__className__') return cl ? `${cl.name} ${cl.age}세반` : '';
+  if (key === '__period__')    return PERIOD_LABELS_KO[period] || '';
+  return null;
+}
+
+// 양식 기반으로 doc을 재구성 → ShareButton / CopyAllButton에 전달
+function applyFormToDoc(doc, form, ctx) {
+  const newSections = (form.fields || []).map(field => {
+    const auto = resolveAutoField(field.mappedTo, { ...ctx, doc });
+    if (auto !== null) return { title: field.label, text: auto };
+    const matched = (doc.sections || []).find(s => s.title === field.mappedTo);
+    let text = matched ? matched.text : '';
+    if (field.charLimit && text.length > field.charLimit) text = text.slice(0, field.charLimit) + '…';
+    return { title: field.label, text };
+  });
+  return { ...doc, title: `${form.name} — ${doc.title}`, sections: newSections };
+}
+
 // ── 서브 컴포넌트 ────────────────────────────────────────────────────────────
+
+// 양식 뷰 렌더러
+function FormAppliedView({ doc, form, selChild, cl, period }) {
+  const PERIOD_OPTIONS_MAP = { date:'선택 날짜', '1month':'1개월', '3months':'3개월', '6months':'6개월', '1year':'1년' };
+  return (
+    <div>
+      {/* 양식 제목 헤더 */}
+      <div style={{ background:'var(--primary-light)', border:'1px solid var(--primary)', borderRadius:14, padding:'14px 18px', marginBottom:14 }}>
+        <div style={{ fontSize:13, fontWeight:900, color:'var(--primary)', marginBottom:4 }}>📋 {form.name}</div>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+          {selChild && <span style={{ fontSize:11, background:'var(--white)', color:'var(--text-secondary)', padding:'3px 8px', borderRadius:6, fontWeight:700 }}>👤 {selChild.name}</span>}
+          {cl && <span style={{ fontSize:11, background:'var(--white)', color:'var(--text-secondary)', padding:'3px 8px', borderRadius:6, fontWeight:700 }}>🏫 {cl.name}</span>}
+          {period && <span style={{ fontSize:11, background:'var(--white)', color:'var(--text-secondary)', padding:'3px 8px', borderRadius:6, fontWeight:700 }}>📆 {PERIOD_OPTIONS_MAP[period]}</span>}
+        </div>
+      </div>
+
+      {/* 각 양식 칸 */}
+      {(form.fields || []).map((field, i) => {
+        const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
+        let text = auto !== null ? auto : '';
+        if (!text) {
+          const matched = (doc.sections || []).find(s => s.title === field.mappedTo);
+          text = matched ? matched.text : '';
+        }
+        const isOver = field.charLimit && text.length > field.charLimit;
+        const display = isOver ? text.slice(0, field.charLimit) + '…' : text;
+
+        return (
+          <FormFieldView
+            key={field.id || i}
+            label={field.label}
+            text={display}
+            charLimit={field.charLimit}
+            charCount={text.length}
+            isOver={isOver}
+            mappedTo={field.mappedTo}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function FormFieldView({ label, text, charLimit, charCount, isOver, mappedTo }) {
+  const [copied, setCopied] = useState(false);
+  const isEmpty = !text?.trim();
+  const isAuto  = mappedTo?.startsWith('__');
+  const display = isOver ? text.slice(0, charLimit) + '…' : text;
+  return (
+    <div style={{
+      background: isEmpty ? 'var(--gray-50)' : 'var(--white)',
+      border: `1px solid ${isOver ? 'var(--accent)' : 'var(--border)'}`,
+      borderRadius:14, padding:'14px 16px', marginBottom:10,
+      boxShadow: isEmpty ? 'none' : 'var(--shadow-sm)',
+    }}>
+      {/* 칸 헤더 */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+          <span style={{ fontSize:13, fontWeight:900, color: isEmpty ? 'var(--text-tertiary)' : 'var(--text-secondary)' }}>{label}</span>
+          {isAuto && <span style={{ fontSize:10, background:'var(--primary-light)', color:'var(--primary)', padding:'2px 6px', borderRadius:5, fontWeight:800 }}>자동</span>}
+          {!mappedTo && <span style={{ fontSize:10, background:'var(--gray-100)', color:'var(--text-tertiary)', padding:'2px 6px', borderRadius:5, fontWeight:700 }}>미연결</span>}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {charLimit && (
+            <span style={{ fontSize:11, fontWeight:700, color: isOver ? 'var(--accent)' : 'var(--text-tertiary)' }}>
+              {charCount}/{charLimit}자 {isOver && '⚠️ 초과'}
+            </span>
+          )}
+          {!isEmpty && (
+            <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1500); }}
+              style={{ fontSize:11, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:3, fontWeight:700 }}>
+              {copied ? <><Check size={11}/> 복사됨</> : <><Copy size={11}/> 복사</>}
+            </button>
+          )}
+        </div>
+      </div>
+      {/* 내용 */}
+      {isEmpty ? (
+        <div style={{ fontSize:13, color:'var(--text-tertiary)', fontStyle:'italic' }}>
+          {mappedTo ? '내용이 없어요' : '앱 섹션이 연결되지 않았어요 (설정 > 원 양식에서 수정)'}
+        </div>
+      ) : (
+        <div style={{ fontSize:14, lineHeight:1.85, color:'var(--text-primary)', whiteSpace:'pre-wrap' }}>{display}</div>
+      )}
+    </div>
+  );
+}
 
 function RecordPreview({ records, onNavigate }) {
   if (records.length === 0) {
