@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   getChildren, getRecords, getClasses,
   today, formatDateKo, formatDate,
@@ -54,7 +54,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated]   = useState(false);
   const [filter, setFilter]         = useState('all'); // 'all' | 'recorded' | 'empty'
-  const [mainMode, setMainMode]     = useState('individual'); // 'individual' | 'bulk'
+  const [mainMode]                  = useState('individual'); // 'individual' | 'bulk'
   const [bulkChecked, setBulkChecked] = useState({});
   const [sharedContext, setSharedContext] = useState('');
   const [bulkNotes, setBulkNotes]   = useState({});

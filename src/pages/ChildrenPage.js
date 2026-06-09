@@ -1,7 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord, updateChild, deleteChild } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc, processRecord } from '../utils/ai';
-import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
+import { ChevronRight, Plus, Search, Sparkles, Copy, X, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
+
+const PREDEFINED_TAGS = ['알레르기', '발달지연', '언어지연', '편식', '투약중', '특별지원', '다문화', '한부모', 'ADHD경향', '분리불안'];
 
 const PERIOD_LABELS = {
   '1month': '최근 1개월',
@@ -112,7 +116,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
   const handleSaveEdit = () => {
     if (!editingChild?.name?.trim()) return;
-    updateChild(editingChild.id, { name: editingChild.name.trim(), birthdate: editingChild.birthdate || '', notes: editingChild.notes || '', allergies: editingChild.allergies || '' });
+    updateChild(editingChild.id, { name: editingChild.name.trim(), birthdate: editingChild.birthdate || '', notes: editingChild.notes || '', allergies: editingChild.allergies || '', tags: editingChild.tags || [] });
     setChildren(getChildren());
     if (selected?.id === editingChild.id) setSelected(c => ({ ...c, ...editingChild }));
     setEditingChild(null);
@@ -273,7 +277,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
         <SectionTitle>기록 목록</SectionTitle>
         {records.length === 0 ? (
-          <EmptyState text="이 기간의 기록이 없어요" action="기록 추가하기" onAction={() => onNavigate('record', { childId: selected.id })} />
+          <EmptyState emoji="📝" title="이 기간의 기록이 없어요" actionLabel="기록 추가하기" onAction={() => onNavigate('record', { childId: selected.id })} />
         ) : (
           records.map(r => <RecordCard key={r.id} record={r} classAge={classes[0]?.age} onChange={refreshSelectedRecords} />)
         )}
@@ -391,6 +395,14 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
                 기록 {recs.length}건{lastRec ? ` · 최근 ${formatDate(lastRec.date)}` : ' · 아직 기록 없음'}
               </div>
               {child.allergies && <div style={{ fontSize:11, color:'var(--accent)', fontWeight:700, marginBottom:2 }}>⚠️ {child.allergies}</div>}
+              {child.tags?.length > 0 && (
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:2 }}>
+                  {child.tags.slice(0,3).map(tag => (
+                    <span key={tag} style={{ fontSize:10, fontWeight:700, color:'var(--primary)', background:'var(--primary-light)', padding:'2px 7px', borderRadius:100 }}>{tag}</span>
+                  ))}
+                  {child.tags.length > 3 && <span style={{ fontSize:10, color:'var(--text-tertiary)' }}>+{child.tags.length - 3}</span>}
+                </div>
+              )}
               {/* 기록 수 바 */}
               {recs.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -414,7 +426,12 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
         );
       })}
 
-      {filtered.length === 0 && <EmptyState text="해당하는 아이가 없어요" />}
+      {filtered.length === 0 && children.length === 0 && (
+        <EmptyState emoji="👶" title="등록된 아이가 없어요" desc="설정에서 아이를 추가하거나 아래 버튼으로 바로 추가해요" actionLabel="아이 추가하기" onAction={() => setShowAddChild(true)} />
+      )}
+      {filtered.length === 0 && children.length > 0 && (
+        <EmptyState emoji="🔍" title="검색 결과가 없어요" desc="다른 이름으로 검색해보세요" />
+      )}
       </div>
 
       {/* 아이 편집 모달 */}
@@ -450,6 +467,25 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
               <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>메모</div>
               <textarea value={editingChild.notes||''} onChange={e => setEditingChild(c=>({...c,notes:e.target.value}))} placeholder="특이사항, 성격 등 자유롭게" rows={2}
                 style={{ width:'100%', padding:'10px 12px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, lineHeight:1.6, fontFamily:'inherit', resize:'none' }} />
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:8 }}>특이사항 태그</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
+                {PREDEFINED_TAGS.map(tag => {
+                  const isSelected = (editingChild.tags || []).includes(tag);
+                  return (
+                    <button key={tag} onClick={() => setEditingChild(c => {
+                      const tags = c.tags || [];
+                      return { ...c, tags: tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag] };
+                    })} style={{
+                      padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:700,
+                      background: isSelected ? 'var(--primary)' : 'var(--gray-100)',
+                      color: isSelected ? 'white' : 'var(--text-secondary)',
+                    }}>{tag}</button>
+                  );
+                })}
+              </div>
+              <TagCustomInput tags={editingChild.tags || []} onAdd={tag => setEditingChild(c => ({ ...c, tags: [...(c.tags||[]), tag] }))} onRemove={tag => setEditingChild(c => ({ ...c, tags: (c.tags||[]).filter(t => t !== tag) }))} />
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
               <button onClick={handleSaveEdit} style={{ padding:'13px', borderRadius:12, background:'var(--primary)', color:'white', fontWeight:800, fontSize:14 }}>저장</button>
@@ -516,14 +552,13 @@ function AIButton({ icon, label, sub, loading, onClick, accent }) {
 }
 
 function CopyCard({ title, text, accent }) {
-  const [copied, setCopied] = useState(false);
+  const showToast = useToast();
   if (!text) return null;
 
   const textStr = Array.isArray(text) ? text.join('\n') : text;
   const handleCopy = () => {
     navigator.clipboard.writeText(textStr);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    showToast('복사했어요! 📋', 'success');
   };
 
   return (
@@ -536,7 +571,7 @@ function CopyCard({ title, text, accent }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
         <button onClick={handleCopy} style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-          {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
+          <Copy size={12} /> 복사
         </button>
       </div>
       <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{textStr}</div>
@@ -669,6 +704,44 @@ function RecordCard({ record, classAge, onChange }) {
   );
 }
 
+function TagCustomInput({ tags, onAdd, onRemove }) {
+  const [input, setInput] = useState('');
+  const predefinedSet = new Set(PREDEFINED_TAGS);
+  const customTags = tags.filter(t => !predefinedSet.has(t));
+
+  const handleAdd = () => {
+    const v = input.trim();
+    if (!v || tags.includes(v)) return;
+    onAdd(v);
+    setInput('');
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:6, marginBottom:6 }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          placeholder="직접 입력 후 Enter"
+          style={{ flex:1, padding:'8px 12px', borderRadius:10, border:'1.5px solid var(--border)', fontSize:12, fontFamily:'inherit' }}
+        />
+        <button onClick={handleAdd} style={{ padding:'8px 14px', borderRadius:10, background:'var(--primary)', color:'white', fontSize:12, fontWeight:800 }}>추가</button>
+      </div>
+      {customTags.length > 0 && (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+          {customTags.map(tag => (
+            <span key={tag} style={{ padding:'4px 10px', borderRadius:100, fontSize:11, fontWeight:700, background:'var(--primary-light)', color:'var(--primary)', display:'flex', alignItems:'center', gap:4 }}>
+              {tag}
+              <button onClick={() => onRemove(tag)} style={{ color:'var(--primary)', fontWeight:900, fontSize:13, lineHeight:1 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditField({ label, value, onChange }) {
   return (
     <label style={{ display: 'block', marginBottom: 10 }}>
@@ -684,14 +757,5 @@ function EditField({ label, value, onChange }) {
         }}
       />
     </label>
-  );
-}
-
-function EmptyState({ text, action, onAction }) {
-  return (
-    <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 14, padding: '36px 0' }}>
-      <div style={{ marginBottom: 10 }}>{text}</div>
-      {action && <button onClick={onAction} style={{ padding: '10px 16px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontWeight: 800 }}>{action}</button>}
-    </div>
   );
 }

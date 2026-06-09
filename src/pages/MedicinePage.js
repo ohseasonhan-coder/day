@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getMedicines, addMedicine, updateMedicine, deleteMedicine, today } from '../utils/storage';
 import { Pill, Check, Trash2, Copy, X } from 'lucide-react';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
 
 const TIMING_OPTIONS = ['점심 전', '점심 후', '오후 간식 후'];
 
@@ -11,7 +13,7 @@ export default function MedicinePage({ isDesktop }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ childId: '', medicine: '', dose: '', timing: [], reason: '' });
   const [smsModal, setSmsModal] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const showToast = useToast();
 
   useEffect(() => {
     setChildren(getChildren());
@@ -55,7 +57,7 @@ export default function MedicinePage({ isDesktop }) {
   };
 
   const handleCopy = (text) => {
-    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); });
+    navigator.clipboard.writeText(text).then(() => showToast('복사했어요! 📋', 'success'));
   };
 
   const toggleTiming = (t) => {
@@ -101,9 +103,7 @@ export default function MedicinePage({ isDesktop }) {
 
       {/* Medicine List */}
       {todayMeds.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-tertiary)', fontSize: 15 }}>
-          오늘 투약 의뢰가 없어요.
-        </div>
+        <EmptyState emoji="💊" title="오늘 투약 의뢰가 없어요" desc="투약이 필요한 아이가 있으면 등록해주세요" actionLabel="투약 의뢰 등록" onAction={() => setShowForm(true)} />
       ) : (
         todayMeds.map(med => {
           const child = children.find(c => c.id === med.childId);
@@ -201,8 +201,8 @@ export default function MedicinePage({ isDesktop }) {
             <div style={{ background: 'var(--gray-50)', borderRadius: 12, padding: 14, fontSize: 14, lineHeight: 1.7, color: 'var(--text-primary)', marginBottom: 14 }}>
               {smsModal}
             </div>
-            <button onClick={() => handleCopy(smsModal)} style={{ width: '100%', background: copied ? '#4CAF50' : 'var(--primary)', color: 'white', borderRadius: 10, padding: '12px', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-              <Copy size={15} /> {copied ? '복사됐어요!' : '복사하기'}
+            <button onClick={() => handleCopy(smsModal)} style={{ width: '100%', background: 'var(--primary)', color: 'white', borderRadius: 10, padding: '12px', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              <Copy size={15} /> 복사하기
             </button>
           </div>
         </div>

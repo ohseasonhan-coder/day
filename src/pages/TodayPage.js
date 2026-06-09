@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents } from '../utils/storage';
+import React, { useState, useEffect } from 'react';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults } from '../utils/storage';
 import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 const SERVICE_CARDS = [
@@ -32,6 +32,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   const [todayMedicineCount, setTodayMedicineCount] = useState(0);
   const [coachInsightCount, setCoachInsightCount] = useState(0);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [upcomingConsults, setUpcomingConsults] = useState([]);
 
   const todayStr  = today();
   const dateLabel = formatDateKo(todayStr);
@@ -68,6 +69,17 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       const evs = getEvents().filter(e => e.date >= todayISO && e.date <= in7ISO);
       evs.sort((a, b) => a.date.localeCompare(b.date));
       setUpcomingEvents(evs.slice(0, 3));
+    } catch {}
+
+    // Upcoming consults (within 3 days)
+    try {
+      const now3 = new Date();
+      const in3 = new Date(now3); in3.setDate(in3.getDate() + 3);
+      const todayISO3 = getDayStr(now3);
+      const in3ISO = getDayStr(in3);
+      const cons = getConsults().filter(c => c.status === 'scheduled' && c.date >= todayISO3 && c.date <= in3ISO);
+      cons.sort((a, b) => a.date.localeCompare(b.date));
+      setUpcomingConsults(cons.slice(0, 3));
     } catch {}
 
     // Coach insight count (simple heuristic)
@@ -465,6 +477,29 @@ export default function TodayPage({ onNavigate, isDesktop }) {
           {QuickStatsRow}
           {HeatmapSection}
           {CoachWidget}
+          {upcomingConsults.length > 0 && (
+            <div style={{ background:'var(--white)', border:'1.5px solid #FF8C42', borderRadius:14, padding:'14px 16px', marginBottom:12, boxShadow:'var(--shadow-sm)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                <span style={{ fontWeight:900, fontSize:14 }}>💬 곧 있을 상담</span>
+                <button onClick={() => onNavigate('consult')} style={{ fontSize:12, color:'#FF8C42', fontWeight:800 }}>전체 보기</button>
+              </div>
+              {upcomingConsults.map(c => {
+                const d = new Date(c.date + 'T00:00:00');
+                const today2 = new Date(todayStr + 'T00:00:00');
+                const diff = Math.ceil((d - today2) / 86400000);
+                const ddayLabel = diff === 0 ? 'D-day' : `D-${diff}`;
+                return (
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:800 }}>{c.childName}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{c.date} {c.time ? `· ${c.time}` : ''} · {c.type}</div>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:900, background:'#FF8C42', color:'white', borderRadius:100, padding:'2px 9px' }}>{ddayLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {UpcomingEventsWidget}
           {QuickLinks}
           {CatDistribution}
@@ -484,6 +519,29 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       {QuickStatsRow}
       {HeatmapSection}
       {CoachWidget}
+      {upcomingConsults.length > 0 && (
+        <div style={{ background:'var(--white)', border:'1.5px solid #FF8C42', borderRadius:14, padding:'14px 16px', marginBottom:12, boxShadow:'var(--shadow-sm)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+            <span style={{ fontWeight:900, fontSize:14 }}>💬 곧 있을 상담</span>
+            <button onClick={() => onNavigate('consult')} style={{ fontSize:12, color:'#FF8C42', fontWeight:800 }}>전체 보기</button>
+          </div>
+          {upcomingConsults.map(c => {
+            const d = new Date(c.date + 'T00:00:00');
+            const today2 = new Date(todayStr + 'T00:00:00');
+            const diff = Math.ceil((d - today2) / 86400000);
+            const ddayLabel = diff === 0 ? 'D-day' : `D-${diff}`;
+            return (
+              <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:800 }}>{c.childName}</div>
+                  <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{c.date} {c.time ? `· ${c.time}` : ''} · {c.type}</div>
+                </div>
+                <span style={{ fontSize:11, fontWeight:900, background:'#FF8C42', color:'white', borderRadius:100, padding:'2px 9px' }}>{ddayLabel}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {UpcomingEventsWidget}
       {QuickLinks}
       {CatDistribution}

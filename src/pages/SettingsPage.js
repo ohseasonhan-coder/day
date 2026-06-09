@@ -1,7 +1,8 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
-  getRoutines, addRoutine, deleteRoutine, CATEGORIES } from '../utils/storage';
+  getRoutines, addRoutine, deleteRoutine, CATEGORIES,
+  addBackupRecord } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -107,6 +108,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const handleExport = () => {
     try {
       exportBackup();
+      addBackupRecord();
       setBackupMsg({ ok: true, text: '백업 파일이 다운로드됐어요.' });
       setTimeout(() => setBackupMsg(null), 3000);
     } catch (e) {

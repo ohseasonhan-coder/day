@@ -28,7 +28,7 @@ export default function PrintPreviewModal({ title, sections, meta, onClose }) {
 <div class="meta">${meta?.date || ''}${meta?.childName ? ' | ' + meta.childName : ''}${meta?.className ? ' | ' + meta.className : ''}</div>
 ${(sections || []).map(s => `<div class="section"><div class="section-title">${s.title}</div><div class="section-body">${(s.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div></div>`).join('')}
 <div class="footer">쌤워크 앱으로 자동 생성됨</div>
-<script>window.onload = function() { window.print(); setTimeout(function(){ window.close(); }, 1000); };<\/script>
+<script>window.onload = function() { window.print(); setTimeout(function(){ window.close(); }, 1000); };</script>
 </body></html>`);
     w.document.close();
   };

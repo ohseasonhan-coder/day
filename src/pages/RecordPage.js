@@ -1,4 +1,6 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
 import {
   getChildren,
   getClasses,
@@ -391,6 +393,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
           isDesktop={isDesktop}
           onOpenDetail={setDetailRecord}
           onToggleStar={handleToggleStar}
+          onStartRecord={() => setMode('write')}
         />
       ) : (
         <>
@@ -660,6 +663,34 @@ function QuickTemplatePanel({ templates, customTemplates, onInsert, onAdd, onDel
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   CSV 내보내기 함수
+══════════════════════════════════════════════════════════════════════════════ */
+export function exportRecordsToCSV(records, children) {
+  const childMap = {};
+  children.forEach(c => { childMap[c.id] = c.name; });
+  const headers = ['날짜', '아이 이름', '기록 유형', '카테고리', '원본 내용', '생성된 내용'];
+  const rows = records.map(r => [
+    r.date || '',
+    childMap[r.childId] || r.childName || '',
+    r.recordType || r.type || '',
+    r.category || '',
+    `"${(r.rawText || '').replace(/"/g, '""')}"`,
+    `"${(r.observation || r.result || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+  ]);
+  const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const BOM = '﻿';
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `쌤워크_기록_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
    전체 기록 워크스페이스
 ══════════════════════════════════════════════════════════════════════════════ */
 function RecordsWorkspace({
@@ -671,11 +702,54 @@ function RecordsWorkspace({
   filterStarred, setFilterStarred,
   calendarMonth, setCalendarMonth,
   recordDates, clearFilters, isDesktop,
-  onOpenDetail, onToggleStar,
+  onOpenDetail, onToggleStar, onStartRecord,
 }) {
   const starCount = records.filter(r => r.starred).length;
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportRange, setExportRange] = useState('all');
+  const [exportChildId, setExportChildId] = useState('all');
+
+  const handleExport = () => {
+    const now = new Date();
+    let filtered = [...records];
+    if (exportRange === 'month') {
+      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      filtered = filtered.filter(r => r.date && r.date.startsWith(ym));
+    } else if (exportRange === '3months') {
+      const cutoff = new Date(now); cutoff.setMonth(cutoff.getMonth() - 3);
+      filtered = filtered.filter(r => r.date && r.date >= cutoff.toISOString().slice(0,10));
+    }
+    if (exportChildId !== 'all') filtered = filtered.filter(r => r.childId === exportChildId);
+    exportRecordsToCSV(filtered, children);
+    setShowExportModal(false);
+  };
+
   return (
     <div className="slide-up">
+      {showExportModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'flex-end' }} onClick={() => setShowExportModal(false)}>
+          <div style={{ width:'100%', background:'var(--white)', borderRadius:'20px 20px 0 0', padding:24, maxHeight:'80vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:17, fontWeight:900, marginBottom:16 }}>📊 기록 내보내기</div>
+            <div style={{ fontSize:13, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>기간 선택</div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
+              {[['all','전체'],['month','이번 달'],['3months','최근 3개월']].map(([k,v]) => (
+                <button key={k} onClick={() => setExportRange(k)} style={{ padding:'8px 16px', borderRadius:100, fontSize:13, fontWeight:800, background: exportRange===k ? 'var(--primary)' : 'var(--gray-100)', color: exportRange===k ? 'white' : 'var(--text-secondary)' }}>{v}</button>
+              ))}
+            </div>
+            <div style={{ fontSize:13, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>아이 선택</div>
+            <select value={exportChildId} onChange={e => setExportChildId(e.target.value)} style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:'1.5px solid var(--border)', fontSize:14, marginBottom:16, fontFamily:'inherit' }}>
+              <option value="all">전체 아이</option>
+              {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <div style={{ fontSize:12, color:'var(--text-tertiary)', marginBottom:16, lineHeight:1.6 }}>
+              💡 엑셀에서 열 때 파일 인코딩을 UTF-8로 선택해주세요
+            </div>
+            <button onClick={handleExport} style={{ width:'100%', padding:'14px', borderRadius:12, background:'var(--primary)', color:'white', fontSize:15, fontWeight:800 }}>
+              CSV 다운로드 (엑셀)
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10, marginBottom: 16 }}>
         <SummaryCard label="전체 기록" value={`${records.length}건`} icon="🗂️" />
         <SummaryCard label="기록한 날짜" value={`${recordDates.size}일`} icon="📅" />
@@ -742,15 +816,20 @@ function RecordsWorkspace({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 900 }}>전체 기록 목록</div>
-        <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 900 }}>{filteredRecords.length}건</div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 900 }}>{filteredRecords.length}건</div>
+          <button onClick={() => setShowExportModal(true)} style={{ fontSize:12, fontWeight:800, color:'var(--primary)', background:'var(--primary-light)', borderRadius:100, padding:'5px 12px' }}>
+            내보내기
+          </button>
+        </div>
       </div>
 
       {filteredRecords.length === 0 ? (
-        <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px 18px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔎</div>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>조건에 맞는 기록이 없어요</div>
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>날짜, 아이 이름, 카테고리 조건을 바꿔보세요.</div>
-        </div>
+        records.length === 0 ? (
+          <EmptyState emoji="✍️" title="아직 기록이 없어요" desc="오늘 아이들의 관찰 내용을 기록해보세요" actionLabel="첫 기록 남기기" onAction={onStartRecord} />
+        ) : (
+          <EmptyState emoji="🔍" title="검색 결과가 없어요" desc="다른 키워드로 검색해보세요" />
+        )
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>
           {filteredRecords.map(record => <RecordListCard key={record.id} record={record} onClick={() => onOpenDetail(record)} onToggleStar={onToggleStar} />)}
@@ -1110,9 +1189,9 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
 }
 
 function DetailSection({ title, text, expanded, onToggle, accent }) {
-  const [copied, setCopied] = useState(false);
+  const showToast = useToast();
   if (!text) return null;
-  const handleCopy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); };
+  const handleCopy = () => { navigator.clipboard.writeText(text); showToast('복사했어요! 📋', 'success'); };
   const isLong = text.length > 100;
 
   return (
@@ -1121,7 +1200,7 @@ function DetailSection({ title, text, expanded, onToggle, accent }) {
         <span style={{ fontSize: 12, fontWeight: 800, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={handleCopy} style={{ fontSize: 11, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700 }}>
-            {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
+            <Copy size={12} /> 복사
           </button>
           {isLong && <button onClick={onToggle} style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', fontWeight: 700 }}>{expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</button>}
         </div>
@@ -1173,15 +1252,15 @@ function SummaryCard({ label, value, icon }) {
 }
 
 function ResultSection({ title, text, accent }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => { navigator.clipboard.writeText(text || ''); setCopied(true); setTimeout(() => setCopied(false), 1800); };
+  const showToast = useToast();
+  const handleCopy = () => { navigator.clipboard.writeText(text || ''); showToast('복사했어요! 📋', 'success'); };
   if (!text) return null;
   return (
     <div style={{ background: accent ? 'var(--primary-light)' : 'white', border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 15, padding: 16, marginBottom: 12, boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 800, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
         <button onClick={handleCopy} style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-          {copied ? <><Check size={13} /> 복사됨</> : <><Copy size={13} /> 복사</>}
+          <Copy size={13} /> 복사
         </button>
       </div>
       <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>

@@ -1,4 +1,4 @@
-﻿// ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
+// ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
 // 로그인한 사용자의 userId를 prefix로 사용 → 멀티 계정 지원
 // auth.js import를 피하기 위해 직접 localStorage에서 읽음
 function _getUid() {
@@ -24,6 +24,10 @@ const KEYS = {
   get NEWSLETTERS()     { return `sw_${_getUid()}_newsletters`; },
   get ACTIVE_CLASS()    { return `sw_${_getUid()}_active_class`; },
   get EVENTS()          { return `sw_${_getUid()}_events`; },
+  get ONBOARDING_DONE() { return `sw_${_getUid()}_onboarding_done`; },
+  get DOC_TEMPLATES()   { return `sw_${_getUid()}_doc_templates`; },
+  get CONSULTS()        { return `sw_${_getUid()}_consults`; },
+  get BACKUP_HISTORY()  { return `sw_${_getUid()}_backup_history`; },
 };
 
 // Generic storage helpers
@@ -297,6 +301,28 @@ export const deleteNewsletter = (id) => saveNewsletters(getNewsletters().filter(
 // ── 활성 반 ───────────────────────────────────────────────────────────────────
 export const getActiveClassId = () => storage.get(KEYS.ACTIVE_CLASS);
 export const setActiveClassId = (id) => storage.set(KEYS.ACTIVE_CLASS, id);
+
+// ── 온보딩 ────────────────────────────────────────────────────────────────────
+export const isOnboardingDone = () => !!storage.get(KEYS.ONBOARDING_DONE);
+export const setOnboardingDone = () => storage.set(KEYS.ONBOARDING_DONE, true);
+
+// ── 문서 템플릿 커스터마이징 ────────────────────────────────────────────────────
+export const getDocTemplates = () => storage.get(KEYS.DOC_TEMPLATES) || {};
+export const saveDocTemplates = (v) => storage.set(KEYS.DOC_TEMPLATES, v);
+
+// ── 상담 관리 ─────────────────────────────────────────────────────────────────
+export const getConsults    = () => storage.get(KEYS.CONSULTS) || [];
+export const saveConsults   = (v) => storage.set(KEYS.CONSULTS, v);
+export const addConsult     = (c) => { const list = getConsults(); const n = {...c, id: genId(), createdAt: new Date().toISOString()}; saveConsults([...list, n]); return n; };
+export const updateConsult  = (id, u) => saveConsults(getConsults().map(c => c.id === id ? {...c,...u} : c));
+export const deleteConsult  = (id) => saveConsults(getConsults().filter(c => c.id !== id));
+
+// ── 백업 이력 ─────────────────────────────────────────────────────────────────
+export const getBackupHistory  = () => storage.get(KEYS.BACKUP_HISTORY) || [];
+export const addBackupRecord   = () => {
+  const hist = getBackupHistory().slice(0, 9);
+  storage.set(KEYS.BACKUP_HISTORY, [{ date: new Date().toISOString(), type: 'manual' }, ...hist]);
+};
 
 // ── 연간 행사 ─────────────────────────────────────────────────────────────────
 export const getEvents   = () => storage.get(KEYS.EVENTS) || [];

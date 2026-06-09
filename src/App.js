@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecordsByDate, today, getActiveClassId, setActiveClassId } from './utils/storage';
+import { getClasses, getChildren, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone } from './utils/storage';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
@@ -19,8 +19,10 @@ import AccidentPage   from './pages/AccidentPage';
 import NewsletterPage from './pages/NewsletterPage';
 import CoachPage      from './pages/CoachPage';
 import EventsPage     from './pages/EventsPage';
+import ConsultPage    from './pages/ConsultPage';
+import OnboardingModal from './components/OnboardingModal';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, Lightbulb, CalendarDays } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare } from 'lucide-react';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
@@ -45,13 +47,14 @@ const DESKTOP_NAV = [
   { id: 'medicine',   label: '투약',     icon: Pill },
   { id: 'accident',   label: '사고기록', icon: AlertTriangle },
   { id: 'newsletter', label: '가정통신문', icon: Newspaper },
+  { id: 'consult',    label: '상담 관리',  icon: MessageSquare },
 ];
 
 const PAGE_TITLES = {
   today: '오늘', record: '기록', note: '알림장',
   children: '아이들', docs: '문서함', check: '점검', stats: '통계',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
-  coach: 'AI 코칭', events: '행사 캘린더',
+  coach: 'AI 코칭', events: '행사 캘린더', consult: '상담 관리',
 };
 
 function useIsDesktop() {
@@ -79,6 +82,7 @@ export default function App() {
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => user ? !isOnboardingDone() : false);
   const isDesktop = useIsDesktop();
 
   const handleSetActiveClass = (id) => {
@@ -124,7 +128,7 @@ export default function App() {
     setIsSetup(false);
   };
 
-  if (!user)        return <LoginPage    onLogin={(u) => { setUser(u); setPage('today'); }} />;
+  if (!user)        return <LoginPage    onLogin={(u) => { setUser(u); setPage('today'); setShowOnboarding(!isOnboardingDone()); }} />;
   if (isSetup)      return <SetupPage    onComplete={() => setIsSetup(false)} />;
   if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} activeClassId={activeClassId} onSetActiveClass={handleSetActiveClass} />;
 
@@ -150,6 +154,7 @@ export default function App() {
       case 'newsletter': return <NewsletterPage {...pageProps} />;
       case 'coach':      return <CoachPage      {...pageProps} />;
       case 'events':     return <EventsPage     {...pageProps} />;
+      case 'consult':    return <ConsultPage    {...pageProps} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }
@@ -159,6 +164,7 @@ export default function App() {
   if (isDesktop) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--gray-50)' }}>
+        {showOnboarding && <OnboardingModal onDone={() => setShowOnboarding(false)} />}
 
         {/* 사이드바 */}
         <aside style={{
@@ -287,6 +293,7 @@ export default function App() {
   /* ─── 모바일 레이아웃 ───────────────────────────── */
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
+      {showOnboarding && <OnboardingModal onDone={() => setShowOnboarding(false)} />}
       <header className="no-print" style={{
         position: 'sticky', top: 0, zIndex: 100,
         background: 'rgba(248,250,254,0.95)', backdropFilter: 'blur(12px)',
@@ -353,7 +360,6 @@ export default function App() {
     </div>
   );
 }
-
 
 
 

@@ -1,5 +1,7 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import PrintPreviewModal from '../components/PrintPreviewModal';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
@@ -487,14 +489,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
         </div>
       )}
       {historyDocs.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'48px 20px', color:'var(--text-secondary)' }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>📭</div>
-          <div style={{ fontSize:15, fontWeight:800 }}>아직 생성한 문서가 없어요</div>
-          <div style={{ fontSize:13, marginTop:6, lineHeight:1.6 }}>새 문서 만들기 탭에서 문서를 생성해 보세요.</div>
-          <button onClick={() => setMainTab('new')} style={{ marginTop:16, padding:'11px 22px', borderRadius:12, background:'var(--primary)', color:'white', fontWeight:800 }}>
-            문서 만들러 가기
-          </button>
-        </div>
+        <EmptyState emoji="📂" title="생성된 문서가 없어요" desc="문서함에서 보육일지, 발달평가 등을 생성해보세요" actionLabel="새 문서 만들기" onAction={() => setMainTab('new')} />
       ) : displayedHistoryDocs.length === 0 ? (
         <div style={{ textAlign:'center', padding:'32px 20px', color:'var(--text-secondary)', fontSize:14 }}>즐겨찾기한 문서가 없어요.</div>
       ) : (
@@ -734,7 +729,6 @@ function buildDocument(type, records, date, cl, children, selChild, period) {
 
   if (type === 'weekplan') {
     const cs = summarizeCategories(records);
-    const badge = selChild ? (subjectLabel + ' · 주간 계획안') : ((cl ? cl.name : '우리 반') + ' 주간 계획안');
     return {
       title: '주간 계획안 초안', badge: commonBadge,
       sections: [
@@ -876,7 +870,7 @@ function ImageOverlayView({ doc, form, selChild, cl, period }) {
     const textItems = filledFields
       .filter(f => f.x != null && f.filledText?.trim())
       .map(f => `<div style="position:absolute;left:${f.x}%;top:${f.y}%;width:${f.fieldWidth||30}%;transform:translateY(-50%);font-size:10.5pt;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#000;line-height:1.5;word-break:keep-all;white-space:pre-wrap;">${f.filledText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>')}</div>`).join('');
-    pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><style>@page{margin:0;}body{margin:0;padding:0;}.wrap{position:relative;width:100%;}img{width:100%;display:block;}</style></head><body><div class="wrap"><img src="${form.imageData}"/>${textItems}</div><script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script></body></html>`);
+    pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><style>@page{margin:0;}body{margin:0;padding:0;}.wrap{position:relative;width:100%;}img{width:100%;display:block;}</style></head><body><div class="wrap"><img src="${form.imageData}"/>${textItems}</div><script>window.onload=function(){setTimeout(function(){window.print();},300);}</script></body></html>`);
     pw.document.close();
   };
 
@@ -1043,7 +1037,7 @@ function RecordPreview({ records, onNavigate }) {
 }
 
 function DocumentSection({ title, text, accent }) {
-  const [copied, setCopied] = useState(false);
+  const showToast = useToast();
   if (!text) return null;
   return (
     <div className="print-section" style={{
@@ -1055,10 +1049,10 @@ function DocumentSection({ title, text, accent }) {
       <div className="print-section-title no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
         <span style={{ fontSize: 13, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
         <button
-          onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+          onClick={() => { navigator.clipboard.writeText(text); showToast('복사했어요! 📋', 'success'); }}
           style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
         >
-          {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
+          <Copy size={12} /> 복사
         </button>
       </div>
       {/* 인쇄용 제목 */}
@@ -1069,7 +1063,7 @@ function DocumentSection({ title, text, accent }) {
 }
 
 function ShareButton({ doc }) {
-  const [shared, setShared] = useState(false);
+  const showToast = useToast();
   if (!doc) return null;
   const getText = () =>
     `${doc.title}\n${doc.badge}\n\n` + (doc.sections||[]).map(s => `[${s.title}]\n${s.text}`).join('\n\n') + '\n\n— 쌤워크로 작성';
@@ -1082,33 +1076,31 @@ function ShareButton({ doc }) {
       const ta = document.createElement('textarea');
       ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     }
-    setShared(true);
-    setTimeout(() => setShared(false), 2000);
+    showToast('복사했어요! 📋', 'success');
   };
   return (
     <button onClick={handleShare} className="no-print" style={{
       display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10,
       background:'var(--primary)', color:'white', fontSize:13, fontWeight:800,
     }}>
-      {shared ? <><Check size={14}/> 복사됨</> : <><Share2 size={14}/> 공유</>}
+      <Share2 size={14}/> 공유
     </button>
   );
 }
 
 function CopyAllButton({ doc }) {
-  const [copied, setCopied] = useState(false);
+  const showToast = useToast();
   const handleCopyAll = () => {
     const text = `${doc.title}\n${doc.badge}\n\n` + doc.sections.map(s => `[${s.title}]\n${s.text}`).join('\n\n');
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    showToast('전체 복사했어요! 📋', 'success');
   };
   return (
     <button onClick={handleCopyAll} className="no-print" style={{
       width: '100%', padding: '14px', borderRadius: 14, background: 'var(--gray-800)', color: 'white',
       fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 4,
     }}>
-      {copied ? <><Check size={16} /> 전체 복사 완료</> : <><Copy size={16} /> 전체 복사하기</>}
+      <Copy size={16} /> 전체 복사하기
     </button>
   );
 }
@@ -1130,8 +1122,6 @@ function EmptyGuide({ activeType, onNavigate }) {
 function Spinner({ dark }) {
   return <div style={{ width: 16, height: 16, border: `2px solid ${dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.15)'}`, borderTopColor: dark ? 'white' : 'var(--gray-800)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />;
 }
-
-
 
 
 
