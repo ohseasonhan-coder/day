@@ -346,21 +346,23 @@ export default function DocsPage({ onNavigate, isDesktop }) {
                 {doc.badge}
               </span>
             </div>
-            {/* 공유 / 인쇄 버튼 */}
+            {/* 공유 / 인쇄 버튼 — 이미지 양식 적용 중이면 인쇄 버튼 숨김 (ImageOverlayView 내부 버튼 사용) */}
             <div style={{ display:'flex', gap:7, flexShrink:0 }}>
               <ShareButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
-              <button
-                onClick={() => window.print()}
-                className="no-print"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 10,
-                  border: '1.5px solid var(--border)', background: 'var(--white)',
-                  fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)',
-                }}
-              >
-                <Printer size={14} color="var(--primary)" /> 인쇄
-              </button>
+              {!(formApplied && matchedForm?.imageData) && (
+                <button
+                  onClick={() => window.print()}
+                  className="no-print"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 14px', borderRadius: 10,
+                    border: '1.5px solid var(--border)', background: 'var(--white)',
+                    fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)',
+                  }}
+                >
+                  <Printer size={14} color="var(--primary)" /> 인쇄
+                </button>
+              )}
             </div>
           </div>
 
@@ -768,100 +770,107 @@ function FormAppliedView({ doc, form, selChild, cl, period }) {
   );
 }
 
-// 이미지 오버레이 뷰
+// 이미지 오버레이 뷰 — 텍스트가 직접 빈칸에 표시됨
 function ImageOverlayView({ doc, form, selChild, cl, period }) {
-  const [zoom, setZoom] = useState(false);
+
+  // 각 필드의 채워진 텍스트 계산
+  const filledFields = (form.fields || []).map(field => {
+    const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
+    let text = auto !== null ? auto : '';
+    if (!text) { const m = (doc.sections || []).find(s => s.title === field.mappedTo); text = m?.text || ''; }
+    const display = field.charLimit && text.length > field.charLimit ? text.slice(0, field.charLimit) + '…' : text;
+    return { ...field, filledText: display };
+  });
+
+  // 새 창 인쇄 함수
+  const handleFormPrint = () => {
+    const pw = window.open('', '_blank', 'width=900,height=1200');
+    const textItems = filledFields
+      .filter(f => f.x != null && f.filledText?.trim())
+      .map(f => `<div style="position:absolute;left:${f.x}%;top:${f.y}%;width:${f.fieldWidth||30}%;transform:translateY(-50%);font-size:10.5pt;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#000;line-height:1.5;word-break:keep-all;white-space:pre-wrap;">${f.filledText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>')}</div>`).join('');
+    pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><style>@page{margin:0;}body{margin:0;padding:0;}.wrap{position:relative;width:100%;}img{width:100%;display:block;}</style></head><body><div class="wrap"><img src="${form.imageData}"/>${textItems}</div><script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script></body></html>`);
+    pw.document.close();
+  };
+
   return (
     <div>
-      {/* 안내 */}
-      <div className="no-print" style={{ background:'var(--primary-light)', border:'1px solid var(--primary)', borderRadius:12, padding:'10px 14px', marginBottom:12, fontSize:12, color:'var(--primary)', fontWeight:700, lineHeight:1.7 }}>
-        📌 원 양식 위에 내용이 표시됩니다. <b>인쇄</b>하거나 <b>전체 복사</b> 후 원 양식에 붙여넣으세요.<br/>
-        <span style={{ fontWeight:600, color:'var(--text-secondary)' }}>번호를 탭하면 내용을 확인할 수 있어요.</span>
+      {/* 안내 + 인쇄 버튼 */}
+      <div className="no-print" style={{ background:'var(--primary-light)', border:'1px solid var(--primary)', borderRadius:12, padding:'10px 16px', marginBottom:12, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+        <div style={{ fontSize:12, color:'var(--primary)', fontWeight:700, lineHeight:1.7 }}>
+          📌 빈칸 위치에 내용이 바로 표시됩니다.<br/>
+          <span style={{ fontWeight:600, color:'var(--text-secondary)' }}>인쇄 버튼을 누르면 채워진 양식만 출력돼요.</span>
+        </div>
+        <button
+          onClick={handleFormPrint}
+          style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', borderRadius:11, background:'var(--primary)', color:'white', fontSize:13, fontWeight:900, flexShrink:0 }}
+        >
+          <Printer size={14}/> 양식 인쇄
+        </button>
       </div>
 
-      {/* 이미지 + 오버레이 */}
-      <div style={{ position:'relative', width:'100%', cursor: zoom?'zoom-out':'zoom-in' }} onClick={() => setZoom(v=>!v)}>
+      {/* 이미지 + 텍스트 오버레이 */}
+      <div style={{ position:'relative', width:'100%' }}>
         <img
           src={form.imageData} alt="양식"
           style={{ width:'100%', display:'block', borderRadius:12, border:'1.5px solid var(--border)', boxShadow:'var(--shadow-md)' }}
         />
-        {(form.fields||[]).map((field, i) => {
+        {filledFields.map((field, i) => {
           if (field.x == null || field.y == null) return null;
-          const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
-          let text = auto !== null ? auto : '';
-          if (!text) { const m = (doc.sections||[]).find(s=>s.title===field.mappedTo); text = m?.text||''; }
-          const display = field.charLimit && text.length > field.charLimit ? text.slice(0,field.charLimit)+'…' : text;
-          const isEmpty = !display?.trim();
+          const isEmpty = !field.filledText?.trim();
+          const w = field.fieldWidth || 30;
           return (
-            <OverlayMarker
-              key={field.id||i}
-              x={field.x} y={field.y}
-              num={i+1}
-              label={field.label}
-              text={display}
-              isEmpty={isEmpty}
-              zoom={zoom}
-            />
+            <div
+              key={field.id || i}
+              style={{
+                position: 'absolute',
+                left: `${field.x}%`,
+                top: `${field.y}%`,
+                width: `${w}%`,
+                transform: 'translateY(-50%)',
+                zIndex: 5,
+              }}
+            >
+              {/* 화면용: 번호 뱃지 */}
+              <div className="no-print" style={{
+                position: 'absolute', top: -10, left: -4,
+                width: 16, height: 16, borderRadius: '50%',
+                background: isEmpty ? 'var(--gray-400)' : 'var(--primary)',
+                color: 'white', fontSize: 9, fontWeight: 900,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1.5px solid white', zIndex: 1,
+              }}>{i + 1}</div>
+              {/* 텍스트 — 화면 + 인쇄 공통 */}
+              <div style={{
+                fontSize: 11,
+                fontFamily: "'Malgun Gothic','Apple SD Gothic Neo',sans-serif",
+                lineHeight: 1.55,
+                color: isEmpty ? 'transparent' : '#111',
+                background: isEmpty ? 'transparent' : 'rgba(255,255,255,0.88)',
+                padding: isEmpty ? 0 : '2px 4px',
+                borderRadius: 2,
+                wordBreak: 'keep-all',
+                whiteSpace: 'pre-wrap',
+                minHeight: 14,
+              }}>
+                {field.filledText || ''}
+              </div>
+            </div>
           );
         })}
       </div>
 
-      {/* 내용 목록 (접을 수 있는) */}
-      <details style={{ marginTop:12 }}>
+      {/* 텍스트 목록 (접기) */}
+      <details className="no-print" style={{ marginTop:12 }}>
         <summary style={{ fontSize:13, fontWeight:800, color:'var(--text-secondary)', cursor:'pointer', padding:'10px 0', userSelect:'none' }}>
-          📄 채워진 내용 전체 보기
+          📄 채워진 내용 전체 보기 ({filledFields.filter(f=>f.filledText?.trim()).length}/{filledFields.length}칸)
         </summary>
         <div style={{ marginTop:8 }}>
-          {(form.fields||[]).map((field, i) => {
-            const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
-            let text = auto !== null ? auto : '';
-            if (!text) { const m = (doc.sections||[]).find(s=>s.title===field.mappedTo); text = m?.text||''; }
-            const isOver = field.charLimit && text.length > field.charLimit;
-            const display = isOver ? text.slice(0,field.charLimit)+'…' : text;
-            return <FormFieldView key={field.id||i} label={field.label} text={display} charLimit={field.charLimit} charCount={text.length} isOver={isOver} mappedTo={field.mappedTo}/>;
+          {filledFields.map((field, i) => {
+            const isOver = field.charLimit && field.filledText?.length > field.charLimit;
+            return <FormFieldView key={field.id||i} label={field.label} text={field.filledText} charLimit={field.charLimit} charCount={field.filledText?.length||0} isOver={isOver} mappedTo={field.mappedTo}/>;
           })}
         </div>
       </details>
-    </div>
-  );
-}
-
-// 오버레이 마커 (이미지 위 번호 + 팝오버)
-function OverlayMarker({ x, y, num, label, text, isEmpty, zoom }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ position:'absolute', left:`${x}%`, top:`${y}%`, transform:'translate(-50%,-50%)', zIndex:10 }}>
-      <button
-        onClick={e => { e.stopPropagation(); setOpen(v=>!v); }}
-        style={{
-          width: zoom?32:22, height:zoom?32:22, borderRadius:'50%',
-          background: isEmpty ? 'var(--gray-400)' : 'var(--primary)',
-          color:'white', fontSize: zoom?13:10, fontWeight:900,
-          border:'2px solid white',
-          boxShadow: isEmpty ? '0 1px 4px rgba(0,0,0,0.3)' : '0 2px 10px rgba(79,127,255,0.6)',
-          transition:'all 0.15s',
-        }}
-      >{num}</button>
-      {open && (
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{
-            position:'absolute', left:'50%', top:'calc(100% + 6px)',
-            transform:'translateX(-50%)',
-            background:'var(--white)', border:'1.5px solid var(--primary)',
-            borderRadius:10, padding:'10px 12px',
-            minWidth:160, maxWidth:240,
-            boxShadow:'0 8px 24px rgba(79,127,255,0.2)',
-            zIndex:20,
-          }}
-        >
-          <div style={{ fontSize:11, fontWeight:900, color:'var(--primary)', marginBottom:5 }}>{label}</div>
-          <div style={{ fontSize:12, color:'var(--text-primary)', lineHeight:1.6, whiteSpace:'pre-wrap', wordBreak:'keep-all' }}>
-            {isEmpty ? <span style={{ color:'var(--text-tertiary)', fontStyle:'italic' }}>내용 없음</span> : text}
-          </div>
-          <button onClick={() => setOpen(false)} style={{ marginTop:8, width:'100%', fontSize:11, color:'var(--text-tertiary)', fontWeight:700, textAlign:'center' }}>닫기</button>
-        </div>
-      )}
     </div>
   );
 }

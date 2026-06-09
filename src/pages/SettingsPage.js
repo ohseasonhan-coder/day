@@ -930,6 +930,7 @@ function FieldPopup({ field, docType, onSave, onDelete, onCancel }) {
   const [label, setLabel]       = useState(field?.label || '');
   const [mappedTo, setMappedTo] = useState(field?.mappedTo || '');
   const [charLimit, setCharLimit] = useState(field?.charLimit || '');
+  const [fieldWidth, setFieldWidth] = useState(field?.fieldWidth ?? 30); // 칸 너비 (%)
   const [userChoseMapped, setUserChoseMapped] = useState(!!field?.mappedTo);
 
   const suggested = suggestMapping(label, docType);
@@ -950,7 +951,7 @@ function FieldPopup({ field, docType, onSave, onDelete, onCancel }) {
 
   const handleSave = () => {
     if (!label.trim()) { alert('칸 이름을 입력해주세요.'); return; }
-    onSave({ label: label.trim(), mappedTo: effectiveMapped, charLimit: charLimit ? Number(charLimit) : null });
+    onSave({ label: label.trim(), mappedTo: effectiveMapped, charLimit: charLimit ? Number(charLimit) : null, fieldWidth: fieldWidth ? Number(fieldWidth) : 30 });
   };
 
   const iStyle = {
@@ -993,11 +994,20 @@ function FieldPopup({ field, docType, onSave, onDelete, onCancel }) {
         </select>
       </div>
 
-      {/* 글자수 */}
-      <div style={{ marginBottom:20 }}>
-        <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>글자수 제한 (선택)</div>
-        <input type="number" value={charLimit} onChange={e => setCharLimit(e.target.value)}
-          placeholder="제한 없음" min={0} style={iStyle}/>
+      {/* 칸 너비 + 글자수 */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
+        <div>
+          <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>칸 너비 (%)</div>
+          <input type="number" value={fieldWidth} onChange={e => setFieldWidth(e.target.value)}
+            placeholder="30" min={5} max={90} style={iStyle}/>
+          <div style={{ fontSize:10, color:'var(--text-tertiary)', marginTop:3 }}>형식 너비에 맞게 조정</div>
+        </div>
+        <div>
+          <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>글자수 제한</div>
+          <input type="number" value={charLimit} onChange={e => setCharLimit(e.target.value)}
+            placeholder="없음" min={0} style={iStyle}/>
+          <div style={{ fontSize:10, color:'var(--text-tertiary)', marginTop:3 }}>초과 시 자동 잘림</div>
+        </div>
       </div>
 
       <div style={{ display:'flex', gap:8 }}>

@@ -228,9 +228,20 @@ input:focus, textarea:focus {
 
 /* ── 인쇄/PDF ──────────────────────────────────── */
 @media print {
-  /* 네비, 헤더, 버튼류 숨기기 */
-  .no-print, nav, header,
-  aside, button:not(.print-copy-btn) { display: none !important; }
+  /* 페이지 여백 */
+  @page { margin: 15mm; }
+
+  /* 네비, 헤더, 버튼류 + 문서 생성 UI 전체 숨기기 */
+  .no-print, nav, header, aside,
+  button:not(.print-copy-btn),
+  /* DocsPage UI 요소들 */
+  [class*="TypeSelector"], [class*="ChildSelector"],
+  [class*="GenerateBtn"], [class*="DateNav"] { display: none !important; }
+
+  /* print-area 이외 모든 div는 투명하게 (중첩 문제 방지) */
+  body > * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: fixed; top: 0; left: 0; width: 100%; }
 
   body { background: white !important; font-size: 13pt; }
 
