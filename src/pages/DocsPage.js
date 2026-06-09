@@ -739,8 +739,11 @@ function applyFormToDoc(doc, form, ctx) {
 
 // ── 서브 컴포넌트 ────────────────────────────────────────────────────────────
 
-// 양식 뷰 렌더러
+// 양식 뷰 렌더러 — 이미지 있으면 오버레이, 없으면 텍스트 목록
 function FormAppliedView({ doc, form, selChild, cl, period }) {
+  if (form.imageData) {
+    return <ImageOverlayView doc={doc} form={form} selChild={selChild} cl={cl} period={period} />;
+  }
   const PERIOD_OPTIONS_MAP = { date:'선택 날짜', '1month':'1개월', '3months':'3개월', '6months':'6개월', '1year':'1년' };
   return (
     <div>
@@ -753,30 +756,112 @@ function FormAppliedView({ doc, form, selChild, cl, period }) {
           {period && <span style={{ fontSize:11, background:'var(--white)', color:'var(--text-secondary)', padding:'3px 8px', borderRadius:6, fontWeight:700 }}>📆 {PERIOD_OPTIONS_MAP[period]}</span>}
         </div>
       </div>
-
-      {/* 각 양식 칸 */}
       {(form.fields || []).map((field, i) => {
         const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
         let text = auto !== null ? auto : '';
-        if (!text) {
-          const matched = (doc.sections || []).find(s => s.title === field.mappedTo);
-          text = matched ? matched.text : '';
-        }
+        if (!text) { const m = (doc.sections||[]).find(s => s.title===field.mappedTo); text = m?.text || ''; }
         const isOver = field.charLimit && text.length > field.charLimit;
         const display = isOver ? text.slice(0, field.charLimit) + '…' : text;
-
-        return (
-          <FormFieldView
-            key={field.id || i}
-            label={field.label}
-            text={display}
-            charLimit={field.charLimit}
-            charCount={text.length}
-            isOver={isOver}
-            mappedTo={field.mappedTo}
-          />
-        );
+        return <FormFieldView key={field.id||i} label={field.label} text={display} charLimit={field.charLimit} charCount={text.length} isOver={isOver} mappedTo={field.mappedTo}/>;
       })}
+    </div>
+  );
+}
+
+// 이미지 오버레이 뷰
+function ImageOverlayView({ doc, form, selChild, cl, period }) {
+  const [zoom, setZoom] = useState(false);
+  return (
+    <div>
+      {/* 안내 */}
+      <div className="no-print" style={{ background:'var(--primary-light)', border:'1px solid var(--primary)', borderRadius:12, padding:'10px 14px', marginBottom:12, fontSize:12, color:'var(--primary)', fontWeight:700, lineHeight:1.7 }}>
+        📌 원 양식 위에 내용이 표시됩니다. <b>인쇄</b>하거나 <b>전체 복사</b> 후 원 양식에 붙여넣으세요.<br/>
+        <span style={{ fontWeight:600, color:'var(--text-secondary)' }}>번호를 탭하면 내용을 확인할 수 있어요.</span>
+      </div>
+
+      {/* 이미지 + 오버레이 */}
+      <div style={{ position:'relative', width:'100%', cursor: zoom?'zoom-out':'zoom-in' }} onClick={() => setZoom(v=>!v)}>
+        <img
+          src={form.imageData} alt="양식"
+          style={{ width:'100%', display:'block', borderRadius:12, border:'1.5px solid var(--border)', boxShadow:'var(--shadow-md)' }}
+        />
+        {(form.fields||[]).map((field, i) => {
+          if (field.x == null || field.y == null) return null;
+          const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
+          let text = auto !== null ? auto : '';
+          if (!text) { const m = (doc.sections||[]).find(s=>s.title===field.mappedTo); text = m?.text||''; }
+          const display = field.charLimit && text.length > field.charLimit ? text.slice(0,field.charLimit)+'…' : text;
+          const isEmpty = !display?.trim();
+          return (
+            <OverlayMarker
+              key={field.id||i}
+              x={field.x} y={field.y}
+              num={i+1}
+              label={field.label}
+              text={display}
+              isEmpty={isEmpty}
+              zoom={zoom}
+            />
+          );
+        })}
+      </div>
+
+      {/* 내용 목록 (접을 수 있는) */}
+      <details style={{ marginTop:12 }}>
+        <summary style={{ fontSize:13, fontWeight:800, color:'var(--text-secondary)', cursor:'pointer', padding:'10px 0', userSelect:'none' }}>
+          📄 채워진 내용 전체 보기
+        </summary>
+        <div style={{ marginTop:8 }}>
+          {(form.fields||[]).map((field, i) => {
+            const auto = resolveAutoField(field.mappedTo, { selChild, cl, period, doc });
+            let text = auto !== null ? auto : '';
+            if (!text) { const m = (doc.sections||[]).find(s=>s.title===field.mappedTo); text = m?.text||''; }
+            const isOver = field.charLimit && text.length > field.charLimit;
+            const display = isOver ? text.slice(0,field.charLimit)+'…' : text;
+            return <FormFieldView key={field.id||i} label={field.label} text={display} charLimit={field.charLimit} charCount={text.length} isOver={isOver} mappedTo={field.mappedTo}/>;
+          })}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+// 오버레이 마커 (이미지 위 번호 + 팝오버)
+function OverlayMarker({ x, y, num, label, text, isEmpty, zoom }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position:'absolute', left:`${x}%`, top:`${y}%`, transform:'translate(-50%,-50%)', zIndex:10 }}>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(v=>!v); }}
+        style={{
+          width: zoom?32:22, height:zoom?32:22, borderRadius:'50%',
+          background: isEmpty ? 'var(--gray-400)' : 'var(--primary)',
+          color:'white', fontSize: zoom?13:10, fontWeight:900,
+          border:'2px solid white',
+          boxShadow: isEmpty ? '0 1px 4px rgba(0,0,0,0.3)' : '0 2px 10px rgba(79,127,255,0.6)',
+          transition:'all 0.15s',
+        }}
+      >{num}</button>
+      {open && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position:'absolute', left:'50%', top:'calc(100% + 6px)',
+            transform:'translateX(-50%)',
+            background:'var(--white)', border:'1.5px solid var(--primary)',
+            borderRadius:10, padding:'10px 12px',
+            minWidth:160, maxWidth:240,
+            boxShadow:'0 8px 24px rgba(79,127,255,0.2)',
+            zIndex:20,
+          }}
+        >
+          <div style={{ fontSize:11, fontWeight:900, color:'var(--primary)', marginBottom:5 }}>{label}</div>
+          <div style={{ fontSize:12, color:'var(--text-primary)', lineHeight:1.6, whiteSpace:'pre-wrap', wordBreak:'keep-all' }}>
+            {isEmpty ? <span style={{ color:'var(--text-tertiary)', fontStyle:'italic' }}>내용 없음</span> : text}
+          </div>
+          <button onClick={() => setOpen(false)} style={{ marginTop:8, width:'100%', fontSize:11, color:'var(--text-tertiary)', fontWeight:700, textAlign:'center' }}>닫기</button>
+        </div>
+      )}
     </div>
   );
 }

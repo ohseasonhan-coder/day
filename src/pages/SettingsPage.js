@@ -618,58 +618,92 @@ function SettingCard({ title, children }) {
   );
 }
 
+// ── 이미지 압축 유틸 ──────────────────────────────────────────────────────────
+async function compressImage(file, maxWidth = 1000) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const ratio = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.78));
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// ── 칸 이름 → 앱 섹션 자동 감지 ──────────────────────────────────────────────
+function suggestMapping(label, docType) {
+  if (!label) return '';
+  // 자동 필드 키워드
+  if (/날짜|일자|작성일|오늘/.test(label)) return '__date__';
+  if (/아이|원아|유아명|이름|성명/.test(label)) return '__childName__';
+  if (/반명|학급|반$/.test(label)) return '__className__';
+  if (/기간|period/.test(label)) return '__period__';
+  // 앱 섹션 매칭 (글자 겹침 점수)
+  const sections = DOC_SECTION_MAP[docType] || [];
+  const words = label.split(/[\s·\-/]+/).filter(w => w.length >= 2);
+  let best = ''; let bestScore = 0;
+  for (const sec of sections) {
+    const score = words.reduce((s, w) => s + (sec.includes(w) ? w.length : 0), 0);
+    if (score > bestScore) { bestScore = score; best = sec; }
+  }
+  return best;
+}
+
 // ── 원 양식 편집기 ─────────────────────────────────────────────────────────────
 function FormEditor({ form, onSave, onCancel }) {
   const isNew = !form;
-  const [name, setName]       = useState(form?.name || '');
-  const [docType, setDocType] = useState(form?.docType || 'daily');
-  const [fields, setFields]   = useState(
-    form?.fields || [
-      { id: Date.now()+'a', label: '', mappedTo: '', charLimit: '' },
-    ]
-  );
+  const [name, setName]         = useState(form?.name || '');
+  const [docType, setDocType]   = useState(form?.docType || 'daily');
+  const [fields, setFields]     = useState(form?.fields || []);
+  const [imageData, setImageData] = useState(form?.imageData || null);
+  const [setupTab, setSetupTab] = useState(form?.imageData ? 'image' : 'image'); // 기본 이미지 모드
+  const [uploading, setUploading] = useState(false);
+  const imgInputRef = useRef(null);
 
-  const sectionOptions = [
-    ...AUTO_FIELDS,
-    ...(DOC_SECTION_MAP[docType] || []).map(s => ({ key: s, label: s })),
-  ];
-
-  const addField = () => setFields(f => [...f, { id: Date.now()+'', label: '', mappedTo: '', charLimit: '' }]);
-
-  const updateField = (idx, key, val) =>
-    setFields(f => f.map((item, i) => i === idx ? { ...item, [key]: val } : item));
-
-  const removeField = (idx) => setFields(f => f.filter((_, i) => i !== idx));
-
-  const moveField = (idx, dir) => {
-    const next = [...fields];
-    const swap = idx + dir;
-    if (swap < 0 || swap >= next.length) return;
-    [next[idx], next[swap]] = [next[swap], next[idx]];
-    setFields(next);
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const compressed = await compressImage(file, 1000);
+    setImageData(compressed);
+    setFields([]); // 새 이미지면 칸 초기화
+    setUploading(false);
+    e.target.value = '';
   };
 
   const handleSave = () => {
     if (!name.trim()) { alert('양식 이름을 입력해주세요.'); return; }
-    const cleaned = fields.filter(f => f.label.trim());
+    const cleaned = fields.filter(f => f.label?.trim());
     if (cleaned.length === 0) { alert('칸을 1개 이상 추가해주세요.'); return; }
     onSave({
       ...(form || {}),
       name: name.trim(),
       docType,
+      imageData: setupTab === 'image' ? imageData : null,
       fields: cleaned.map(f => ({
-        id: f.id || (Date.now()+''),
+        id: f.id || (Date.now() + Math.random() + ''),
         label: f.label.trim(),
-        mappedTo: f.mappedTo,
+        mappedTo: f.mappedTo || '',
         charLimit: f.charLimit ? Number(f.charLimit) : null,
+        x: f.x ?? null,
+        y: f.y ?? null,
       })),
     });
   };
 
-  const inputStyle = {
+  const iStyle = {
     padding: '9px 11px', borderRadius: 9, border: '1.5px solid var(--border)',
     fontSize: 13, fontFamily: 'inherit', outline: 'none',
     background: 'var(--white)', color: 'var(--text-primary)',
+    width: '100%', boxSizing: 'border-box',
   };
 
   return (
@@ -684,77 +718,366 @@ function FormEditor({ form, onSave, onCancel }) {
       <SettingCard title="기본 정보">
         <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>양식 이름</div>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="예: ○○어린이집 보육일지" style={{ ...inputStyle, width:'100%', boxSizing:'border-box' }} />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="예: ○○어린이집 보육일지" style={iStyle} />
         </div>
         <div>
           <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>적용 문서 종류</div>
-          <select value={docType} onChange={e => { setDocType(e.target.value); setFields([{ id: Date.now()+'', label:'', mappedTo:'', charLimit:'' }]); }}
-            style={{ ...inputStyle, width:'100%', boxSizing:'border-box' }}>
+          <select value={docType} onChange={e => setDocType(e.target.value)} style={iStyle}>
             {Object.entries(DOC_TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
       </SettingCard>
 
-      {/* 칸 목록 */}
-      <SettingCard title="원 양식 칸 구성">
-        <div style={{ fontSize:12, color:'var(--text-tertiary)', marginBottom:12, lineHeight:1.7 }}>
-          원 양식의 순서대로 칸을 등록하세요.<br/>
-          각 칸에 앱의 어느 섹션 내용을 채울지 연결해주세요.
-        </div>
-
-        {fields.map((f, idx) => (
-          <div key={f.id} style={{ background:'var(--gray-50)', border:'1px solid var(--border)', borderRadius:12, padding:12, marginBottom:8 }}>
-            {/* 순서 + 삭제 */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                <span style={{ fontSize:11, fontWeight:900, color:'var(--text-tertiary)', minWidth:18 }}>{idx+1}</span>
-                <button onClick={() => moveField(idx, -1)} disabled={idx===0}
-                  style={{ padding:4, borderRadius:6, background:'var(--white)', border:'1px solid var(--border)', opacity: idx===0 ? 0.3 : 1 }}>
-                  <ChevronUp size={12}/>
-                </button>
-                <button onClick={() => moveField(idx, 1)} disabled={idx===fields.length-1}
-                  style={{ padding:4, borderRadius:6, background:'var(--white)', border:'1px solid var(--border)', opacity: idx===fields.length-1 ? 0.3 : 1 }}>
-                  <ChevronDown size={12}/>
-                </button>
-              </div>
-              <button onClick={() => removeField(idx)} style={{ padding:'3px 8px', borderRadius:7, background:'var(--accent-light)', color:'var(--accent)', fontSize:11, fontWeight:800 }}>삭제</button>
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1.4fr 80px', gap:7 }}>
-              {/* 원 양식 칸 이름 */}
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>원 양식 칸 이름</div>
-                <input value={f.label} onChange={e => updateField(idx, 'label', e.target.value)}
-                  placeholder="예: 놀이 흐름" style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:12 }}/>
-              </div>
-              {/* 앱 섹션 연결 */}
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>앱 섹션 연결</div>
-                <select value={f.mappedTo} onChange={e => updateField(idx, 'mappedTo', e.target.value)}
-                  style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:12 }}>
-                  <option value="">— 선택 안 함 —</option>
-                  {sectionOptions.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
-              </div>
-              {/* 글자수 제한 */}
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>글자 제한</div>
-                <input type="number" value={f.charLimit} onChange={e => updateField(idx, 'charLimit', e.target.value)}
-                  placeholder="없음" min={0} style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:12 }}/>
-              </div>
-            </div>
-          </div>
+      {/* 등록 방식 탭 */}
+      <div style={{ display:'flex', gap:4, background:'var(--gray-100)', borderRadius:12, padding:4, marginBottom:16 }}>
+        {[['image','📸 이미지 업로드'],['manual','✏️ 직접 입력']].map(([id,label]) => (
+          <button key={id} onClick={() => setSetupTab(id)} style={{
+            flex:1, padding:'9px', borderRadius:9, fontSize:13,
+            fontWeight: setupTab===id ? 900 : 600,
+            background: setupTab===id ? 'var(--white)' : 'transparent',
+            color: setupTab===id ? 'var(--primary)' : 'var(--text-secondary)',
+          }}>{label}</button>
         ))}
+      </div>
 
-        <button onClick={addField} style={{ width:'100%', padding:'11px', borderRadius:11, background:'var(--primary-light)', color:'var(--primary)', fontSize:13, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginTop:4, border:'1.5px dashed var(--primary)' }}>
-          <Plus size={15}/> 칸 추가
-        </button>
-      </SettingCard>
+      {/* ── 이미지 업로드 모드 ── */}
+      {setupTab === 'image' && (
+        <div>
+          {!imageData ? (
+            /* 업로드 전 */
+            <div
+              onClick={() => !uploading && imgInputRef.current?.click()}
+              style={{ border:'2.5px dashed var(--primary)', borderRadius:18, padding:'40px 20px', textAlign:'center', cursor:'pointer', background:'var(--primary-light)', marginBottom:16 }}
+            >
+              {uploading ? (
+                <div style={{ fontSize:14, color:'var(--primary)', fontWeight:800 }}>⏳ 이미지 처리 중...</div>
+              ) : (
+                <>
+                  <div style={{ fontSize:44, marginBottom:10 }}>📸</div>
+                  <div style={{ fontSize:15, fontWeight:900, color:'var(--primary)', marginBottom:8 }}>양식 이미지 업로드</div>
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.8 }}>
+                    원에서 쓰는 양식을 스캔하거나 사진 찍어서 올려주세요.<br/>
+                    JPG · PNG 지원 · 자동으로 압축돼요
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            /* 업로드 후 — 시각 매핑 */
+            <div style={{ marginBottom:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                <div style={{ fontSize:13, fontWeight:800, color:'var(--text-secondary)' }}>📋 내용이 들어갈 빈칸을 탭해 표시하세요</div>
+                <button onClick={() => { setImageData(null); setFields([]); }} style={{ fontSize:12, color:'var(--accent)', fontWeight:700 }}>이미지 교체</button>
+              </div>
+              <div style={{ fontSize:12, color:'var(--primary)', background:'var(--primary-light)', borderRadius:9, padding:'8px 12px', marginBottom:10, lineHeight:1.7 }}>
+                💡 <b>내용이 채워질 빈칸</b>을 탭하세요. 칸 이름을 입력하면 앱 섹션이 <b>자동 감지</b>돼요.
+              </div>
+              <ImageFormMapper
+                imageData={imageData}
+                fields={fields}
+                onFieldsChange={setFields}
+                docType={docType}
+              />
+            </div>
+          )}
+          <input ref={imgInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display:'none' }} />
 
-      {/* 저장 */}
-      <button onClick={handleSave} style={{ width:'100%', padding:'14px', borderRadius:14, background:'var(--primary)', color:'white', fontSize:15, fontWeight:900, boxShadow:'0 4px 16px rgba(79,127,255,0.3)' }}>
+          {/* 등록된 칸 요약 */}
+          {fields.length > 0 && (
+            <SettingCard title={`등록된 칸 (${fields.length}개)`}>
+              {fields.map((f, i) => {
+                const autoLabel = AUTO_FIELDS.find(a => a.key === f.mappedTo)?.label;
+                return (
+                  <div key={f.id||i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                    <span style={{ width:20, height:20, borderRadius:'50%', background:'var(--primary)', color:'white', fontSize:10, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{i+1}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700 }}>{f.label}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {autoLabel || f.mappedTo || '미연결'}
+                        {f.charLimit ? ` · ${f.charLimit}자` : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </SettingCard>
+          )}
+        </div>
+      )}
+
+      {/* ── 직접 입력 모드 ── */}
+      {setupTab === 'manual' && (
+        <ManualFieldEditor
+          fields={fields}
+          onFieldsChange={setFields}
+          docType={docType}
+        />
+      )}
+
+      <button onClick={handleSave} style={{ width:'100%', padding:'14px', borderRadius:14, background:'var(--primary)', color:'white', fontSize:15, fontWeight:900, boxShadow:'0 4px 16px rgba(79,127,255,0.3)', marginTop:8 }}>
         {isNew ? '양식 등록하기' : '변경사항 저장'}
       </button>
     </div>
+  );
+}
+
+// ── 시각적 이미지 매퍼 ───────────────────────────────────────────────────────
+function ImageFormMapper({ imageData, fields, onFieldsChange, docType }) {
+  const containerRef = useRef(null);
+  const [popup, setPopup] = useState(null); // null | {type:'new',x,y} | {type:'edit',idx}
+
+  const getRelPos = (clientX, clientY) => {
+    const rect = containerRef.current.getBoundingClientRect();
+    return {
+      x: parseFloat(((clientX - rect.left) / rect.width * 100).toFixed(1)),
+      y: parseFloat(((clientY - rect.top)  / rect.height * 100).toFixed(1)),
+    };
+  };
+
+  const handleClick = (e) => {
+    if (popup) return;
+    const pos = getRelPos(e.clientX, e.clientY);
+    setPopup({ type:'new', ...pos });
+  };
+
+  const handleTouch = (e) => {
+    e.preventDefault();
+    if (popup) return;
+    const t = e.changedTouches[0];
+    const pos = getRelPos(t.clientX, t.clientY);
+    setPopup({ type:'new', ...pos });
+  };
+
+  const handleAdd = (data) => {
+    onFieldsChange([...fields, { id: Date.now()+'', ...data, x: popup.x, y: popup.y }]);
+    setPopup(null);
+  };
+
+  const handleUpdate = (idx, data) => {
+    onFieldsChange(fields.map((f,i) => i===idx ? {...f,...data} : f));
+    setPopup(null);
+  };
+
+  const handleDelete = (idx) => {
+    onFieldsChange(fields.filter((_,i) => i!==idx));
+    setPopup(null);
+  };
+
+  return (
+    <div ref={containerRef} style={{ position:'relative', width:'100%', touchAction:'none', userSelect:'none' }}>
+      <img
+        src={imageData} alt="양식"
+        style={{ width:'100%', display:'block', borderRadius:12, border:'2px solid var(--border)', cursor:'crosshair' }}
+        onClick={handleClick}
+        onTouchEnd={handleTouch}
+        draggable={false}
+      />
+
+      {/* 마커들 */}
+      {fields.map((f, idx) => (
+        <button
+          key={f.id||idx}
+          onClick={e => { e.stopPropagation(); setPopup({ type:'edit', idx }); }}
+          style={{
+            position:'absolute', left:`${f.x}%`, top:`${f.y}%`,
+            transform:'translate(-50%,-50%)',
+            width:26, height:26, borderRadius:'50%',
+            background:'var(--primary)', color:'white',
+            fontSize:11, fontWeight:900, zIndex:10,
+            border:'2.5px solid white',
+            boxShadow:'0 2px 10px rgba(79,127,255,0.55)',
+          }}
+        >{idx+1}</button>
+      ))}
+
+      {/* 신규 위치 미리보기 */}
+      {popup?.type === 'new' && (
+        <div style={{
+          position:'absolute', left:`${popup.x}%`, top:`${popup.y}%`,
+          transform:'translate(-50%,-50%)',
+          width:26, height:26, borderRadius:'50%',
+          background:'var(--accent)', color:'white',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:16, fontWeight:900, zIndex:10,
+          border:'2.5px solid white', boxShadow:'0 2px 10px rgba(255,107,107,0.5)',
+          pointerEvents:'none',
+        }}>+</div>
+      )}
+
+      {/* 팝업 */}
+      {popup && (
+        <div
+          onClick={() => setPopup(null)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--white)', borderRadius:22, padding:24, width:'100%', maxWidth:380, boxShadow:'0 24px 64px rgba(0,0,0,0.3)' }}>
+            <FieldPopup
+              field={popup.type==='edit' ? fields[popup.idx] : null}
+              docType={docType}
+              onSave={popup.type==='edit' ? (d) => handleUpdate(popup.idx, d) : handleAdd}
+              onDelete={popup.type==='edit' ? () => handleDelete(popup.idx) : null}
+              onCancel={() => setPopup(null)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 칸 팝업 (추가 / 편집) ─────────────────────────────────────────────────────
+function FieldPopup({ field, docType, onSave, onDelete, onCancel }) {
+  const [label, setLabel]       = useState(field?.label || '');
+  const [mappedTo, setMappedTo] = useState(field?.mappedTo || '');
+  const [charLimit, setCharLimit] = useState(field?.charLimit || '');
+  const [userChoseMapped, setUserChoseMapped] = useState(!!field?.mappedTo);
+
+  const suggested = suggestMapping(label, docType);
+  const effectiveMapped = userChoseMapped ? mappedTo : (suggested || mappedTo);
+
+  const sectionOptions = [
+    ...AUTO_FIELDS,
+    ...(DOC_SECTION_MAP[docType] || []).map(s => ({ key: s, label: s })),
+  ];
+
+  const handleLabelChange = (val) => {
+    setLabel(val);
+    if (!userChoseMapped) {
+      const s = suggestMapping(val, docType);
+      if (s) setMappedTo(s);
+    }
+  };
+
+  const handleSave = () => {
+    if (!label.trim()) { alert('칸 이름을 입력해주세요.'); return; }
+    onSave({ label: label.trim(), mappedTo: effectiveMapped, charLimit: charLimit ? Number(charLimit) : null });
+  };
+
+  const iStyle = {
+    padding:'9px 11px', borderRadius:9, border:'1.5px solid var(--border)',
+    fontSize:13, fontFamily:'inherit', outline:'none',
+    background:'var(--white)', color:'var(--text-primary)',
+    width:'100%', boxSizing:'border-box',
+  };
+  const suggestedLabel = sectionOptions.find(s => s.key === suggested)?.label;
+
+  return (
+    <div>
+      <div style={{ fontWeight:900, fontSize:16, marginBottom:16 }}>{field ? '칸 편집' : '빈칸 추가'}</div>
+
+      {/* 칸 이름 */}
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>원 양식 칸 이름</div>
+        <input value={label} onChange={e => handleLabelChange(e.target.value)}
+          placeholder="예: 놀이 흐름, 날짜, 아이 이름..." autoFocus style={iStyle}/>
+      </div>
+
+      {/* 자동 감지 배지 */}
+      {suggested && !userChoseMapped && (
+        <div style={{ background:'var(--primary-light)', border:'1px solid var(--primary)', borderRadius:9, padding:'8px 12px', marginBottom:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span style={{ fontSize:12, color:'var(--primary)', fontWeight:700 }}>
+            ✨ 자동 감지: <b>{suggestedLabel || suggested}</b>
+          </span>
+          <span style={{ fontSize:10, color:'var(--primary)', background:'white', padding:'2px 7px', borderRadius:5, fontWeight:800 }}>자동</span>
+        </div>
+      )}
+
+      {/* 앱 섹션 연결 */}
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>앱 섹션 연결</div>
+        <select value={effectiveMapped}
+          onChange={e => { setMappedTo(e.target.value); setUserChoseMapped(true); }}
+          style={iStyle}>
+          <option value="">— 선택 안 함 —</option>
+          {sectionOptions.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+      </div>
+
+      {/* 글자수 */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>글자수 제한 (선택)</div>
+        <input type="number" value={charLimit} onChange={e => setCharLimit(e.target.value)}
+          placeholder="제한 없음" min={0} style={iStyle}/>
+      </div>
+
+      <div style={{ display:'flex', gap:8 }}>
+        {onDelete && (
+          <button onClick={onDelete} style={{ padding:'11px 14px', borderRadius:11, background:'var(--accent-light)', color:'var(--accent)', fontSize:13, fontWeight:800 }}>삭제</button>
+        )}
+        <button onClick={onCancel} style={{ flex:1, padding:'11px', borderRadius:11, background:'var(--gray-100)', color:'var(--text-secondary)', fontSize:13, fontWeight:700 }}>취소</button>
+        <button onClick={handleSave} style={{ flex:2, padding:'11px', borderRadius:11, background:'var(--primary)', color:'white', fontSize:13, fontWeight:900 }}>
+          {field ? '수정 완료' : '칸 추가'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 직접 입력 모드 필드 에디터 ───────────────────────────────────────────────
+function ManualFieldEditor({ fields, onFieldsChange, docType }) {
+  const sectionOptions = [
+    ...AUTO_FIELDS,
+    ...(DOC_SECTION_MAP[docType] || []).map(s => ({ key: s, label: s })),
+  ];
+
+  const addField = () => onFieldsChange([...fields, { id: Date.now()+'', label:'', mappedTo:'', charLimit:'' }]);
+
+  const updateField = (idx, key, val) =>
+    onFieldsChange(fields.map((item,i) => i===idx ? {...item,[key]:val} : item));
+
+  const removeField = (idx) => onFieldsChange(fields.filter((_,i) => i!==idx));
+
+  const moveField = (idx, dir) => {
+    const next = [...fields]; const swap = idx+dir;
+    if (swap<0||swap>=next.length) return;
+    [next[idx],next[swap]]=[next[swap],next[idx]];
+    onFieldsChange(next);
+  };
+
+  const iStyle = {
+    padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--border)',
+    fontSize:12, fontFamily:'inherit', outline:'none',
+    background:'var(--white)', color:'var(--text-primary)',
+    width:'100%', boxSizing:'border-box',
+  };
+
+  return (
+    <SettingCard title="원 양식 칸 구성">
+      <div style={{ fontSize:12, color:'var(--text-tertiary)', marginBottom:12, lineHeight:1.7 }}>
+        원 양식의 순서대로 칸을 등록하고 앱 섹션을 연결하세요.
+      </div>
+      {fields.map((f, idx) => (
+        <div key={f.id||idx} style={{ background:'var(--gray-50)', border:'1px solid var(--border)', borderRadius:12, padding:12, marginBottom:8 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <span style={{ fontSize:11, fontWeight:900, color:'var(--text-tertiary)', minWidth:18 }}>{idx+1}</span>
+              <button onClick={() => moveField(idx,-1)} disabled={idx===0} style={{ padding:4, borderRadius:6, background:'var(--white)', border:'1px solid var(--border)', opacity:idx===0?0.3:1 }}><ChevronUp size={12}/></button>
+              <button onClick={() => moveField(idx,1)} disabled={idx===fields.length-1} style={{ padding:4, borderRadius:6, background:'var(--white)', border:'1px solid var(--border)', opacity:idx===fields.length-1?0.3:1 }}><ChevronDown size={12}/></button>
+            </div>
+            <button onClick={() => removeField(idx)} style={{ padding:'3px 8px', borderRadius:7, background:'var(--accent-light)', color:'var(--accent)', fontSize:11, fontWeight:800 }}>삭제</button>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1.4fr 80px', gap:7 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>칸 이름</div>
+              <input value={f.label} onChange={e => { updateField(idx,'label',e.target.value); if (!f.mappedTo) { const s=suggestMapping(e.target.value,docType); if(s) updateField(idx,'mappedTo',s); } }} placeholder="예: 놀이 흐름" style={iStyle}/>
+            </div>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>앱 섹션</div>
+              <select value={f.mappedTo} onChange={e => updateField(idx,'mappedTo',e.target.value)} style={iStyle}>
+                <option value="">— 선택 —</option>
+                {sectionOptions.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', marginBottom:4 }}>글자 제한</div>
+              <input type="number" value={f.charLimit} onChange={e => updateField(idx,'charLimit',e.target.value)} placeholder="없음" min={0} style={iStyle}/>
+            </div>
+          </div>
+        </div>
+      ))}
+      <button onClick={addField} style={{ width:'100%', padding:'11px', borderRadius:11, background:'var(--primary-light)', color:'var(--primary)', fontSize:13, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginTop:4, border:'1.5px dashed var(--primary)' }}>
+        <Plus size={15}/> 칸 추가
+      </button>
+    </SettingCard>
   );
 }
