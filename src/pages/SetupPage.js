@@ -11,7 +11,7 @@ const S = {
   logo: { fontSize: 32, fontWeight: 800, color: 'var(--primary)', marginBottom: 8, letterSpacing: '-1px' },
   tagline: { color: 'var(--text-secondary)', fontSize: 15, marginBottom: 40 },
   card: {
-    background: 'white', borderRadius: 20, padding: 24,
+    background: 'var(--white)', borderRadius: 20, padding: 24,
     boxShadow: 'var(--shadow-md)', marginBottom: 16,
   },
   label: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: '0.5px', textTransform: 'uppercase' },

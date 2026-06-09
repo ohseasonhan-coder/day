@@ -147,7 +147,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
 
       {/* ── 날짜 네비 ───────────────────────────────────── */}
       <div style={{
-        background: 'white', border: '1px solid var(--border)',
+        background: 'var(--white)', border: '1px solid var(--border)',
         borderRadius: 16, padding: '12px 16px', marginBottom: 16,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         boxShadow: 'var(--shadow-sm)',
@@ -190,7 +190,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
             onClick={handlePrint}
             style={{
               padding: '13px 18px', borderRadius: 14, border: '1.5px solid var(--border)',
-              background: 'white', color: 'var(--text-primary)', fontSize: 14, fontWeight: 800,
+              background: 'var(--white)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 800,
               display: 'flex', alignItems: 'center', gap: 7,
               boxShadow: 'var(--shadow-sm)',
             }}
@@ -268,7 +268,7 @@ function NoteCard({ child, color, recs, hasRec, noteText, generated, onRegenerat
 
   return (
     <div style={{
-      background: 'white', border: `1px solid ${hasRec ? color + '30' : 'var(--border)'}`,
+      background: 'var(--white)', border: `1px solid ${hasRec ? color + '30' : 'var(--border)'}`,
       borderRadius: 18, padding: 18,
       boxShadow: hasRec ? `0 4px 16px ${color}18` : 'var(--shadow-sm)',
     }}>

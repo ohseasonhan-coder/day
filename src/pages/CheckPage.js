@@ -93,7 +93,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
           <span style={{ fontSize: 20, opacity: 0.7 }}>/ 100</span>
         </div>
         <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 100, height: 8, marginBottom: 16 }}>
-          <div style={{ background: 'white', height: 8, borderRadius: 100, width: `${overallScore}%`, transition: 'width 1s ease' }} />
+          <div style={{ background: 'var(--white)', height: 8, borderRadius: 100, width: `${overallScore}%`, transition: 'width 1s ease' }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <MiniStat label="기간 기록" value={`${totalRecords}건`} />

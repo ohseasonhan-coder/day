@@ -105,7 +105,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
           return (
             <button key={child.id} onClick={() => onNavigate('record', { childId: child.id })} style={{
               display: 'flex', alignItems: 'center', gap: 7,
-              background: 'white', border: `1.5px solid ${color}35`,
+              background: 'var(--white)', border: `1.5px solid ${color}35`,
               borderRadius: 100, padding: '7px 14px 7px 8px',
               fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
               boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
@@ -140,7 +140,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>문서함에서 보육일지 초안을 만들 수 있어요.</div>
         </div>
       </div>
-      <button onClick={() => onNavigate('docs')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--cat-play)', background: 'white', border: '1.5px solid var(--cat-play)', borderRadius: 10, padding: '8px 12px', flexShrink: 0 }}>
+      <button onClick={() => onNavigate('docs')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--cat-play)', background: 'var(--white)', border: '1.5px solid var(--cat-play)', borderRadius: 10, padding: '8px 12px', flexShrink: 0 }}>
         문서 생성
       </button>
     </div>
@@ -161,7 +161,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10 }}>
       {SERVICE_CARDS.map(item => (
         <button key={item.title} onClick={() => onNavigate(item.nav)} className="card-lift" style={{
-          background: 'white', border: '1px solid var(--border)',
+          background: 'var(--white)', border: '1px solid var(--border)',
           borderRadius: 16, padding: 14, textAlign: 'left',
           boxShadow: 'var(--shadow-sm)', minHeight: 100,
         }}>
@@ -174,7 +174,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   );
 
   const WeeklyStats = (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <Clock3 size={18} color="var(--primary)" />
         <span style={{ fontWeight: 900, fontSize: 15 }}>이번 주 자동화 현황</span>
@@ -191,7 +191,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   );
 
   const TodayRecordList = todayRecords.length > 0 ? (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: 'var(--shadow-sm)', marginTop: isDesktop ? 16 : 0 }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: 'var(--shadow-sm)', marginTop: isDesktop ? 16 : 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <span style={{ fontWeight: 900, fontSize: 15 }}>오늘 기록한 내용</span>
         <button onClick={() => onNavigate('docs')} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -307,7 +307,7 @@ function RecordMiniCard({ record }) {
 function QuickAction({ icon, label, desc, color, onClick }) {
   return (
     <button onClick={onClick} className="card-lift" style={{
-      background: 'white', border: '1px solid var(--border)',
+      background: 'var(--white)', border: '1px solid var(--border)',
       borderRadius: 16, padding: '16px 14px',
       display: 'flex', flexDirection: 'column', gap: 9,
       textAlign: 'left', boxShadow: 'var(--shadow-sm)',

@@ -10,6 +10,9 @@ import {
   getCustomTemplates,
   addCustomTemplate,
   deleteCustomTemplate,
+  getDraft,
+  saveDraft,
+  clearDraft,
   CATEGORIES,
   today,
   formatDate,
@@ -106,7 +109,9 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [calendarMonth, setCalendarMonth]   = useState(() => parseDate(context?.date || today()));
   const [customTemplates, setCustomTemplates] = useState(() => getCustomTemplates());
   const [detailRecord, setDetailRecord]     = useState(null);
+  const [draftBanner, setDraftBanner]       = useState(() => !!getDraft());
   const textareaRef = useRef(null);
+  const autoSaveRef = useRef(null);
 
   useEffect(() => {
     const ch = getChildren();
@@ -125,6 +130,18 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       setMode('list');
     }
   }, [context]);
+
+  // ── 자동 저장 (30초마다) ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (mode !== 'write') return;
+    clearInterval(autoSaveRef.current);
+    autoSaveRef.current = setInterval(() => {
+      if (rawText.trim()) {
+        saveDraft({ rawText, recordType, childId: selectedChild?.id, childName: selectedChild?.name });
+      }
+    }, 30000);
+    return () => clearInterval(autoSaveRef.current);
+  }, [mode, rawText, recordType, selectedChild]);
 
   const cl = classes[0];
   const currentPreset = RECORD_PRESETS.find(p => p.key === recordType);
@@ -168,9 +185,27 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     const newRecord = addRecord({ childId: selectedChild.id, childName: selectedChild.name, date: today(), rawText, recordType, ...result });
     setRecords(prev => [newRecord, ...prev]);
     setSaved(true);
+    clearDraft(); setDraftBanner(false);
   };
 
-  const handleReset = () => { setResult(null); setRawText(''); setError(''); setSaved(false); setTimeout(() => textareaRef.current?.focus(), 100); };
+  const handleReset = () => {
+    setResult(null); setRawText(''); setError(''); setSaved(false);
+    clearDraft(); setDraftBanner(false);
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  };
+
+  const handleRestoreDraft = () => {
+    const draft = getDraft();
+    if (!draft) return;
+    setRawText(draft.rawText || '');
+    if (draft.recordType) setRecordType(draft.recordType);
+    if (draft.childId) {
+      const found = getChildren().find(c => c.id === draft.childId);
+      if (found) setSelectedChild(found);
+    }
+    setDraftBanner(false);
+    clearDraft();
+  };
 
   const insertTemplate = (template) => {
     const childText = nameSubject(selectedChild?.name || '아이');
@@ -234,7 +269,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
               <Zap size={13} /> 입력 내용
             </div>
-            <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
+            <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 {selectedChild && (
                   <div style={{ width: 44, height: 44, borderRadius: '50%', background: getAvatarColor(selectedChild.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: 'white', flexShrink: 0 }}>
@@ -249,7 +284,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               <div style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-secondary)', background: 'var(--gray-50)', borderRadius: 12, padding: '12px 14px' }}>{rawText}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button onClick={handleReset} style={{ padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'white', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <button onClick={handleReset} style={{ padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <RotateCcw size={15} /> 다시 입력
               </button>
               <button onClick={handleSave} disabled={saved} style={{ padding: '15px', borderRadius: 14, border: 'none', background: saved ? 'var(--cat-play)' : 'var(--primary)', fontSize: 14, fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: saved ? 'none' : '0 4px 14px rgba(79,127,255,0.3)' }}>
@@ -275,7 +310,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               </div>
             )}
             {result.devAreas?.length > 0 && (
-              <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+              <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8 }}>자동 연결 발달영역</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {result.devAreas.map(a => <span key={a} style={{ fontSize: 12, color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: 100, fontWeight: 700 }}>{a}</span>)}
@@ -334,6 +369,22 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
         />
       ) : (
         <>
+          {/* 임시저장 복구 배너 */}
+          {draftBanner && (
+            <div style={{ background:'var(--primary-light)', border:'1px solid var(--primary)', borderRadius:14, padding:'12px 16px', marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+              <div>
+                <div style={{ fontSize:13, fontWeight:900, color:'var(--primary)' }}>💾 작성 중이던 기록이 있어요</div>
+                <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:2 }}>
+                  {(() => { const d = getDraft(); return d?.savedAt ? `${new Date(d.savedAt).toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 자동저장` : ''; })()}
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                <button onClick={handleRestoreDraft} style={{ padding:'7px 14px', borderRadius:10, background:'var(--primary)', color:'white', fontSize:13, fontWeight:800 }}>복구</button>
+                <button onClick={() => { clearDraft(); setDraftBanner(false); }} style={{ padding:'7px 10px', borderRadius:10, background:'var(--white)', border:'1px solid var(--border)', fontSize:13, color:'var(--text-secondary)' }}>무시</button>
+              </div>
+            </div>
+          )}
+
           {/* STEP 1: 아이 선택 */}
           <StepSection step={1} label="누구의 기록인가요?">
             {children.length === 0 ? (
@@ -384,7 +435,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               value={rawText}
               onChange={e => setRawText(e.target.value)}
               placeholder={`있었던 상황을 말하듯 짧게 써주세요.\n\n예) 친구와 블록으로 캠핑장을 만들었다. 차례 문제로 속상해했지만 교사 안내 후 다시 놀이했다.`}
-              style={{ width: '100%', minHeight: 160, padding: '16px', borderRadius: 16, border: '1.5px solid var(--border)', fontSize: 15, lineHeight: 1.8, resize: 'vertical', fontFamily: 'inherit', color: 'var(--text-primary)', background: 'white', boxShadow: 'var(--shadow-sm)', transition: 'border-color 0.15s' }}
+              style={{ width: '100%', minHeight: 160, padding: '16px', borderRadius: 16, border: '1.5px solid var(--border)', fontSize: 15, lineHeight: 1.8, resize: 'vertical', fontFamily: 'inherit', color: 'var(--text-primary)', background: 'var(--white)', boxShadow: 'var(--shadow-sm)', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'var(--primary)'}
               onBlur={e  => e.target.style.borderColor = 'var(--border)'}
             />
@@ -425,7 +476,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               )}
               {result.devAreas?.length > 0 && (
-                <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8 }}>자동 연결 발달영역</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {result.devAreas.map(a => <span key={a} style={{ fontSize: 12, color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: 100, fontWeight: 700 }}>{a}</span>)}
@@ -438,7 +489,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} />
               <ResultSection title="원문 순화본"          text={result.softened} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>
-                <button onClick={handleReset} style={{ padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'white', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <button onClick={handleReset} style={{ padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   <RotateCcw size={15} /> 다시 입력
                 </button>
                 <button onClick={handleSave} disabled={saved} style={{ padding: '15px', borderRadius: 14, border: 'none', background: saved ? 'var(--cat-play)' : 'var(--primary)', fontSize: 14, fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: saved ? 'none' : '0 4px 14px rgba(79,127,255,0.3)' }}>
@@ -519,16 +570,16 @@ function QuickTemplatePanel({ templates, customTemplates, onInsert, onAdd, onDel
           <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)', marginBottom: 10 }}>새 빠른 문구 추가</div>
           <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: 8, marginBottom: 8 }}>
             <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="이모지" maxLength={4}
-              style={{ padding: '9px 10px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 18, textAlign: 'center', background: 'white' }} />
+              style={{ padding: '9px 10px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 18, textAlign: 'center', background: 'var(--white)' }} />
             <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="이름 (예: 낮잠)" maxLength={10}
-              style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, background: 'white' }} />
+              style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, background: 'var(--white)' }} />
           </div>
           <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="삽입될 문구 내용을 써주세요. {child}는 아이 이름으로 자동 치환돼요."
-            style={{ width: '100%', minHeight: 72, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, lineHeight: 1.7, fontFamily: 'inherit', resize: 'none', background: 'white', marginBottom: 8 }} />
+            style={{ width: '100%', minHeight: 72, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, lineHeight: 1.7, fontFamily: 'inherit', resize: 'none', background: 'var(--white)', marginBottom: 8 }} />
           {addError && <div style={{ fontSize: 12, color: 'var(--accent)', marginBottom: 6 }}>⚠️ {addError}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleAdd} style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 800 }}>저장</button>
-            <button onClick={() => { setShowAddForm(false); setAddError(''); }} style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'white', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>취소</button>
+            <button onClick={() => { setShowAddForm(false); setAddError(''); }} style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'var(--white)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>취소</button>
           </div>
         </div>
       )}
@@ -592,7 +643,7 @@ function RecordsWorkspace({
       />
 
       {/* 검색/필터 */}
-      <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
+      <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent:'space-between', marginBottom: 12 }}>
           <div style={{ display:'flex', alignItems:'center', gap:7 }}>
             <ListFilter size={16} color="var(--primary)" />
@@ -635,7 +686,7 @@ function RecordsWorkspace({
       </div>
 
       {filteredRecords.length === 0 ? (
-        <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: '32px 18px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px 18px', textAlign: 'center', color: 'var(--text-secondary)' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🔎</div>
           <div style={{ fontSize: 14, fontWeight: 800 }}>조건에 맞는 기록이 없어요</div>
           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>날짜, 아이 이름, 카테고리 조건을 바꿔보세요.</div>
@@ -661,7 +712,7 @@ function CalendarPanel({ calendarMonth, setCalendarMonth, recordDates, filterDat
   const moveYear  = (delta) => setCalendarMonth(new Date(year + delta, month, 1));
 
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -802,7 +853,7 @@ function RecordListCard({ record, onClick, onToggleStar }) {
   return (
     <div
       onClick={onClick}
-      style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: 15, boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+      style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 15, boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
       onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-md)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
     >
@@ -858,7 +909,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,50,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 999, backdropFilter: 'blur(4px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width: '100%', maxWidth: 600, background: 'white', borderRadius: '24px 24px 0 0', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}>
+      <div style={{ width: '100%', maxWidth: 600, background: 'var(--white)', borderRadius: '24px 24px 0 0', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}>
 
         {/* 핸들 */}
         <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
@@ -907,7 +958,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
             <div style={{ background: 'var(--primary-light)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', marginBottom: 6 }}>발달영역</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {record.devAreas.map(a => <span key={a} style={{ fontSize: 12, color: 'var(--primary)', background: 'white', padding: '3px 9px', borderRadius: 100, fontWeight: 700 }}>{a}</span>)}
+                {record.devAreas.map(a => <span key={a} style={{ fontSize: 12, color: 'var(--primary)', background: 'var(--white)', padding: '3px 9px', borderRadius: 100, fontWeight: 700 }}>{a}</span>)}
               </div>
             </div>
           )}
@@ -920,7 +971,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
               <EditField label="알림장 문장"  value={editParent} onChange={setEditParent}  rows={3} />
               <EditField label="교사 지원계획" value={editSupport} onChange={setEditSupport} rows={3} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
-                <button onClick={() => setEditMode(false)} style={{ padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'white', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <button onClick={() => setEditMode(false)} style={{ padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   <X size={14} /> 취소
                 </button>
                 <button onClick={handleSave} style={{ padding: '13px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(79,127,255,0.3)' }}>
@@ -947,7 +998,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
                   <div style={{ background: 'var(--accent-light)', borderRadius: 12, padding: 14 }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', marginBottom: 10 }}>정말 삭제할까요? 복구할 수 없어요.</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <button onClick={() => setConfirmDelete(false)} style={{ padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'white', fontSize: 13, fontWeight: 700 }}>취소</button>
+                      <button onClick={() => setConfirmDelete(false)} style={{ padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 13, fontWeight: 700 }}>취소</button>
                       <button onClick={() => onDelete(record.id)} style={{ padding: '10px', borderRadius: 10, background: 'var(--accent)', color: 'white', fontSize: 13, fontWeight: 800 }}>삭제</button>
                     </div>
                   </div>
@@ -1016,7 +1067,7 @@ function StepSection({ step, label, children }) {
 
 function SummaryCard({ label, value, icon }) {
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: 15, boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 15, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ fontSize: 20, marginBottom: 3 }}>{icon}</div>
       <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 800 }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)' }}>{value}</div>
@@ -1047,6 +1098,6 @@ function Spinner() {
 
 const selectStyle = {
   width: '100%', padding: '11px 12px', borderRadius: 13,
-  border: '1.5px solid var(--border)', background: 'white',
+  border: '1.5px solid var(--border)', background: 'var(--white)',
   color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit',
 };

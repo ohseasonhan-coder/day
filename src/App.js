@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './index.css';
 import { getClasses, getChildren, getRecordsByDate, today } from './utils/storage';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
-
+import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
 import RecordPage   from './pages/RecordPage';
 import ChildrenPage from './pages/ChildrenPage';
@@ -15,6 +15,8 @@ import LoginPage    from './pages/LoginPage';
 import StatsPage    from './pages/StatsPage';
 
 import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3 } from 'lucide-react';
+
+initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
 // 모바일 하단 탭 (5개 유지)
 const MOBILE_NAV = [
@@ -55,6 +57,7 @@ function useIsDesktop() {
 seedSpecialAccounts();
 
 export default function App() {
+  const { isDark, toggleTheme } = useTheme();
   const [user, setUser]                       = useState(() => isLoggedIn() ? getCurrentUser() : null);
   const [page, setPage]                       = useState('today');
   const [isSetup, setIsSetup]                 = useState(false);
@@ -85,14 +88,14 @@ export default function App() {
 
   if (!user)        return <LoginPage    onLogin={(u) => { setUser(u); setPage('today'); }} />;
   if (isSetup)      return <SetupPage    onComplete={() => setIsSetup(false)} />;
-  if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} />;
+  if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} />;
 
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
     setRecordContext(p === 'record' ? ctx : null);
   };
 
-  const pageProps = { onNavigate: handleNavigate, isDesktop };
+  const pageProps = { onNavigate: handleNavigate, isDesktop, isDark, toggleTheme };
 
   const renderPage = () => {
     switch (page) {

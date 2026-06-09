@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
+  getDocumentHistory,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
-import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users } from 'lucide-react';
+import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X } from 'lucide-react';
 
 const DOC_TYPES = [
   { key: 'daily',       label: '보육일지',      icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
@@ -36,6 +37,7 @@ function getAvatarColor(name) {
 }
 
 export default function DocsPage({ onNavigate, isDesktop }) {
+  const [mainTab, setMainTab]       = useState('new'); // 'new' | 'history'
   const [viewDate, setViewDate]     = useState(today());
   const [allRecords, setAllRecords] = useState([]);
   const [children, setChildren]     = useState([]);
@@ -44,6 +46,8 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const [loading, setLoading]       = useState(false);
   const [activeType, setActiveType] = useState('daily');
   const [showRecords, setShowRecords] = useState(false);
+  const [historyDocs, setHistoryDocs] = useState([]);
+  const [historyPreview, setHistoryPreview] = useState(null);
 
   // 아이 선택 (null = 전체 반)
   const [selectedChildId, setSelectedChildId] = useState(null);
@@ -56,6 +60,10 @@ export default function DocsPage({ onNavigate, isDesktop }) {
     setClasses(getClasses());
     setDoc(null);
   }, [viewDate, activeType, selectedChildId, period]);
+
+  useEffect(() => {
+    if (mainTab === 'history') setHistoryDocs(getDocumentHistory());
+  }, [mainTab]);
 
   const cl        = classes[0];
   const isToday   = viewDate === today();
@@ -137,7 +145,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
 
   const DateNav = (
     <div style={{
-      background: 'white', border: '1px solid var(--border)', borderRadius: 16,
+      background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16,
       padding: '12px 16px', marginBottom: 14,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       boxShadow: 'var(--shadow-sm)',
@@ -250,7 +258,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
           style={{
             textAlign: 'left', borderRadius: 14, padding: isDesktop ? '11px 12px' : '13px 12px',
             border: `1px solid ${activeType === t.key ? 'var(--primary)' : 'var(--border)'}`,
-            background: activeType === t.key ? 'var(--primary-light)' : 'white',
+            background: activeType === t.key ? 'var(--primary-light)' : 'var(--white)',
             boxShadow: activeType === t.key ? '0 6px 16px rgba(79,127,255,0.12)' : 'var(--shadow-sm)',
           }}
         >
@@ -306,7 +314,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
         onClick={() => setShowRecords(v => !v)}
         style={{
           width: '100%', marginBottom: 14, padding: '11px 14px', borderRadius: 14,
-          background: 'white', border: '1px solid var(--border)',
+          background: 'var(--white)', border: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           boxShadow: 'var(--shadow-sm)',
         }}
@@ -330,20 +338,22 @@ export default function DocsPage({ onNavigate, isDesktop }) {
                 {doc.badge}
               </span>
             </div>
-            {/* 인쇄 버튼 */}
-            <button
-              onClick={() => window.print()}
-              className="no-print"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 10,
-                border: '1.5px solid var(--border)', background: 'white',
-                fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)',
-                flexShrink: 0,
-              }}
-            >
-              <Printer size={14} color="var(--primary)" /> 인쇄 / PDF
-            </button>
+            {/* 공유 / 인쇄 버튼 */}
+            <div style={{ display:'flex', gap:7, flexShrink:0 }}>
+              <ShareButton doc={doc} />
+              <button
+                onClick={() => window.print()}
+                className="no-print"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 10,
+                  border: '1.5px solid var(--border)', background: 'var(--white)',
+                  fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)',
+                }}
+              >
+                <Printer size={14} color="var(--primary)" /> 인쇄
+              </button>
+            </div>
           </div>
 
           {/* 인쇄용 숨김 헤더 */}
@@ -377,6 +387,78 @@ export default function DocsPage({ onNavigate, isDesktop }) {
     </>
   );
 
+  // ── 메인 탭 UI ────────────────────────────────────────────────────────────────
+  const MainTabs = (
+    <div style={{ display:'flex', gap:4, background:'var(--gray-100)', borderRadius:14, padding:4, marginBottom:20 }}>
+      {[{ id:'new', label:'📄 새 문서 만들기' }, { id:'history', label:'🕐 문서 이력' }].map(t => (
+        <button key={t.id} onClick={() => setMainTab(t.id)} style={{
+          flex:1, padding:'10px 0', borderRadius:11, fontSize:14, fontWeight:mainTab===t.id?900:600,
+          background: mainTab===t.id ? 'var(--white)' : 'transparent',
+          color: mainTab===t.id ? 'var(--primary)' : 'var(--text-secondary)',
+          boxShadow: mainTab===t.id ? 'var(--shadow-sm)' : 'none',
+          transition:'all 0.15s',
+        }}>{t.label}</button>
+      ))}
+    </div>
+  );
+
+  // ── 문서 이력 탭 ──────────────────────────────────────────────────────────────
+  const HistoryTab = (
+    <div>
+      {historyDocs.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'48px 20px', color:'var(--text-secondary)' }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>📭</div>
+          <div style={{ fontSize:15, fontWeight:800 }}>아직 생성한 문서가 없어요</div>
+          <div style={{ fontSize:13, marginTop:6, lineHeight:1.6 }}>새 문서 만들기 탭에서 문서를 생성해 보세요.</div>
+          <button onClick={() => setMainTab('new')} style={{ marginTop:16, padding:'11px 22px', borderRadius:12, background:'var(--primary)', color:'white', fontWeight:800 }}>
+            문서 만들러 가기
+          </button>
+        </div>
+      ) : (
+        historyDocs.map(d => {
+          const docType = DOC_TYPES.find(t => t.key === d.type) || { icon:'📄', label:'문서' };
+          return (
+            <div key={d.id}
+              onClick={() => setHistoryPreview(d)}
+              style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px', marginBottom:10, cursor:'pointer', boxShadow:'var(--shadow-sm)', display:'flex', alignItems:'center', gap:12 }}
+            >
+              <div style={{ fontSize:28, flexShrink:0 }}>{docType.icon}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:800, fontSize:14, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.title}</div>
+                <div style={{ fontSize:12, color:'var(--text-secondary)' }}>
+                  {d.badge} · {d.createdAt ? new Date(d.createdAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}
+                </div>
+              </div>
+              <Share2 size={16} color="var(--text-tertiary)" style={{ flexShrink:0 }} />
+            </div>
+          );
+        })
+      )}
+
+      {/* 이력 미리보기 모달 */}
+      {historyPreview && (
+        <div onClick={() => setHistoryPreview(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:900, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--white)', borderRadius:'24px 24px 0 0', padding:24, width:'100%', maxWidth:640, maxHeight:'85vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+              <div style={{ fontWeight:900, fontSize:17 }}>{historyPreview.title}</div>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <ShareButton doc={historyPreview} />
+                <button onClick={() => setHistoryPreview(null)} style={{ padding:6, borderRadius:8, background:'var(--gray-100)', color:'var(--text-secondary)' }}><X size={18}/></button>
+              </div>
+            </div>
+            <div style={{ fontSize:12, color:'var(--primary)', background:'var(--primary-light)', padding:'5px 12px', borderRadius:100, display:'inline-block', marginBottom:14, fontWeight:700 }}>
+              {historyPreview.badge}
+            </div>
+            {(historyPreview.sections||[]).map((s,i) => (
+              <DocumentSection key={i} title={s.title} text={s.text} accent={s.accent} />
+            ))}
+            <CopyAllButton doc={historyPreview} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // ── 데스크톱 레이아웃 ─────────────────────────────────────────────────────────
   if (isDesktop) {
     return (
@@ -391,17 +473,23 @@ export default function DocsPage({ onNavigate, isDesktop }) {
           </div>
         </div>
 
-        {/* 아이 선택 + 기간 */}
-        <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
-          {ChildSelector}
-          {PeriodSelector}
-          {!selectedChildId && DateNav}
-        </div>
+        {MainTabs}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 28, alignItems: 'start' }}>
-          <div>{TypeSelector}</div>
-          <div>{GeneratePanel}</div>
-        </div>
+        {mainTab === 'history' ? HistoryTab : (
+          <>
+            {/* 아이 선택 + 기간 */}
+            <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
+              {ChildSelector}
+              {PeriodSelector}
+              {!selectedChildId && DateNav}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 28, alignItems: 'start' }}>
+              <div>{TypeSelector}</div>
+              <div>{GeneratePanel}</div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -419,11 +507,17 @@ export default function DocsPage({ onNavigate, isDesktop }) {
         </div>
       </div>
 
-      {ChildSelector}
-      {PeriodSelector}
-      {!selectedChildId && DateNav}
-      {TypeSelector}
-      {GeneratePanel}
+      {MainTabs}
+
+      {mainTab === 'history' ? HistoryTab : (
+        <>
+          {ChildSelector}
+          {PeriodSelector}
+          {!selectedChildId && DateNav}
+          {TypeSelector}
+          {GeneratePanel}
+        </>
+      )}
     </div>
   );
 }
@@ -580,7 +674,7 @@ function makeAreaText(records, category, fallback) {
 function RecordPreview({ records, onNavigate }) {
   if (records.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '28px 16px', background: 'white', borderRadius: 16, border: '1px solid var(--border)', marginBottom: 14 }}>
+      <div style={{ textAlign: 'center', padding: '28px 16px', background: 'var(--white)', borderRadius: 16, border: '1px solid var(--border)', marginBottom: 14 }}>
         <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
         <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 10 }}>반영할 기록이 없어요</div>
         <button onClick={() => onNavigate('record')} style={{ padding: '10px 18px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontWeight: 800 }}>
@@ -594,7 +688,7 @@ function RecordPreview({ records, onNavigate }) {
       {records.slice(0, 5).map(r => {
         const cat = CATEGORIES[r.category] || CATEGORIES.special;
         return (
-          <div key={r.id} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 7 }}>
+          <div key={r.id} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 7 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
               <span style={{ fontWeight: 800, fontSize: 13 }}>{r.childName}</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, background: cat.bg, padding: '2px 8px', borderRadius: 100 }}>{cat.emoji} {cat.label}</span>
@@ -616,7 +710,7 @@ function DocumentSection({ title, text, accent }) {
   if (!text) return null;
   return (
     <div className="print-section" style={{
-      background: accent ? 'var(--primary-light)' : 'white',
+      background: accent ? 'var(--primary-light)' : 'var(--white)',
       border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`,
       borderRadius: 15, padding: 16, marginBottom: 11,
       boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)',
@@ -634,6 +728,33 @@ function DocumentSection({ title, text, accent }) {
       <div className="print-section-title" style={{ display: 'none' }}>{title}</div>
       <div className="print-section-body" style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
     </div>
+  );
+}
+
+function ShareButton({ doc }) {
+  const [shared, setShared] = useState(false);
+  if (!doc) return null;
+  const getText = () =>
+    `${doc.title}\n${doc.badge}\n\n` + (doc.sections||[]).map(s => `[${s.title}]\n${s.text}`).join('\n\n') + '\n\n— 쌤워크로 작성';
+  const handleShare = async () => {
+    const text = getText();
+    if (navigator.share) {
+      try { await navigator.share({ title: doc.title, text }); return; } catch {}
+    }
+    try { await navigator.clipboard.writeText(text); } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    setShared(true);
+    setTimeout(() => setShared(false), 2000);
+  };
+  return (
+    <button onClick={handleShare} className="no-print" style={{
+      display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10,
+      background:'var(--primary)', color:'white', fontSize:13, fontWeight:800,
+    }}>
+      {shared ? <><Check size={14}/> 복사됨</> : <><Share2 size={14}/> 공유</>}
+    </button>
   );
 }
 
@@ -658,7 +779,7 @@ function CopyAllButton({ doc }) {
 function EmptyGuide({ activeType, onNavigate }) {
   const isManagement = ['teacher', 'safety'].includes(activeType);
   return (
-    <div style={{ background: 'white', border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 20, textAlign: 'center', color: 'var(--text-secondary)' }}>
+    <div style={{ background: 'var(--white)', border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 20, textAlign: 'center', color: 'var(--text-secondary)' }}>
       <div style={{ fontSize: 36, marginBottom: 8 }}>{isManagement ? '🧩' : '✨'}</div>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>생성 버튼을 누르면 초안이 만들어져요</div>
       <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>짧은 기록이 많을수록 문서가 더 개인화됩니다.</div>

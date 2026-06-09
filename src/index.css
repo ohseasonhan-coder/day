@@ -1,6 +1,8 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
 :root {
+  --white: white;
+
   /* Brand Colors */
   --primary: #4F7FFF;
   --primary-light: #EBF0FF;
@@ -298,4 +300,69 @@ input:focus, textarea:focus {
     white-space: pre-wrap;
     min-height: 60px;
   }
+}
+
+/* ── 다크모드 ─────────────────────────────────────── */
+[data-theme="dark"] {
+  --white: #1E293B;
+
+  --primary: #6B9FFF;
+  --primary-light: #1A2B4A;
+  --primary-dark: #4F7FFF;
+  --accent: #FF8080;
+  --accent-light: #3B1A1A;
+
+  --gray-50:  #0F172A;
+  --gray-100: #1E293B;
+  --gray-200: #243447;
+  --gray-300: #2E4060;
+  --gray-400: #4A6080;
+  --gray-500: #6A80A8;
+  --gray-600: #8A9EC8;
+  --gray-700: #A8BCD8;
+  --gray-800: #C8D8F0;
+  --gray-900: #E8F0FF;
+
+  --bg:               #0F172A;
+  --surface:          #1E293B;
+  --surface-elevated: #243447;
+  --text-primary:     #E8F0FF;
+  --text-secondary:   #8A9EC8;
+  --text-tertiary:    #5A6A90;
+  --border:           #243447;
+  --border-strong:    #2E4060;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4);
+}
+
+[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: var(--surface-elevated) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+  color-scheme: dark;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+/* 스크롤바 다크 */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--gray-400);
+}
+
+/* 토스트 다크 */
+[data-theme="dark"] .toast {
+  background: var(--gray-200);
+  color: var(--text-primary);
 }

@@ -1,14 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
-import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun } from 'lucide-react';
 
 const PLAN_LABELS = {
   [PLANS.VIP]:     { label: '영구 무료 (VIP)',  color: '#E91E9A', bg: '#FDE8F4', badge: '👑 VIP' },
   [PLANS.PREMIUM]: { label: '프리미엄',          color: 'var(--primary)', bg: 'var(--primary-light)', badge: '⭐ 프리미엄' },
   [PLANS.FREE]:    { label: '무료 플랜',          color: 'var(--text-secondary)', bg: 'var(--gray-100)', badge: '무료' },
 };
-export default function SettingsPage({ onBack, currentUser, onLogout }) {
+export default function SettingsPage({ onBack, currentUser, onLogout, isDark, toggleTheme }) {
   const [settings, setSettings]   = useState(getSettings());
   const [classes]                 = useState(getClasses());
   const [children, setChildren]   = useState(getChildren());
@@ -143,6 +143,35 @@ export default function SettingsPage({ onBack, currentUser, onLogout }) {
         {/* ── 일반 ─────────────────────────────────────────── */}
         {activeTab === 'general' && (
           <div>
+            {/* 다크모드 토글 */}
+            <SettingCard title="화면 테마">
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  {isDark ? <Moon size={18} color="var(--primary)" /> : <Sun size={18} color="var(--cat-habit)" />}
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:700 }}>{isDark ? '다크 모드' : '라이트 모드'}</div>
+                    <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2 }}>앱 전체 색상 테마</div>
+                  </div>
+                </div>
+                <button
+                  onClick={toggleTheme}
+                  style={{
+                    width:52, height:28, borderRadius:14,
+                    background: isDark ? 'var(--primary)' : 'var(--gray-300)',
+                    position:'relative', transition:'background 0.2s', flexShrink:0,
+                  }}
+                >
+                  <div style={{
+                    width:22, height:22, background:'var(--white)', borderRadius:'50%',
+                    position:'absolute', top:3, left: isDark ? 27 : 3, transition:'left 0.2s',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:11,
+                  }}>
+                    {isDark ? '🌙' : '☀️'}
+                  </div>
+                </button>
+              </div>
+            </SettingCard>
+
             <SettingCard title="이름 표시 방식">
               {[['name', '실명 (하준이는)'], ['alias', '별칭 (A아동은)'], ['blank', '빈칸 (○○이는)'], ['common', '공통 (유아는)']].map(([k, v]) => (
                 <button key={k} onClick={() => setSettings(s => ({ ...s, nameStyle: k }))} style={{
@@ -186,7 +215,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout }) {
                     position: 'relative', transition: 'background 0.2s',
                   }}>
                     <div style={{
-                      width: 18, height: 18, background: 'white', borderRadius: '50%',
+                      width: 18, height: 18, background: 'var(--white)', borderRadius: '50%',
                       position: 'absolute', top: 3, left: settings[k] ? 23 : 3, transition: 'left 0.2s',
                     }} />
                   </button>
@@ -286,7 +315,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout }) {
               <input type="file" accept=".json" ref={fileRef} onChange={handleImport} style={{ display: 'none' }} />
               <button onClick={() => fileRef.current?.click()} style={{
                 width: '100%', padding: '14px', borderRadius: 12,
-                background: 'white', border: '2px solid var(--border)',
+                background: 'var(--white)', border: '2px solid var(--border)',
                 color: 'var(--text-primary)', fontSize: 14, fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}>
@@ -477,7 +506,7 @@ function PwInput({ label, value, onChange }) {
 
 function SettingCard({ title, children }) {
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, letterSpacing: '0.3px' }}>
         {title}
       </div>

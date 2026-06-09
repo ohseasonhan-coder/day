@@ -315,7 +315,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
         </div>
       )}
 
-      <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: 14, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 14, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <DashboardStat label="전체 아이" value={`${children.length}명`} />
           <DashboardStat label="누적 기록" value={`${children.reduce((sum, c) => sum + getRecordsByChild(c.id).length, 0)}건`} />
@@ -329,7 +329,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="아이 이름으로 검색"
-          style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: 14, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', background: 'white', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }}
+          style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: 14, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', background: 'var(--white)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }}
         />
       </div>
 
@@ -349,7 +349,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
             onClick={() => selectChild(child)}
             className="card-lift"
             style={{
-              width: '100%', background: 'white', border: '1px solid var(--border)',
+              width: '100%', background: 'var(--white)', border: '1px solid var(--border)',
               borderRadius: 18, padding: '15px 16px', marginBottom: isDesktop ? 0 : 10,
               display: 'flex', alignItems: 'center', gap: 14,
               boxShadow: 'var(--shadow-sm)', textAlign: 'left',
@@ -484,7 +484,7 @@ function SectionTitle({ children }) {
 
 function Card({ title, children }) {
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
       <SectionTitle>{title}</SectionTitle>
       {children}
     </div>
@@ -606,7 +606,7 @@ function RecordCard({ record, classAge, onChange }) {
 
   if (editing) {
     return (
-      <div style={{ background: 'white', border: `1.5px solid ${cat.color}`, borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ background: 'var(--white)', border: `1.5px solid ${cat.color}`, borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>
             {cat.emoji} {cat.label} 수정 중
@@ -633,7 +633,7 @@ function RecordCard({ record, classAge, onChange }) {
   }
 
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 15, padding: 15, marginBottom: 9, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, background: cat.bg, padding: '3px 10px', borderRadius: 100 }}>

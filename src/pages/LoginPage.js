@@ -71,7 +71,7 @@ export default function LoginPage({ onLogin }) {
       {/* 카드 */}
       <div style={{
         width: '100%', maxWidth: 400,
-        background: 'white', borderRadius: 24, padding: '32px 28px',
+        background: 'var(--white)', borderRadius: 24, padding: '32px 28px',
         boxShadow: '0 20px 60px rgba(79,127,255,0.14)',
       }}>
 
@@ -236,7 +236,7 @@ const inputStyle = {
   fontSize: 15,
   fontFamily: 'inherit',
   color: 'var(--text-primary)',
-  background: 'white',
+  background: 'var(--white)',
   outline: 'none',
   transition: 'border-color 0.15s',
   boxSizing: 'border-box',

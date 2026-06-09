@@ -16,6 +16,7 @@ const KEYS = {
   get DOCUMENTS()  { return `sw_${_getUid()}_documents`; },
   get SETTINGS()   { return `sw_${_getUid()}_settings`; },
   get TEMPLATES()  { return `sw_${_getUid()}_templates`; },
+  get DRAFT()      { return `sw_${_getUid()}_draft`; },
 };
 
 // Generic storage helpers
@@ -122,6 +123,14 @@ export const updateRecord = (id, updates) => {
 export const deleteRecord = (id) => {
   saveRecords(getRecords().filter(r => r.id !== id));
 };
+
+// ── 기록 임시저장 (자동저장) ──────────────────────────────────────────────────
+export const getDraft     = () => storage.get(KEYS.DRAFT);
+export const saveDraft    = (draft) => storage.set(KEYS.DRAFT, { ...draft, savedAt: new Date().toISOString() });
+export const clearDraft   = () => storage.remove(KEYS.DRAFT);
+
+// ── 문서 이력 조회 (최근 20개) ────────────────────────────────────────────────
+export const getDocumentHistory = () => (storage.get(KEYS.DOCUMENTS) || []).slice(0, 20);
 
 // Star / bookmark a record
 export const toggleStarRecord = (id) => {
