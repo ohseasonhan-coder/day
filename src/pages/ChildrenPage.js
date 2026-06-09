@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord, updateChild, deleteChild } from '../utils/storage';
+import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord, updateChild, deleteChild, getAutomationState } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc, processRecord } from '../utils/ai';
 import { ChevronRight, Plus, Search, Sparkles, Copy, X, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
@@ -23,6 +23,33 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
+function AutoGrowthPanel({ growth }) {
+  const missing = growth.missingCategoryKeys || [];
+  const devAreaEntries = Object.entries(growth.devAreaCounts || {}).slice(0, 4);
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>자동 성장 요약</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>최근 1개월 기록 기준으로 자동 갱신됩니다.</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '5px 10px', height: 24 }}>{growth.recordIds?.length || 0}건</span>
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.65, background: 'var(--gray-50)', borderRadius: 12, padding: 12 }}>{growth.summary}</div>
+      {devAreaEntries.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+          {devAreaEntries.map(([area, count]) => <span key={area} style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '4px 9px' }}>{area} {count}</span>)}
+        </div>
+      )}
+      {missing.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--accent)', background: 'var(--accent-light)', borderRadius: 12, padding: '9px 11px', fontWeight: 800 }}>
+          부족한 기록 영역 {missing.length}개가 있습니다.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChildrenPage({ onNavigate, isDesktop }) {
   const [children, setChildren] = useState([]);
   const [search, setSearch] = useState('');
@@ -39,10 +66,12 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
   const [newChildBirth, setNewChildBirth] = useState('');
   const [newChildNotes, setNewChildNotes] = useState('');
   const [editingChild, setEditingChild] = useState(null); // { id, name, birthdate, notes, allergies }
+  const [automation, setAutomation] = useState(() => getAutomationState());
 
   useEffect(() => {
     setChildren(getChildren());
     setClasses(getClasses());
+    setAutomation(getAutomationState());
   }, []);
 
   const filtered = children.filter(c => c.name.includes(search));
@@ -152,6 +181,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
     const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
     const lastRecord = records[0];
     const ageStr = calcAge(selected.birthdate);
+    const autoGrowth = automation?.growthSummaries?.byChild?.[selected.id];
 
     return (
       <div style={{ padding: containerPad }}>
@@ -194,6 +224,10 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
             <MiniStat label="대표 영역" value={sortedCats[0] ? CATEGORIES[sortedCats[0][0]]?.label : '-'} />
           </div>
         </div>
+
+        {autoGrowth?.ready && (
+          <AutoGrowthPanel growth={autoGrowth} />
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, overflowX: 'auto', paddingBottom: 4 }}>
           {Object.entries(PERIOD_LABELS).map(([k, v]) => (

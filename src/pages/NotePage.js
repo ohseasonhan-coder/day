@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   getChildren, getRecords, getClasses,
-  today, formatDateKo, formatDate,
+  today, formatDateKo, formatDate, getAutomationState,
 } from '../utils/storage';
 import {
   ChevronLeft, ChevronRight, Printer, Copy, Check,
@@ -58,6 +58,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
   const [bulkChecked, setBulkChecked] = useState({});
   const [sharedContext, setSharedContext] = useState('');
   const [bulkNotes, setBulkNotes]   = useState({});
+  const [automation, setAutomation] = useState(() => getAutomationState());
 
   const todayStr = today();
   const isToday  = viewDate === todayStr;
@@ -70,6 +71,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
     setGenerated(false);
     setBulkChecked({});
     setBulkNotes({});
+    setAutomation(getAutomationState());
   }, []);
 
   const changeDate = (delta) => {
@@ -114,6 +116,8 @@ export default function NotePage({ onNavigate, isDesktop }) {
   const cl = classes[0];
   const dateRecs = allRecords.filter(r => r.date === viewDate);
   const recordedIds = new Set(dateRecs.map(r => r.childId));
+  const autoNotice = automation?.noticeDrafts || {};
+  const autoNoticeItems = Object.values(autoNotice.byChild || {}).filter(item => item.ready);
 
   const filteredChildren = children.filter(c => {
     if (filter === 'recorded') return recordedIds.has(c.id);
@@ -236,6 +240,16 @@ export default function NotePage({ onNavigate, isDesktop }) {
         )}
       </div>
 
+      {isToday && autoNoticeItems.length > 0 && (
+        <AutoNoticePanel
+          items={autoNoticeItems}
+          onUse={(childId, text) => {
+            setNotes(prev => ({ ...prev, [childId]: text }));
+            setGenerated(true);
+          }}
+        />
+      )}
+
       {mainMode === 'bulk' ? (
         <div>
           <div style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:16, padding:16, marginBottom:14, boxShadow:'var(--shadow-sm)' }}>
@@ -340,6 +354,40 @@ function BulkNoteCard({ child, text, onChange }) {
 }
 
 /* ── 아이별 알림장 카드 ────────────────────────────────────────────────────── */
+function AutoNoticePanel({ items, onUse }) {
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>자동 알림장 초안</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>오늘 기록이 있는 아이의 알림장 문장이 자동 준비됐습니다.</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '5px 10px' }}>{items.length}명</span>
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {items.slice(0, 4).map(item => (
+          <div key={item.childId} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 13, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+              <div style={{ fontSize: 13, fontWeight: 900 }}>{item.childName}</div>
+              <button onClick={() => onUse(item.childId, item.text)} style={{ fontSize: 11, fontWeight: 900, color: 'white', background: 'var(--primary)', borderRadius: 100, padding: '5px 9px' }}>적용</button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{item.text}</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              {item.sections?.play && <MiniTag label="놀이" />}
+              {item.sections?.habit && <MiniTag label="생활습관" />}
+              {item.sections?.special && <MiniTag label="특이사항" />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniTag({ label }) {
+  return <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '3px 8px' }}>{label}</span>;
+}
+
 function NoteCard({ child, color, recs, hasRec, noteText, generated, onRegenerate, onNavigate, onChange }) {
   const [copied, setCopied] = useState(false);
 

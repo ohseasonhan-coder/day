@@ -94,6 +94,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
   const selChild  = children.find(c => c.id === selectedChildId) || null;
   const autoDocs = automation?.documents || {};
   const autoChecklist = automation?.checklist || {};
+  const draftCandidates = automation?.draftCandidates || {};
   const docReadyItems = [
     { key: 'daily', title: '보육일지', count: autoDocs.daily?.count || 0, desc: autoDocs.daily?.label || '오늘 기록을 기다리는 중입니다.', navType: 'daily', periodKey: 'date' },
     { key: 'weekly', title: '주간평가', count: autoDocs.weekly?.count || 0, desc: autoDocs.weekly?.label || '최근 7일 기록을 기다리는 중입니다.', navType: 'weekly', periodKey: '1week' },
@@ -135,6 +136,41 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
           평가제 점검: 아직 부족한 기록 영역이 {autoChecklist.missingCategoryKeys.length}개 있습니다.
         </div>
       )}
+    </div>
+  );
+
+  const DraftCandidatePanel = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--text-primary)' }}>자동 초안 후보</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>문서 이력과 분리해서 최신 기록 기준 후보만 준비합니다.</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(3, 1fr)' : '1fr', gap: 9 }}>
+        {[
+          { key: 'daily', label: '오늘 보육일지', docType: 'daily', periodKey: 'date' },
+          { key: 'weekly', label: '주간평가', docType: 'weekly', periodKey: '1week' },
+          { key: 'monthly', label: '월간평가', docType: 'monthly', periodKey: '1month' },
+        ].map(meta => {
+          const item = draftCandidates[meta.key] || {};
+          return (
+            <button key={meta.key} onClick={() => { setActiveType(meta.docType); setPeriod(meta.periodKey); setDoc(null); }} style={{
+              textAlign: 'left',
+              borderRadius: 14,
+              padding: 13,
+              border: `1px solid ${item.ready ? 'rgba(76,175,80,0.28)' : 'var(--border)'}`,
+              background: item.ready ? 'rgba(76,175,80,0.08)' : 'var(--gray-50)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{meta.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 900, color: item.ready ? 'var(--cat-play)' : 'var(--text-tertiary)' }}>{item.count || 0}건</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{item.preview || '반영할 기록이 생기면 자동 후보가 준비됩니다.'}</div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -616,6 +652,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
 
         {MainTabs}
         {mainTab === 'new' && AutomationReadyPanel}
+        {mainTab === 'new' && DraftCandidatePanel}
 
         {mainTab === 'history' ? HistoryTab : (
           <>
@@ -659,6 +696,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
 
       {MainTabs}
       {mainTab === 'new' && AutomationReadyPanel}
+      {mainTab === 'new' && DraftCandidatePanel}
 
       {mainTab === 'history' ? HistoryTab : (
         <>

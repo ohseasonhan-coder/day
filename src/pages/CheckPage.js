@@ -61,6 +61,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
   const autoDocs = automation?.documents || {};
   const autoChecklist = automation?.checklist || {};
   const audit = automation?.audit || { readyCount: 0, totalCount: 0, percent: 0, items: [] };
+  const recommendations = automation?.recommendations || [];
   const actionItems = [
     {
       title: '오늘 보육일지 초안',
@@ -115,6 +116,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
       {PeriodSelector}
       <AutomationActionPanel items={actionItems} />
       <AutomationAuditPanel audit={audit} onNavigate={onNavigate} />
+      <RecommendationPanel items={recommendations} onNavigate={onNavigate} />
 
       {/* Score Card */}
       <div style={{
@@ -324,6 +326,33 @@ function AutomationAuditPanel({ audit, onNavigate }) {
                 보완
               </button>
             )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RecommendationPanel({ items, onNavigate }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>부족 기록 추천</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>평가제 균형을 위해 다음 기록을 추가해보세요.</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--accent)', background: 'var(--accent-light)', borderRadius: 100, padding: '5px 10px', height: 24 }}>{items.length}개</span>
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {items.slice(0, 5).map(item => (
+          <div key={item.key} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 13, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 900 }}>{item.label}</div>
+              <button onClick={() => onNavigate('record')} style={{ fontSize: 11, fontWeight: 900, color: 'white', background: 'var(--primary)', borderRadius: 100, padding: '5px 9px' }}>기록하기</button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{item.prompt}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.45, marginTop: 5 }}>{item.example}</div>
           </div>
         ))}
       </div>

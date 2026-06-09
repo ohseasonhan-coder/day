@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getChildren, getConsults, addConsult, updateConsult, deleteConsult } from '../utils/storage';
+import { getChildren, getConsults, addConsult, updateConsult, deleteConsult, getAutomationState } from '../utils/storage';
 import { Plus, X } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
 
@@ -31,6 +31,7 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
   const [editingConsult, setEditingConsult] = useState(null);
   const [detailConsult, setDetailConsult] = useState(null);
   const [outcomeText, setOutcomeText] = useState('');
+  const [automation, setAutomation] = useState(() => getAutomationState());
 
   const [formChildId, setFormChildId] = useState('');
   const [formDate, setFormDate] = useState('');
@@ -43,6 +44,7 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
   useEffect(() => {
     setChildren(getChildren());
     setConsults(getConsults());
+    setAutomation(getAutomationState());
   }, []);
 
   const refresh = () => setConsults(getConsults());
@@ -117,6 +119,7 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
   const upcoming = consults.filter(c => c.status === 'scheduled').sort((a, b) => a.date.localeCompare(b.date));
   const done = consults.filter(c => c.status === 'done').sort((a, b) => (b.doneAt || b.date).localeCompare(a.doneAt || a.date));
   const pad = isDesktop ? '32px 36px' : '20px';
+  const autoConsultItems = Object.values(automation?.consultAccumulations?.byChild || {}).filter(item => item.ready);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -134,6 +137,13 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
       </div>
 
       <div style={{ padding: pad }}>
+        {autoConsultItems.length > 0 && (
+          <AutoConsultPanel
+            items={autoConsultItems}
+            onPrepare={(item) => onNavigate?.('docs', { childId: item.childId, docType: 'parent', period: '1month' })}
+          />
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
           <TabButton active={tab === 'upcoming'} onClick={() => setTab('upcoming')} label={`예정된 상담${upcoming.length ? ` (${upcoming.length})` : ''}`} />
           <TabButton active={tab === 'done'} onClick={() => setTab('done')} label={`완료된 상담${done.length ? ` (${done.length})` : ''}`} />
@@ -255,6 +265,39 @@ function TabButton({ active, onClick, label }) {
       {label}
     </button>
   );
+}
+
+function AutoConsultPanel({ items, onPrepare }) {
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>자동 누적 상담자료</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>기록을 바탕으로 아이별 상담 문장이 자동으로 쌓입니다.</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '5px 10px', height: 24 }}>{items.length}명</span>
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {items.slice(0, 4).map(item => (
+          <div key={item.childId} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 13, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 900 }}>{item.childName}</div>
+              <button onClick={() => onPrepare(item)} style={{ fontSize: 11, fontWeight: 900, color: 'white', background: 'var(--primary)', borderRadius: 100, padding: '5px 9px' }}>상담자료</button>
+            </div>
+            <AutoLine title="최근 성장" text={item.recentGrowth} />
+            <AutoLine title="강점" text={item.strengths} />
+            <AutoLine title="지원" text={item.supportNeeded} />
+            <AutoLine title="가정연계" text={item.homeLink} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AutoLine({ title, text }) {
+  if (!text) return null;
+  return <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: 4 }}><b>{title}</b> · {text}</div>;
 }
 
 function ConsultCard({ consult, onEdit, onDelete, onMarkDone, onPrepareDoc }) {
