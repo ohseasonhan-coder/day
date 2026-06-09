@@ -148,43 +148,6 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
   }, [records, searchText, filterDate, filterChildId, filterCategory]);
 
-  const recordDates = useMemo(() => {
-    const map = new Map();
-    records.forEach(r => {
-      if (!r.date) return;
-      map.set(r.date, (map.get(r.date) || 0) + 1);
-    });
-    return map;
-  }, [records]);
-
-  const filteredRecords = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    return records
-      .filter(r => {
-        if (filterDate && r.date !== filterDate) return false;
-        if (filterChildId !== 'all' && r.childId !== filterChildId) return false;
-        if (filterCategory !== 'all' && r.category !== filterCategory) return false;
-        if (!q) return true;
-        const haystack = [
-          r.childName,
-          r.rawText,
-          r.observation,
-          r.parent,
-          r.support,
-          r.softened,
-          r.title,
-          ...(r.tags || []),
-          ...(r.devAreas || []),
-        ].filter(Boolean).join(' ').toLowerCase();
-        return haystack.includes(q);
-      })
-      .sort((a, b) => {
-        const aTime = new Date(a.createdAt || a.date || 0).getTime();
-        const bTime = new Date(b.createdAt || b.date || 0).getTime();
-        return bTime - aTime;
-      });
-  }, [records, searchText, filterDate, filterChildId, filterCategory]);
-
   const handleProcess = async () => {
     if (!selectedChild) return setError('위에서 아이를 먼저 선택해 주세요.');
     if (!rawText.trim())  return setError('기록 내용을 입력해 주세요.');
