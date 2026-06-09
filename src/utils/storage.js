@@ -28,6 +28,7 @@ const KEYS = {
   get DOC_TEMPLATES()   { return `sw_${_getUid()}_doc_templates`; },
   get CONSULTS()        { return `sw_${_getUid()}_consults`; },
   get BACKUP_HISTORY()  { return `sw_${_getUid()}_backup_history`; },
+  get AUTOMATION_STATE(){ return `sw_${_getUid()}_automation_state`; },
 };
 
 // Generic storage helpers
@@ -112,6 +113,164 @@ export const DEV_AREAS = [
   '기본생활습관',
 ];
 
+// Automation helpers
+const DOCUMENT_TARGETS = {
+  observation: '관찰일지',
+  parentConsult: '부모상담자료',
+  supportPlan: '지원계획',
+  dailyJournal: '보육일지',
+  playReview: '주간/월간 놀이평가',
+  development: '발달평가',
+  checklist: '평가제 점검',
+};
+
+const toArray = (value) => Array.isArray(value) ? value : [];
+
+const daysAgo = (dateStr) => {
+  if (!dateStr) return Infinity;
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return Infinity;
+  return (new Date() - date) / 86400000;
+};
+
+const countBy = (list, selector) =>
+  list.reduce((acc, item) => {
+    const key = selector(item);
+    if (!key) return acc;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+const unique = (values) => [...new Set(values.filter(Boolean))];
+
+const getRecordTargets = (record) => {
+  const targets = new Set(['observation', 'dailyJournal', 'checklist']);
+  if (record.parent) targets.add('parentConsult');
+  if (record.support) targets.add('supportPlan');
+  if (toArray(record.devAreas).length > 0) targets.add('development');
+  if (['play', 'peer', 'nature', 'art', 'body'].includes(record.category)) targets.add('playReview');
+  if (record.recordType === 'consult') targets.add('parentConsult');
+  return [...targets];
+};
+
+const makeRecordAutomationMeta = (record) => {
+  const appliedTargets = getRecordTargets(record);
+  return {
+    appliedAt: new Date().toISOString(),
+    appliedTargets,
+    appliedLabels: appliedTargets.map(target => DOCUMENT_TARGETS[target] || target),
+    documentReady: !!record.observation && !!record.parent && !!record.support,
+    needsReview: toArray(record.documentMeta?.reviewFlags).length > 0,
+  };
+};
+
+const makeDocumentQueue = (records) => {
+  const todayStr = today();
+  const todayRecords = records.filter(r => r.date === todayStr);
+  const weekRecords = records.filter(r => daysAgo(r.date) <= 7);
+  const monthRecords = records.filter(r => daysAgo(r.date) <= 30);
+  const consultRecords = monthRecords.filter(r => r.parent || r.recordType === 'consult');
+  const developmentRecords = records.filter(r => toArray(r.devAreas).length > 0);
+
+  return {
+    daily: {
+      ready: todayRecords.length > 0,
+      count: todayRecords.length,
+      recordIds: todayRecords.map(r => r.id),
+      label: todayRecords.length ? `오늘 기록 ${todayRecords.length}건이 보육일지에 반영됩니다.` : '오늘 보육일지에 반영할 기록이 아직 없습니다.',
+    },
+    weekly: {
+      ready: weekRecords.length > 0,
+      count: weekRecords.length,
+      recordIds: weekRecords.map(r => r.id),
+      label: weekRecords.length ? `최근 7일 기록 ${weekRecords.length}건이 주간평가에 반영됩니다.` : '주간평가에 반영할 최근 기록이 없습니다.',
+    },
+    monthly: {
+      ready: monthRecords.length > 0,
+      count: monthRecords.length,
+      recordIds: monthRecords.map(r => r.id),
+      label: monthRecords.length ? `최근 30일 기록 ${monthRecords.length}건이 월간평가에 반영됩니다.` : '월간평가에 반영할 최근 기록이 없습니다.',
+    },
+    parent: {
+      ready: consultRecords.length > 0,
+      count: consultRecords.length,
+      recordIds: consultRecords.map(r => r.id),
+      label: consultRecords.length ? `상담자료용 문장 ${consultRecords.length}건이 누적되었습니다.` : '부모상담자료로 쓸 기록이 아직 없습니다.',
+    },
+    development: {
+      ready: developmentRecords.length > 0,
+      count: developmentRecords.length,
+      recordIds: developmentRecords.map(r => r.id),
+      label: developmentRecords.length ? `발달영역 기록 ${developmentRecords.length}건이 발달평가에 반영됩니다.` : '발달평가에 반영할 발달영역 기록이 없습니다.',
+    },
+  };
+};
+
+const makeChildAutomation = (children, records) =>
+  children.reduce((acc, child) => {
+    const childRecords = records
+      .filter(r => r.childId === child.id)
+      .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+    const recent30 = childRecords.filter(r => daysAgo(r.date) <= 30);
+    const devAreas = recent30.flatMap(r => toArray(r.devAreas));
+
+    acc[child.id] = {
+      childId: child.id,
+      childName: child.name,
+      totalRecords: childRecords.length,
+      recent30Count: recent30.length,
+      lastRecordDate: childRecords[0]?.date || null,
+      recentRecordIds: recent30.slice(0, 20).map(r => r.id),
+      categoryCounts: countBy(recent30, r => r.category),
+      devAreaCounts: countBy(devAreas, area => area),
+      consultReadyCount: recent30.filter(r => r.parent || r.recordType === 'consult').length,
+      supportPlanCount: recent30.filter(r => r.support).length,
+      needsRecord: recent30.length < 3,
+    };
+    return acc;
+  }, {});
+
+const makeChecklist = (children, records) => {
+  const todayStr = today();
+  const recent30 = records.filter(r => daysAgo(r.date) <= 30);
+  const todayChildIds = new Set(records.filter(r => r.date === todayStr).map(r => r.childId));
+  const categoryCounts = countBy(recent30, r => r.category);
+  const childStats = makeChildAutomation(children, records);
+
+  return {
+    todayMissingChildIds: children.filter(child => !todayChildIds.has(child.id)).map(child => child.id),
+    lowRecordChildIds: Object.values(childStats).filter(stat => stat.recent30Count > 0 && stat.recent30Count < 3).map(stat => stat.childId),
+    noRecentRecordChildIds: Object.values(childStats).filter(stat => stat.recent30Count === 0).map(stat => stat.childId),
+    missingCategoryKeys: Object.keys(CATEGORIES).filter(key => !categoryCounts[key]),
+    categoryCounts,
+  };
+};
+
+export function rebuildAutomationState(records = getRecords(), children = getChildren(), classes = getClasses()) {
+  const sortedRecords = [...records].sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+  const todayRecordIds = sortedRecords.filter(r => r.date === today()).map(r => r.id);
+  const state = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    classId: classes[0]?.id || null,
+    className: classes[0]?.name || '',
+    totalRecords: sortedRecords.length,
+    latestRecordId: sortedRecords[0]?.id || null,
+    today: {
+      date: today(),
+      recordIds: todayRecordIds,
+      childIds: unique(sortedRecords.filter(r => r.date === today()).map(r => r.childId)),
+    },
+    documents: makeDocumentQueue(sortedRecords),
+    children: makeChildAutomation(children, sortedRecords),
+    checklist: makeChecklist(children, sortedRecords),
+  };
+  storage.set(KEYS.AUTOMATION_STATE, state);
+  return state;
+}
+
+export const getAutomationState = () => storage.get(KEYS.AUTOMATION_STATE) || rebuildAutomationState();
+
 // Records helpers
 export const getRecordsByChild = (childId) =>
   getRecords().filter(r => r.childId === childId);
@@ -121,18 +280,29 @@ export const getRecordsByDate = (date) =>
 
 export const addRecord = (record) => {
   const records = getRecords();
-  const newRecord = { ...record, id: genId(), createdAt: new Date().toISOString() };
-  saveRecords([newRecord, ...records]);
+  const baseRecord = { ...record, id: genId(), createdAt: new Date().toISOString() };
+  const newRecord = { ...baseRecord, automation: makeRecordAutomationMeta(baseRecord) };
+  const nextRecords = [newRecord, ...records];
+  saveRecords(nextRecords);
+  rebuildAutomationState(nextRecords);
   return newRecord;
 };
 
 export const updateRecord = (id, updates) => {
   const records = getRecords();
-  saveRecords(records.map(r => r.id === id ? { ...r, ...updates } : r));
+  const nextRecords = records.map(r => {
+    if (r.id !== id) return r;
+    const updated = { ...r, ...updates, updatedAt: new Date().toISOString() };
+    return { ...updated, automation: makeRecordAutomationMeta(updated) };
+  });
+  saveRecords(nextRecords);
+  rebuildAutomationState(nextRecords);
 };
 
 export const deleteRecord = (id) => {
-  saveRecords(getRecords().filter(r => r.id !== id));
+  const nextRecords = getRecords().filter(r => r.id !== id);
+  saveRecords(nextRecords);
+  rebuildAutomationState(nextRecords);
 };
 
 // ── 기록 임시저장 (자동저장) ──────────────────────────────────────────────────
@@ -152,11 +322,15 @@ export const toggleStarRecord = (id) => {
 // Update a child's info (name, birthdate, notes, etc.)
 export const updateChild = (id, updates) => {
   const children = getChildren();
-  saveChildren(children.map(c => c.id === id ? { ...c, ...updates } : c));
+  const nextChildren = children.map(c => c.id === id ? { ...c, ...updates } : c);
+  saveChildren(nextChildren);
+  rebuildAutomationState(getRecords(), nextChildren);
 };
 
 export const deleteChild = (id) => {
-  saveChildren(getChildren().filter(c => c.id !== id));
+  const nextChildren = getChildren().filter(c => c.id !== id);
+  saveChildren(nextChildren);
+  rebuildAutomationState(getRecords(), nextChildren);
 };
 
 // Custom quick templates
@@ -251,6 +425,7 @@ export function importBackup(jsonString) {
     if (data.records)   saveRecords(data.records);
     if (data.documents) saveDocuments(data.documents);
     if (data.settings)  saveSettings(data.settings);
+    rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
 
     return {
       ok: true,

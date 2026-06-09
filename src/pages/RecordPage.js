@@ -117,6 +117,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const recognitionRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported] = useState(() => !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+  const showToast = useToast();
 
   const startListening = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -213,6 +214,8 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     setRecords(prev => [newRecord, ...prev]);
     setSaved(true);
     clearDraft(); setDraftBanner(false);
+    const labels = newRecord.automation?.appliedLabels || [];
+    showToast(labels.length ? `${labels.slice(0, 3).join(', ')}에 자동 반영됐어요.` : '기록이 자동 반영됐어요.');
   };
 
   const handleReset = () => {
