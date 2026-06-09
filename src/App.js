@@ -12,10 +12,11 @@ import NotePage     from './pages/NotePage';
 import SetupPage    from './pages/SetupPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage    from './pages/LoginPage';
+import StatsPage    from './pages/StatsPage';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3 } from 'lucide-react';
 
-// 모바일 하단 탭 (5개 유지 — 알림장은 데스크톱 사이드바 + 오늘 페이지 퀵액션)
+// 모바일 하단 탭 (5개 유지)
 const MOBILE_NAV = [
   { id: 'today',    label: '오늘',   icon: Home },
   { id: 'record',   label: '기록',   icon: PenLine },
@@ -24,7 +25,7 @@ const MOBILE_NAV = [
   { id: 'check',    label: '점검',   icon: CheckSquare },
 ];
 
-// 데스크톱 사이드바 (알림장 포함 6개)
+// 데스크톱 사이드바 (통계 포함 7개)
 const DESKTOP_NAV = [
   { id: 'today',    label: '오늘',    icon: Home },
   { id: 'record',   label: '기록',    icon: PenLine },
@@ -32,11 +33,12 @@ const DESKTOP_NAV = [
   { id: 'children', label: '아이들',  icon: Users },
   { id: 'docs',     label: '문서함',  icon: FolderOpen },
   { id: 'check',    label: '점검',    icon: CheckSquare },
+  { id: 'stats',    label: '통계',    icon: BarChart3 },
 ];
 
 const PAGE_TITLES = {
   today: '오늘', record: '기록', note: '알림장',
-  children: '아이들', docs: '문서함', check: '점검',
+  children: '아이들', docs: '문서함', check: '점검', stats: '통계',
 };
 
 function useIsDesktop() {
@@ -100,6 +102,7 @@ export default function App() {
       case 'children': return <ChildrenPage {...pageProps} />;
       case 'docs':     return <DocsPage     {...pageProps} />;
       case 'check':    return <CheckPage    {...pageProps} />;
+      case 'stats':    return <StatsPage    {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }
   };

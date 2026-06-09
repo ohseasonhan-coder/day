@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord } from '../utils/storage';
+import { getChildren, getRecordsByChild, getClasses, CATEGORIES, formatDate, genId, saveChildren, getChildren as reloadChildren, updateRecord, deleteRecord, updateChild, deleteChild } from '../utils/storage';
 import { generateGrowthSummary, generateConsultDoc, processRecord } from '../utils/ai';
 import { ChevronRight, Plus, Search, Sparkles, Copy, Check, X, FileText, BarChart3, Pencil, Trash2, Save } from 'lucide-react';
 
@@ -32,6 +32,9 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
   const [classes, setClasses] = useState([]);
   const [showAddChild, setShowAddChild] = useState(false);
   const [newChildName, setNewChildName] = useState('');
+  const [newChildBirth, setNewChildBirth] = useState('');
+  const [newChildNotes, setNewChildNotes] = useState('');
+  const [editingChild, setEditingChild] = useState(null); // { id, name, birthdate, notes, allergies }
 
   useEffect(() => {
     setChildren(getChildren());
@@ -100,11 +103,26 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
   const handleAddChild = () => {
     if (!newChildName.trim()) return;
     const ch = reloadChildren();
-    const newChild = { id: genId(), name: newChildName.trim(), classId: cl?.id };
+    const newChild = { id: genId(), name: newChildName.trim(), classId: cl?.id, birthdate: newChildBirth || '', notes: newChildNotes.trim() };
     saveChildren([...ch, newChild]);
     setChildren([...ch, newChild]);
-    setNewChildName('');
+    setNewChildName(''); setNewChildBirth(''); setNewChildNotes('');
     setShowAddChild(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingChild?.name?.trim()) return;
+    updateChild(editingChild.id, { name: editingChild.name.trim(), birthdate: editingChild.birthdate || '', notes: editingChild.notes || '', allergies: editingChild.allergies || '' });
+    setChildren(getChildren());
+    if (selected?.id === editingChild.id) setSelected(c => ({ ...c, ...editingChild }));
+    setEditingChild(null);
+  };
+
+  const handleDeleteChild = (childId) => {
+    deleteChild(childId);
+    setChildren(getChildren());
+    if (selected?.id === childId) setSelected(null);
+    setEditingChild(null);
   };
 
   const refreshSelectedRecords = () => {
@@ -114,11 +132,22 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
   const containerPad = isDesktop ? '32px 36px' : '20px';
 
+  // 월령 계산 헬퍼
+  const calcAge = (birthdate) => {
+    if (!birthdate) return null;
+    const b = new Date(birthdate);
+    const n = new Date();
+    const months = (n.getFullYear() - b.getFullYear()) * 12 + (n.getMonth() - b.getMonth());
+    if (months < 24) return `${months}개월`;
+    return `${Math.floor(months/12)}세 ${months%12}개월`;
+  };
+
   if (selected) {
     const catCounts = {};
     records.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
     const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
     const lastRecord = records[0];
+    const ageStr = calcAge(selected.birthdate);
 
     return (
       <div style={{ padding: containerPad }}>
@@ -127,12 +156,25 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
             <X size={18} /> 목록
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.7px' }}>{selected.name}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.7px' }}>{selected.name}
+              {ageStr && <span style={{ fontSize:14, fontWeight:700, color:'var(--primary)', marginLeft:8 }}>{ageStr}</span>}
+            </div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               기록 {records.length}건 · {PERIOD_LABELS[period]} {lastRecord ? `· 최근 ${formatDate(lastRecord.date)}` : ''}
             </div>
           </div>
+          <button onClick={() => setEditingChild({ ...selected })} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 13px', borderRadius:10, background:'var(--gray-100)', color:'var(--text-secondary)', fontSize:13, fontWeight:800 }}>
+            <Pencil size={14} /> 편집
+          </button>
         </div>
+
+        {/* 메모/알레르기 표시 */}
+        {(selected.notes || selected.allergies) && (
+          <div style={{ background:'var(--gray-50)', border:'1px solid var(--border)', borderRadius:14, padding:'12px 16px', marginBottom:16, display:'flex', gap:16, flexWrap:'wrap' }}>
+            {selected.notes && <div style={{ fontSize:13, color:'var(--text-secondary)' }}>📝 {selected.notes}</div>}
+            {selected.allergies && <div style={{ fontSize:13, color:'var(--accent)', fontWeight:700 }}>⚠️ 알레르기: {selected.allergies}</div>}
+          </div>
+        )}
 
         <div style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', borderRadius: 18, padding: 18, marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -257,17 +299,18 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
       {showAddChild && (
         <div style={{ background: 'var(--primary-light)', borderRadius: 14, padding: 16, marginBottom: 16 }} className="slide-up">
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              value={newChildName}
-              onChange={e => setNewChildName(e.target.value)}
-              placeholder="아이 이름 입력"
-              onKeyDown={e => e.key === 'Enter' && handleAddChild()}
-              style={{ flex: 1, padding: '11px 14px', borderRadius: 12, border: '1.5px solid var(--primary)', fontSize: 15, outline: 'none', fontFamily: 'inherit' }}
-            />
-            <button onClick={handleAddChild} style={{ background: 'var(--primary)', color: 'white', padding: '0 16px', borderRadius: 12, fontWeight: 800, fontSize: 14 }}>
-              추가
-            </button>
+          <div style={{ fontSize:13, fontWeight:900, color:'var(--primary)', marginBottom:10 }}>새 아이 추가</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom:8 }}>
+            <input value={newChildName} onChange={e => setNewChildName(e.target.value)} placeholder="이름 *" onKeyDown={e => e.key === 'Enter' && handleAddChild()}
+              style={{ flex: 2, padding: '11px 14px', borderRadius: 12, border: '1.5px solid var(--primary)', fontSize: 14, outline: 'none', fontFamily: 'inherit', background:'white' }} />
+            <input value={newChildBirth} onChange={e => setNewChildBirth(e.target.value)} type="date"
+              style={{ flex: 1, padding: '11px 10px', borderRadius: 12, border: '1.5px solid var(--border)', fontSize: 13, outline: 'none', fontFamily: 'inherit', background:'white' }} />
+          </div>
+          <input value={newChildNotes} onChange={e => setNewChildNotes(e.target.value)} placeholder="메모 (알레르기, 특이사항 등 선택)"
+            style={{ width:'100%', padding:'10px 14px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, outline:'none', fontFamily:'inherit', background:'white', marginBottom:8 }} />
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={handleAddChild} style={{ flex:1, background: 'var(--primary)', color: 'white', padding: '11px', borderRadius: 12, fontWeight: 800, fontSize: 14 }}>추가</button>
+            <button onClick={() => setShowAddChild(false)} style={{ flex:1, background:'white', border:'1.5px solid var(--border)', padding: '11px', borderRadius: 12, fontWeight: 700, fontSize: 14, color:'var(--text-secondary)' }}>취소</button>
           </div>
         </div>
       )}
@@ -337,12 +380,14 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 4, color: 'var(--text-primary)' }}>
+              <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 3, color: 'var(--text-primary)', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                 {child.name}
+                {child.birthdate && <span style={{ fontSize:11, fontWeight:700, color:'var(--primary)', background:'var(--primary-light)', padding:'2px 7px', borderRadius:100 }}>{calcAge(child.birthdate)}</span>}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 3 }}>
                 기록 {recs.length}건{lastRec ? ` · 최근 ${formatDate(lastRec.date)}` : ' · 아직 기록 없음'}
               </div>
+              {child.allergies && <div style={{ fontSize:11, color:'var(--accent)', fontWeight:700, marginBottom:2 }}>⚠️ {child.allergies}</div>}
               {/* 기록 수 바 */}
               {recs.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -368,6 +413,49 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
       {filtered.length === 0 && <EmptyState text="해당하는 아이가 없어요" />}
       </div>
+
+      {/* 아이 편집 모달 */}
+      {editingChild && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(10,20,50,0.55)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:999, backdropFilter:'blur(4px)' }}
+          onClick={e => e.target===e.currentTarget && setEditingChild(null)}>
+          <div style={{ width:'100%', maxWidth:520, background:'white', borderRadius:'24px 24px 0 0', padding:'20px 20px 32px', boxShadow:'0 -8px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
+              <div style={{ width:36, height:4, borderRadius:99, background:'var(--gray-200)' }} />
+            </div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ fontSize:16, fontWeight:900 }}>{editingChild.name} 정보 편집</div>
+              <button onClick={() => setEditingChild(null)} style={{ width:30, height:30, borderRadius:'50%', background:'var(--gray-100)', display:'flex', alignItems:'center', justifyContent:'center' }}><X size={15} /></button>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+              <div>
+                <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>이름</div>
+                <input value={editingChild.name} onChange={e => setEditingChild(c=>({...c,name:e.target.value}))}
+                  style={{ width:'100%', padding:'10px 12px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:14, fontFamily:'inherit' }} />
+              </div>
+              <div>
+                <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>생년월일</div>
+                <input type="date" value={editingChild.birthdate||''} onChange={e => setEditingChild(c=>({...c,birthdate:e.target.value}))}
+                  style={{ width:'100%', padding:'10px 12px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, fontFamily:'inherit' }} />
+              </div>
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'var(--accent)', marginBottom:5 }}>알레르기/주의사항</div>
+              <input value={editingChild.allergies||''} onChange={e => setEditingChild(c=>({...c,allergies:e.target.value}))} placeholder="예: 땅콩 알레르기, 아토피"
+                style={{ width:'100%', padding:'10px 12px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, fontFamily:'inherit' }} />
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'var(--text-secondary)', marginBottom:5 }}>메모</div>
+              <textarea value={editingChild.notes||''} onChange={e => setEditingChild(c=>({...c,notes:e.target.value}))} placeholder="특이사항, 성격 등 자유롭게" rows={2}
+                style={{ width:'100%', padding:'10px 12px', borderRadius:12, border:'1.5px solid var(--border)', fontSize:13, lineHeight:1.6, fontFamily:'inherit', resize:'none' }} />
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <button onClick={handleSaveEdit} style={{ padding:'13px', borderRadius:12, background:'var(--primary)', color:'white', fontWeight:800, fontSize:14 }}>저장</button>
+              <button onClick={() => { if(window.confirm(`${editingChild.name}을(를) 삭제할까요? 기록은 유지돼요.`)) handleDeleteChild(editingChild.id); }}
+                style={{ padding:'13px', borderRadius:12, background:'var(--accent-light)', color:'var(--accent)', fontWeight:800, fontSize:14 }}>삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -123,6 +123,22 @@ export const deleteRecord = (id) => {
   saveRecords(getRecords().filter(r => r.id !== id));
 };
 
+// Star / bookmark a record
+export const toggleStarRecord = (id) => {
+  const records = getRecords();
+  saveRecords(records.map(r => r.id === id ? { ...r, starred: !r.starred } : r));
+};
+
+// Update a child's info (name, birthdate, notes, etc.)
+export const updateChild = (id, updates) => {
+  const children = getChildren();
+  saveChildren(children.map(c => c.id === id ? { ...c, ...updates } : c));
+};
+
+export const deleteChild = (id) => {
+  saveChildren(getChildren().filter(c => c.id !== id));
+};
+
 // Custom quick templates
 export const getCustomTemplates = () => storage.get(KEYS.TEMPLATES) || [];
 export const saveCustomTemplates = (v) => storage.set(KEYS.TEMPLATES, v);

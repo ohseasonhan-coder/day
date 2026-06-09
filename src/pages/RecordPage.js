@@ -6,6 +6,7 @@ import {
   getRecords,
   updateRecord,
   deleteRecord,
+  toggleStarRecord,
   getCustomTemplates,
   addCustomTemplate,
   deleteCustomTemplate,
@@ -18,7 +19,7 @@ import { processRecord } from '../utils/ai';
 import {
   Sparkles, Copy, Check, RotateCcw, Save, Mic, Zap,
   Search, CalendarDays, ListFilter, X, ChevronLeft, ChevronRight,
-  List, PlusCircle, Pencil, Trash2, Plus, ChevronDown, ChevronUp,
+  List, PlusCircle, Pencil, Trash2, Plus, ChevronDown, ChevronUp, Star,
 } from 'lucide-react';
 
 /* ── 기본 제공 빠른 문구 (built-in, 삭제 불가) ─────────────────────────────── */
@@ -101,6 +102,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [filterChildId, setFilterChildId]   = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterDate, setFilterDate]         = useState(context?.date || '');
+  const [filterStarred, setFilterStarred]   = useState(false);
   const [calendarMonth, setCalendarMonth]   = useState(() => parseDate(context?.date || today()));
   const [customTemplates, setCustomTemplates] = useState(() => getCustomTemplates());
   const [detailRecord, setDetailRecord]     = useState(null);
@@ -141,12 +143,13 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
         if (filterDate && r.date !== filterDate) return false;
         if (filterChildId !== 'all' && r.childId !== filterChildId) return false;
         if (filterCategory !== 'all' && r.category !== filterCategory) return false;
+        if (filterStarred && !r.starred) return false;
         if (!q) return true;
         const haystack = [r.childName, r.rawText, r.observation, r.parent, r.support, r.softened, r.title, ...(r.tags || []), ...(r.devAreas || [])].filter(Boolean).join(' ').toLowerCase();
         return haystack.includes(q);
       })
       .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
-  }, [records, searchText, filterDate, filterChildId, filterCategory]);
+  }, [records, searchText, filterDate, filterChildId, filterCategory, filterStarred]);
 
   const handleProcess = async () => {
     if (!selectedChild) return setError('위에서 아이를 먼저 선택해 주세요.');
@@ -197,6 +200,13 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     setCustomTemplates(getCustomTemplates());
   };
 
+  const handleToggleStar = (id) => {
+    toggleStarRecord(id);
+    const refreshed = getRecords();
+    setRecords(refreshed);
+    if (detailRecord?.id === id) setDetailRecord(refreshed.find(r => r.id === id) || null);
+  };
+
   const handleUpdateRecord = (id, updates) => {
     updateRecord(id, updates);
     const refreshed = getRecords();
@@ -210,7 +220,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     if (detailRecord?.id === id) setDetailRecord(null);
   };
 
-  const clearFilters = () => { setSearchText(''); setFilterChildId('all'); setFilterCategory('all'); setFilterDate(''); };
+  const clearFilters = () => { setSearchText(''); setFilterChildId('all'); setFilterCategory('all'); setFilterDate(''); setFilterStarred(false); };
 
   const cat = result?.category ? CATEGORIES[result.category] : null;
 
@@ -314,11 +324,13 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
           filterChildId={filterChildId}  setFilterChildId={setFilterChildId}
           filterCategory={filterCategory} setFilterCategory={setFilterCategory}
           filterDate={filterDate}        setFilterDate={setFilterDate}
+          filterStarred={filterStarred}  setFilterStarred={setFilterStarred}
           calendarMonth={calendarMonth}  setCalendarMonth={setCalendarMonth}
           recordDates={recordDates}
           clearFilters={clearFilters}
           isDesktop={isDesktop}
           onOpenDetail={setDetailRecord}
+          onToggleStar={handleToggleStar}
         />
       ) : (
         <>
@@ -451,6 +463,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
           onClose={() => setDetailRecord(null)}
           onUpdate={handleUpdateRecord}
           onDelete={handleDeleteRecord}
+          onToggleStar={handleToggleStar}
         />
       )}
     </div>
@@ -556,10 +569,12 @@ function RecordsWorkspace({
   filterChildId, setFilterChildId,
   filterCategory, setFilterCategory,
   filterDate, setFilterDate,
+  filterStarred, setFilterStarred,
   calendarMonth, setCalendarMonth,
   recordDates, clearFilters, isDesktop,
-  onOpenDetail,
+  onOpenDetail, onToggleStar,
 }) {
+  const starCount = records.filter(r => r.starred).length;
   return (
     <div className="slide-up">
       <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -578,9 +593,15 @@ function RecordsWorkspace({
 
       {/* 검색/필터 */}
       <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-          <ListFilter size={16} color="var(--primary)" />
-          <span style={{ fontSize: 14, fontWeight: 900 }}>기록 검색/필터</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent:'space-between', marginBottom: 12 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+            <ListFilter size={16} color="var(--primary)" />
+            <span style={{ fontSize: 14, fontWeight: 900 }}>기록 검색/필터</span>
+          </div>
+          <button onClick={() => setFilterStarred(v => !v)}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:800, background: filterStarred ? '#FFF8E1' : 'var(--gray-100)', color: filterStarred ? '#F5A623' : 'var(--text-secondary)', border:`1.5px solid ${filterStarred ? '#F5A623' : 'transparent'}` }}>
+            <Star size={13} fill={filterStarred ? '#F5A623' : 'none'} /> 즐겨찾기 {starCount > 0 ? `(${starCount})` : ''}
+          </button>
         </div>
         <div style={{ position: 'relative', marginBottom: 10 }}>
           <Search size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
@@ -621,7 +642,7 @@ function RecordsWorkspace({
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>
-          {filteredRecords.map(record => <RecordListCard key={record.id} record={record} onClick={() => onOpenDetail(record)} />)}
+          {filteredRecords.map(record => <RecordListCard key={record.id} record={record} onClick={() => onOpenDetail(record)} onToggleStar={onToggleStar} />)}
         </div>
       )}
     </div>
@@ -775,7 +796,7 @@ const calArrow = {
 /* ══════════════════════════════════════════════════════════════════════════════
    기록 카드 (클릭 → 상세보기)
 ══════════════════════════════════════════════════════════════════════════════ */
-function RecordListCard({ record, onClick }) {
+function RecordListCard({ record, onClick, onToggleStar }) {
   const cat  = record.category ? CATEGORIES[record.category] : null;
   const body = record.observation || record.rawText || record.softened || '';
   return (
@@ -800,6 +821,10 @@ function RecordListCard({ record, onClick }) {
             {record.tags?.slice(0, 3).map(tag => <span key={tag} style={{ background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: 100, padding: '3px 7px', fontSize: 10, fontWeight: 700 }}>#{tag}</span>)}
           </div>
         </div>
+        <button onClick={e => { e.stopPropagation(); onToggleStar && onToggleStar(record.id); }}
+          style={{ flexShrink:0, background:'none', padding:4 }}>
+          <Star size={16} color={record.starred ? '#F5A623' : 'var(--gray-300)'} fill={record.starred ? '#F5A623' : 'none'} />
+        </button>
         <div style={{ flexShrink: 0, color: 'var(--text-tertiary)' }}><ChevronDown size={16} /></div>
       </div>
       <div style={{ fontSize: 13, lineHeight: 1.75, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
@@ -812,7 +837,7 @@ function RecordListCard({ record, onClick }) {
 /* ══════════════════════════════════════════════════════════════════════════════
    기록 상세/수정 모달
 ══════════════════════════════════════════════════════════════════════════════ */
-function RecordDetailModal({ record, onClose, onUpdate, onDelete }) {
+function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }) {
   const [editMode, setEditMode]     = useState(false);
   const [editRaw, setEditRaw]       = useState(record.rawText || '');
   const [editObs, setEditObs]       = useState(record.observation || '');
@@ -852,6 +877,11 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={() => onToggleStar && onToggleStar(record.id)}
+              style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:10, background: record.starred ? '#FFF8E1' : 'var(--gray-100)', color: record.starred ? '#F5A623' : 'var(--text-secondary)', fontSize:12, fontWeight:800 }}>
+              <Star size={14} fill={record.starred ? '#F5A623' : 'none'} color={record.starred ? '#F5A623' : 'var(--gray-400)'} />
+              {record.starred ? '즐겨찾기 해제' : '즐겨찾기'}
+            </button>
             {!editMode && (
               <button onClick={() => setEditMode(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 10, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 13, fontWeight: 800 }}>
                 <Pencil size={14} /> 수정
