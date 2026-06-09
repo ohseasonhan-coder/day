@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
+import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -666,15 +667,59 @@ function FormEditor({ form, onSave, onCancel }) {
   const [imageData, setImageData] = useState(form?.imageData || null);
   const [setupTab, setSetupTab] = useState(form?.imageData ? 'image' : 'image'); // 기본 이미지 모드
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(''); // 업로드 진행 메시지
+  const [autoDetected, setAutoDetected] = useState([]); // PDF 자동 감지 결과
   const imgInputRef = useRef(null);
 
-  const handleImageUpload = async (e) => {
+  // ── PDF 또는 이미지 업로드 처리 ───────────────────────────────────────────
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const compressed = await compressImage(file, 1000);
-    setImageData(compressed);
-    setFields([]); // 새 이미지면 칸 초기화
+    setAutoDetected([]);
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+    try {
+      if (isPdf) {
+        // ── PDF 처리 ──────────────────────────────────────────
+        setUploadStatus('📄 PDF 렌더링 중...');
+        const { imageData: rendered } = await renderPdfToImage(file, 2);
+        setImageData(rendered);
+
+        setUploadStatus('🔍 입력 칸 자동 감지 중...');
+        const detected = await detectFieldsFromPdf(file);
+        setUploadStatus('');
+
+        if (detected.length > 0) {
+          // 자동 감지된 칸을 필드로 변환 (suggestMapping 적용)
+          const autoFields = detected.map((d, i) => ({
+            id: Date.now() + '-' + i,
+            label:    d.label,
+            mappedTo: suggestMapping(d.label, docType),
+            charLimit: null,
+            fieldWidth: 28,
+            x: d.xPct,
+            y: d.yPct,
+          }));
+          setAutoDetected(autoFields);
+          setFields(autoFields);
+        } else {
+          setFields([]);
+        }
+      } else {
+        // ── 이미지 처리 ───────────────────────────────────────
+        setUploadStatus('🖼️ 이미지 처리 중...');
+        const compressed = await compressImage(file, 1000);
+        setImageData(compressed);
+        setFields([]);
+        setUploadStatus('');
+      }
+    } catch (err) {
+      setUploadStatus('');
+      alert(`파일 처리 중 오류가 발생했어요.\n${err.message}`);
+    }
+
     setUploading(false);
     e.target.value = '';
   };
@@ -730,7 +775,7 @@ function FormEditor({ form, onSave, onCancel }) {
 
       {/* 등록 방식 탭 */}
       <div style={{ display:'flex', gap:4, background:'var(--gray-100)', borderRadius:12, padding:4, marginBottom:16 }}>
-        {[['image','📸 이미지 업로드'],['manual','✏️ 직접 입력']].map(([id,label]) => (
+        {[['image','📄 PDF / 이미지'],['manual','✏️ 직접 입력']].map(([id,label]) => (
           <button key={id} onClick={() => setSetupTab(id)} style={{
             flex:1, padding:'9px', borderRadius:9, fontSize:13,
             fontWeight: setupTab===id ? 900 : 600,
@@ -740,7 +785,7 @@ function FormEditor({ form, onSave, onCancel }) {
         ))}
       </div>
 
-      {/* ── 이미지 업로드 모드 ── */}
+      {/* ── 이미지/PDF 업로드 모드 ── */}
       {setupTab === 'image' && (
         <div>
           {!imageData ? (
@@ -750,14 +795,19 @@ function FormEditor({ form, onSave, onCancel }) {
               style={{ border:'2.5px dashed var(--primary)', borderRadius:18, padding:'40px 20px', textAlign:'center', cursor:'pointer', background:'var(--primary-light)', marginBottom:16 }}
             >
               {uploading ? (
-                <div style={{ fontSize:14, color:'var(--primary)', fontWeight:800 }}>⏳ 이미지 처리 중...</div>
+                <div>
+                  <div style={{ fontSize:28, marginBottom:10 }}>⏳</div>
+                  <div style={{ fontSize:14, color:'var(--primary)', fontWeight:800 }}>{uploadStatus || '처리 중...'}</div>
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:6 }}>잠시만 기다려 주세요</div>
+                </div>
               ) : (
                 <>
-                  <div style={{ fontSize:44, marginBottom:10 }}>📸</div>
-                  <div style={{ fontSize:15, fontWeight:900, color:'var(--primary)', marginBottom:8 }}>양식 이미지 업로드</div>
-                  <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.8 }}>
-                    원에서 쓰는 양식을 스캔하거나 사진 찍어서 올려주세요.<br/>
-                    JPG · PNG 지원 · 자동으로 압축돼요
+                  <div style={{ fontSize:44, marginBottom:10 }}>📄</div>
+                  <div style={{ fontSize:15, fontWeight:900, color:'var(--primary)', marginBottom:8 }}>PDF 또는 이미지 업로드</div>
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.9 }}>
+                    HWP → PDF로 내보낸 양식을 올리면<br/>
+                    <b style={{color:'var(--primary)'}}>입력 칸을 자동으로 감지</b>해요 ✨<br/>
+                    <span style={{color:'var(--text-tertiary)'}}>PDF · JPG · PNG 지원</span>
                   </div>
                 </>
               )}
@@ -766,11 +816,24 @@ function FormEditor({ form, onSave, onCancel }) {
             /* 업로드 후 — 시각 매핑 */
             <div style={{ marginBottom:16 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                <div style={{ fontSize:13, fontWeight:800, color:'var(--text-secondary)' }}>📋 내용이 들어갈 빈칸을 탭해 표시하세요</div>
-                <button onClick={() => { setImageData(null); setFields([]); }} style={{ fontSize:12, color:'var(--accent)', fontWeight:700 }}>이미지 교체</button>
+                <div style={{ fontSize:13, fontWeight:800, color:'var(--text-secondary)' }}>📋 내용이 들어갈 빈칸을 탭해 확인·추가하세요</div>
+                <button onClick={() => { setImageData(null); setFields([]); setAutoDetected([]); }} style={{ fontSize:12, color:'var(--accent)', fontWeight:700 }}>파일 교체</button>
               </div>
+
+              {/* PDF 자동 감지 배너 */}
+              {autoDetected.length > 0 && (
+                <div style={{ background:'#E8F5E9', border:'1px solid #4CAF50', borderRadius:10, padding:'10px 14px', marginBottom:10, lineHeight:1.7 }}>
+                  <div style={{ fontSize:13, fontWeight:800, color:'#2E7D32' }}>
+                    ✅ PDF에서 {autoDetected.length}개 칸 자동 감지
+                  </div>
+                  <div style={{ fontSize:11, color:'#388E3C', marginTop:2 }}>
+                    마커를 탭해 이름·연결 섹션을 확인하고, 빈칸을 탭해 추가할 수 있어요.
+                  </div>
+                </div>
+              )}
+
               <div style={{ fontSize:12, color:'var(--primary)', background:'var(--primary-light)', borderRadius:9, padding:'8px 12px', marginBottom:10, lineHeight:1.7 }}>
-                💡 <b>내용이 채워질 빈칸</b>을 탭하세요. 칸 이름을 입력하면 앱 섹션이 <b>자동 감지</b>돼요.
+                💡 <b>빈칸</b>을 탭해 칸 추가 · 기존 마커를 탭해 편집
               </div>
               <ImageFormMapper
                 imageData={imageData}
@@ -780,7 +843,7 @@ function FormEditor({ form, onSave, onCancel }) {
               />
             </div>
           )}
-          <input ref={imgInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display:'none' }} />
+          <input ref={imgInputRef} type="file" accept="image/*,.pdf,application/pdf" onChange={handleFileUpload} style={{ display:'none' }} />
 
           {/* 등록된 칸 요약 */}
           {fields.length > 0 && (
