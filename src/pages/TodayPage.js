@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults } from '../utils/storage';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState } from '../utils/storage';
 import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 const SERVICE_CARDS = [
@@ -33,6 +33,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   const [coachInsightCount, setCoachInsightCount] = useState(0);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingConsults, setUpcomingConsults] = useState([]);
+  const [automation, setAutomation] = useState(() => getAutomationState());
 
   const todayStr  = today();
   const dateLabel = formatDateKo(todayStr);
@@ -55,6 +56,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     setTodayRecords(getRecordsByDate(todayStr));
     const recs = getRecords();
     setAllRecords(recs);
+    setAutomation(getAutomationState());
     try {
       const meds = getMedicines();
       setTodayMedicineCount(meds.filter(m => m.date === todayStr).length);
@@ -138,6 +140,36 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   ];
   const checkedCount = allCheckItems.filter(item => todayChecks[item.id]).length;
   const checkPct = allCheckItems.length > 0 ? Math.round((checkedCount / allCheckItems.length) * 100) : 100;
+  const autoDocs = automation?.documents || {};
+  const autoChecklist = automation?.checklist || {};
+  const autoMissingCount = autoChecklist.todayMissingChildIds?.length || 0;
+  const autoLowCount = (autoChecklist.lowRecordChildIds?.length || 0) + (autoChecklist.noRecentRecordChildIds?.length || 0);
+  const autoMissingCats = autoChecklist.missingCategoryKeys || [];
+
+  const AutomationPanel = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>자동 반영 현황</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>기록 1개가 문서와 점검에 연결된 상태입니다.</div>
+        </div>
+        <button onClick={() => onNavigate('docs')} style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 900, background: 'var(--primary-light)', borderRadius: 100, padding: '7px 11px', flexShrink: 0 }}>
+          문서함
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', gap: 9 }}>
+        <AutoStatusItem title="보육일지" value={`${autoDocs.daily?.count || 0}건`} desc={autoDocs.daily?.ready ? '오늘 기록으로 초안 준비됨' : '오늘 기록이 필요함'} ready={autoDocs.daily?.ready} />
+        <AutoStatusItem title="주간평가" value={`${autoDocs.weekly?.count || 0}건`} desc={autoDocs.weekly?.ready ? '최근 7일 기록 반영 가능' : '최근 기록이 필요함'} ready={autoDocs.weekly?.ready} />
+        <AutoStatusItem title="월간평가" value={`${autoDocs.monthly?.count || 0}건`} desc={autoDocs.monthly?.ready ? '최근 30일 기록 반영 가능' : '월간 기록이 필요함'} ready={autoDocs.monthly?.ready} />
+        <AutoStatusItem title="상담자료" value={`${autoDocs.parent?.count || 0}건`} desc={autoDocs.parent?.ready ? '부모상담 문장 누적 중' : '상담용 기록이 필요함'} ready={autoDocs.parent?.ready} />
+      </div>
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr', gap: 8 }}>
+        <MiniAlert label="오늘 미기록" value={`${autoMissingCount}명`} active={autoMissingCount > 0} onClick={() => onNavigate('check')} />
+        <MiniAlert label="기록 부족" value={`${autoLowCount}명`} active={autoLowCount > 0} onClick={() => onNavigate('check')} />
+        <MiniAlert label="부족 영역" value={`${autoMissingCats.length}개`} active={autoMissingCats.length > 0} onClick={() => onNavigate('check')} />
+      </div>
+    </div>
+  );
 
   /* ── 공통 블록들 ──────────────────────────────── */
   const HeroCard = (
@@ -464,6 +496,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         <div>
           {HeroCard}
           {UnrecordedSection}
+          {AutomationPanel}
 
           <SectionTitle title="오늘 핵심 업무" style={{ marginBottom: 12 }} />
           <div style={{ marginBottom: 24 }}>{QuickActions}</div>
@@ -516,6 +549,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
       {UnrecordedSection}
+      {AutomationPanel}
       {QuickStatsRow}
       {HeatmapSection}
       {CoachWidget}
@@ -570,6 +604,44 @@ function HeroStat({ label, value }) {
       <div style={{ fontSize: 18, fontWeight: 900 }}>{value}</div>
       <div style={{ fontSize: 11, opacity: 0.78, marginTop: 2 }}>{label}</div>
     </div>
+  );
+}
+
+function AutoStatusItem({ title, value, desc, ready }) {
+  return (
+    <div style={{
+      border: `1px solid ${ready ? 'rgba(76,175,80,0.24)' : 'var(--border)'}`,
+      background: ready ? 'rgba(76,175,80,0.08)' : 'var(--gray-50)',
+      borderRadius: 14,
+      padding: 13,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{title}</span>
+        <span style={{ fontSize: 13, fontWeight: 900, color: ready ? 'var(--cat-play)' : 'var(--text-tertiary)' }}>{value}</span>
+      </div>
+      <div style={{ fontSize: 11, color: ready ? 'var(--cat-play)' : 'var(--text-secondary)', lineHeight: 1.45 }}>{desc}</div>
+    </div>
+  );
+}
+
+function MiniAlert({ label, value, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      padding: '10px 12px',
+      borderRadius: 12,
+      background: active ? 'var(--accent-light)' : 'var(--gray-50)',
+      border: `1px solid ${active ? 'rgba(255,107,107,0.24)' : 'var(--border)'}`,
+      color: active ? 'var(--accent)' : 'var(--text-secondary)',
+      fontSize: 12,
+      fontWeight: 900,
+    }}>
+      <span>{label}</span>
+      <span>{value}</span>
+    </button>
   );
 }
 

@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
-  getDocumentHistory, getFormTemplates, updateDocumentDraft,
+  getDocumentHistory, getFormTemplates, updateDocumentDraft, getAutomationState,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
 import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star } from 'lucide-react';
@@ -58,6 +58,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const [formApplied, setFormApplied] = useState(false);
   const [matchedForm, setMatchedForm] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [automation, setAutomation] = useState(() => getAutomationState());
 
   // 아이 선택 (null = 전체 반)
   const [selectedChildId, setSelectedChildId] = useState(null);
@@ -68,6 +69,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
     setAllRecords(getRecords());
     setChildren(getChildren());
     setClasses(getClasses());
+    setAutomation(getAutomationState());
     setDoc(null);
   }, [viewDate, activeType, selectedChildId, period]);
 
@@ -79,6 +81,51 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const isToday   = viewDate === today();
   const current   = DOC_TYPES.find(t => t.key === activeType) || DOC_TYPES[0];
   const selChild  = children.find(c => c.id === selectedChildId) || null;
+  const autoDocs = automation?.documents || {};
+  const autoChecklist = automation?.checklist || {};
+  const docReadyItems = [
+    { key: 'daily', title: '보육일지', count: autoDocs.daily?.count || 0, desc: autoDocs.daily?.label || '오늘 기록을 기다리는 중입니다.', navType: 'daily' },
+    { key: 'weekly', title: '주간평가', count: autoDocs.weekly?.count || 0, desc: autoDocs.weekly?.label || '최근 7일 기록을 기다리는 중입니다.', navType: 'weekly' },
+    { key: 'monthly', title: '월간평가', count: autoDocs.monthly?.count || 0, desc: autoDocs.monthly?.label || '최근 30일 기록을 기다리는 중입니다.', navType: 'monthly' },
+    { key: 'parent', title: '부모상담자료', count: autoDocs.parent?.count || 0, desc: autoDocs.parent?.label || '상담용 기록을 기다리는 중입니다.', navType: 'parent' },
+    { key: 'development', title: '발달평가', count: autoDocs.development?.count || 0, desc: autoDocs.development?.label || '발달영역 기록을 기다리는 중입니다.', navType: 'development' },
+  ];
+
+  const AutomationReadyPanel = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--text-primary)' }}>문서 준비 상태</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>기록 저장 시 자동으로 반영 가능한 문서가 갱신됩니다.</div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 800, background: 'var(--gray-100)', borderRadius: 100, padding: '6px 10px', flexShrink: 0 }}>
+          총 {automation?.totalRecords || 0}건
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(5, 1fr)' : '1fr', gap: 9 }}>
+        {docReadyItems.map(item => (
+          <button key={item.key} onClick={() => { setActiveType(item.navType); setDoc(null); }} style={{
+            textAlign: 'left',
+            borderRadius: 14,
+            padding: 13,
+            border: `1px solid ${item.count > 0 ? 'rgba(79,127,255,0.28)' : 'var(--border)'}`,
+            background: item.count > 0 ? 'var(--primary-light)' : 'var(--gray-50)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: item.count > 0 ? 'var(--primary)' : 'var(--text-secondary)' }}>{item.title}</span>
+              <span style={{ fontSize: 14, fontWeight: 900, color: item.count > 0 ? 'var(--primary)' : 'var(--text-tertiary)' }}>{item.count}</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{item.desc}</div>
+          </button>
+        ))}
+      </div>
+      {(autoChecklist.missingCategoryKeys?.length || 0) > 0 && (
+        <div style={{ marginTop: 12, fontSize: 12, color: 'var(--accent)', background: 'var(--accent-light)', borderRadius: 12, padding: '10px 12px', fontWeight: 800 }}>
+          평가제 점검: 아직 부족한 기록 영역이 {autoChecklist.missingCategoryKeys.length}개 있습니다.
+        </div>
+      )}
+    </div>
+  );
 
   // ── 대상 기록 계산 ──────────────────────────────────────────────────────────
   const targetRecords = (() => {
@@ -557,6 +604,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
         </div>
 
         {MainTabs}
+        {mainTab === 'new' && AutomationReadyPanel}
 
         {mainTab === 'history' ? HistoryTab : (
           <>
@@ -599,6 +647,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
       </div>
 
       {MainTabs}
+      {mainTab === 'new' && AutomationReadyPanel}
 
       {mainTab === 'history' ? HistoryTab : (
         <>
@@ -1122,6 +1171,3 @@ function EmptyGuide({ activeType, onNavigate }) {
 function Spinner({ dark }) {
   return <div style={{ width: 16, height: 16, border: `2px solid ${dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.15)'}`, borderTopColor: dark ? 'white' : 'var(--gray-800)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />;
 }
-
-
-
