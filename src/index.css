@@ -1,4 +1,4 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+﻿@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
 :root {
   --white: white;
@@ -142,7 +142,7 @@ a {
   animation: slideUp 0.4s ease forwards;
 }
 
-/* ── 터치 피드백 ───────────────────────────────── */
+/* ?? ?곗튂 ?쇰뱶諛?????????????????????????????????? */
 button {
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.1s ease, opacity 0.1s ease;
@@ -152,7 +152,7 @@ button:active:not(:disabled) {
   opacity: 0.88;
 }
 
-/* ── 카드 hover (태블릿/데스크톱) ─────────────────── */
+/* ?? 移대뱶 hover (?쒕툝由??곗뒪?ы넲) ??????????????????? */
 @media (hover: hover) {
   .card-lift:hover {
     transform: translateY(-2px);
@@ -161,7 +161,7 @@ button:active:not(:disabled) {
   }
 }
 
-/* ── 토스트 알림 ───────────────────────────────── */
+/* ?? ?좎뒪???뚮┝ ????????????????????????????????? */
 .toast {
   position: fixed;
   bottom: calc(var(--bottom-nav) + 20px);
@@ -188,7 +188,7 @@ button:active:not(:disabled) {
   to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
 }
 
-/* ── 네비게이션 배지 ────────────────────────────── */
+/* ?? ?ㅻ퉬寃뚯씠??諛곗? ?????????????????????????????? */
 .nav-badge {
   position: absolute;
   top: 4px;
@@ -208,7 +208,7 @@ button:active:not(:disabled) {
   animation: fadeIn 0.2s ease;
 }
 
-/* ── 아바타 ─────────────────────────────────────── */
+/* ?? ?꾨컮? ??????????????????????????????????????? */
 .avatar-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -216,36 +216,36 @@ button:active:not(:disabled) {
 }
 .avatar-scroll::-webkit-scrollbar { display: none; }
 
-/* ── 입력 포커스 ────────────────────────────────── */
+/* ?? ?낅젰 ?ъ빱???????????????????????????????????? */
 input:focus, textarea:focus {
   outline: none;
 }
 
-/* ── 페이지 전환 ────────────────────────────────── */
+/* ?? ?섏씠吏 ?꾪솚 ?????????????????????????????????? */
 .page-enter {
   animation: fadeIn 0.22s ease forwards;
 }
 
-/* ── 인쇄/PDF ──────────────────────────────────── */
+/* ?? ?몄뇙/PDF ???????????????????????????????????? */
 @media print {
-  /* 페이지 여백 */
+  /* ?섏씠吏 ?щ갚 */
   @page { margin: 15mm; }
 
-  /* 네비, 헤더, 버튼류 + 문서 생성 UI 전체 숨기기 */
+  /* ?ㅻ퉬, ?ㅻ뜑, 踰꾪듉瑜?+ 臾몄꽌 ?앹꽦 UI ?꾩껜 ?④린湲?*/
   .no-print, nav, header, aside,
   button:not(.print-copy-btn),
-  /* DocsPage UI 요소들 */
+  /* DocsPage UI ?붿냼??*/
   [class*="TypeSelector"], [class*="ChildSelector"],
   [class*="GenerateBtn"], [class*="DateNav"] { display: none !important; }
 
-  /* print-area 이외 모든 div는 투명하게 (중첩 문제 방지) */
+  /* print-area ?댁쇅 紐⑤뱺 div???щ챸?섍쾶 (以묒꺽 臾몄젣 諛⑹?) */
   body > * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
   .print-area { position: fixed; top: 0; left: 0; width: 100%; }
 
   body { background: white !important; font-size: 13pt; }
 
-  /* 인쇄 영역 */
+  /* ?몄뇙 ?곸뿭 */
   .print-area {
     display: block !important;
     width: 100%;
@@ -253,7 +253,7 @@ input:focus, textarea:focus {
     margin: 0;
   }
 
-  /* 인쇄 헤더 */
+  /* ?몄뇙 ?ㅻ뜑 */
   .print-header {
     display: flex !important;
     justify-content: space-between;
@@ -287,7 +287,7 @@ input:focus, textarea:focus {
     white-space: pre-wrap;
   }
 
-  /* 알림장 인쇄 - 아이별 카드 */
+  /* ?뚮┝???몄뇙 - ?꾩씠蹂?移대뱶 */
   .print-note-card {
     break-inside: avoid;
     border: 1px solid #bbb;
@@ -313,7 +313,7 @@ input:focus, textarea:focus {
   }
 }
 
-/* ── 다크모드 ─────────────────────────────────────── */
+/* ?? ?ㅽ겕紐⑤뱶 ??????????????????????????????????????? */
 [data-theme="dark"] {
   --white: #1E293B;
 
@@ -367,13 +367,27 @@ input:focus, textarea:focus {
   color: var(--text-tertiary) !important;
 }
 
-/* 스크롤바 다크 */
+/* ?ㅽ겕濡ㅻ컮 ?ㅽ겕 */
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
   background: var(--gray-400);
 }
 
-/* 토스트 다크 */
+/* ?좎뒪???ㅽ겕 */
 [data-theme="dark"] .toast {
   background: var(--gray-200);
   color: var(--text-primary);
+}
+
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 107, 107, 0); }
+}
+.mic-listening {
+  animation: micPulse 1.2s ease infinite;
+  border-color: var(--accent) !important;
+}
+
+@media print {
+  body > * { display: none !important; }
+  .print-modal-area { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
 }

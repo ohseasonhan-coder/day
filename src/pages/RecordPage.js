@@ -112,6 +112,31 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [draftBanner, setDraftBanner]       = useState(() => !!getDraft());
   const textareaRef = useRef(null);
   const autoSaveRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported] = useState(() => !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+
+  const startListening = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const recognition = new SR();
+    recognitionRef.current = recognition;
+    recognition.lang = 'ko-KR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+      setRawText(transcript);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+    setIsListening(true);
+  };
+
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  };
 
   useEffect(() => {
     const ch = getChildren();
@@ -430,15 +455,38 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
 
           {/* STEP 3: 내용 입력 */}
           <StepSection step={3} label="무슨 일이 있었나요?">
+            {isListening && (
+              <div style={{ marginBottom: 8, background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.3)', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                🎤 말씀하시면 자동으로 입력됩니다 (한국어)
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={rawText}
               onChange={e => setRawText(e.target.value)}
               placeholder={`있었던 상황을 말하듯 짧게 써주세요.\n\n예) 친구와 블록으로 캠핑장을 만들었다. 차례 문제로 속상해했지만 교사 안내 후 다시 놀이했다.`}
+              className={isListening ? 'mic-listening' : ''}
               style={{ width: '100%', minHeight: 160, padding: '16px', borderRadius: 16, border: '1.5px solid var(--border)', fontSize: 15, lineHeight: 1.8, resize: 'vertical', fontFamily: 'inherit', color: 'var(--text-primary)', background: 'var(--white)', boxShadow: 'var(--shadow-sm)', transition: 'border-color 0.15s' }}
-              onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-              onBlur={e  => e.target.style.borderColor = 'var(--border)'}
+              onFocus={e => { if (!isListening) e.target.style.borderColor = 'var(--primary)'; }}
+              onBlur={e  => { if (!isListening) e.target.style.borderColor = 'var(--border)'; }}
             />
+            {speechSupported && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                <button
+                  onClick={isListening ? stopListening : startListening}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                    color: isListening ? 'white' : 'var(--text-secondary)',
+                    background: isListening ? 'var(--accent)' : 'var(--gray-100)',
+                    borderRadius: 100, padding: '6px 14px', fontWeight: 700,
+                    animation: isListening ? 'micPulse 1.2s ease infinite' : 'none',
+                    border: isListening ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
+                  }}
+                >
+                  🎤 {isListening ? '듣는 중...' : '음성입력'}
+                </button>
+              </div>
+            )}
             <QuickTemplatePanel
               templates={allTemplates}
               customTemplates={customTemplates}

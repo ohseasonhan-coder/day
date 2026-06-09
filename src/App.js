@@ -17,8 +17,10 @@ import PortfolioPage  from './pages/PortfolioPage';
 import MedicinePage   from './pages/MedicinePage';
 import AccidentPage   from './pages/AccidentPage';
 import NewsletterPage from './pages/NewsletterPage';
+import CoachPage      from './pages/CoachPage';
+import EventsPage     from './pages/EventsPage';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, Lightbulb, CalendarDays } from 'lucide-react';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
@@ -49,6 +51,7 @@ const PAGE_TITLES = {
   today: '오늘', record: '기록', note: '알림장',
   children: '아이들', docs: '문서함', check: '점검', stats: '통계',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
+  coach: 'AI 코칭', events: '행사 캘린더',
 };
 
 function useIsDesktop() {
@@ -74,6 +77,8 @@ export default function App() {
   const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
   const isDesktop = useIsDesktop();
 
   const handleSetActiveClass = (id) => {
@@ -85,6 +90,24 @@ export default function App() {
     if (!user) return;
     if (getClasses().length === 0) setIsSetup(true);
   }, [user]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setShowInstallBanner(false);
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -125,6 +148,8 @@ export default function App() {
       case 'medicine':   return <MedicinePage   {...pageProps} />;
       case 'accident':   return <AccidentPage   {...pageProps} />;
       case 'newsletter': return <NewsletterPage {...pageProps} />;
+      case 'coach':      return <CoachPage      {...pageProps} />;
+      case 'events':     return <EventsPage     {...pageProps} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }
@@ -240,6 +265,21 @@ export default function App() {
             </div>
           </main>
         </div>
+        {showInstallBanner && (
+          <div style={{
+            position: 'fixed', bottom: 20,
+            left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--gray-800)', color: 'white',
+            borderRadius: 14, padding: '12px 18px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            boxShadow: 'var(--shadow-lg)', zIndex: 9999,
+            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+          }}>
+            📲 홈 화면에 추가하면 앱처럼 사용할 수 있어요
+            <button onClick={handleInstall} style={{ background: 'var(--primary)', color: 'white', borderRadius: 8, padding: '6px 14px', fontWeight: 800, fontSize: 13 }}>설치</button>
+            <button onClick={() => setShowInstallBanner(false)} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1 }}>×</button>
+          </div>
+        )}
       </div>
     );
   }
@@ -294,6 +334,29 @@ export default function App() {
           );
         })}
       </nav>
+      {showInstallBanner && (
+        <div style={{
+          position: 'fixed', bottom: 'calc(var(--bottom-nav) + 8px)',
+          left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--gray-800)', color: 'white',
+          borderRadius: 14, padding: '12px 18px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: 'var(--shadow-lg)', zIndex: 9999,
+          fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+          maxWidth: 440, width: 'calc(100% - 32px)',
+        }}>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>📲 홈 화면에 추가하면 앱처럼 사용할 수 있어요</span>
+          <button onClick={handleInstall} style={{ background: 'var(--primary)', color: 'white', borderRadius: 8, padding: '6px 14px', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>설치</button>
+          <button onClick={() => setShowInstallBanner(false)} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+      )}
     </div>
   );
 }
+
+
+
+
+
+
+

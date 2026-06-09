@@ -1,0 +1,17 @@
+{
+  "short_name": "쌤워크",
+  "name": "쌤워크 - 보육교사 업무 자동화",
+  "icons": [
+    { "src": "favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" },
+    { "src": "logo192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "logo512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4F7FFF",
+  "background_color": "#F8FAFE",
+  "description": "어린이집 선생님 업무 자동화 앱",
+  "lang": "ko",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity"]
+}

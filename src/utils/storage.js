@@ -23,6 +23,7 @@ const KEYS = {
   get ACCIDENTS()       { return `sw_${_getUid()}_accidents`; },
   get NEWSLETTERS()     { return `sw_${_getUid()}_newsletters`; },
   get ACTIVE_CLASS()    { return `sw_${_getUid()}_active_class`; },
+  get EVENTS()          { return `sw_${_getUid()}_events`; },
 };
 
 // Generic storage helpers
@@ -296,3 +297,10 @@ export const deleteNewsletter = (id) => saveNewsletters(getNewsletters().filter(
 // ── 활성 반 ───────────────────────────────────────────────────────────────────
 export const getActiveClassId = () => storage.get(KEYS.ACTIVE_CLASS);
 export const setActiveClassId = (id) => storage.set(KEYS.ACTIVE_CLASS, id);
+
+// ── 연간 행사 ─────────────────────────────────────────────────────────────────
+export const getEvents   = () => storage.get(KEYS.EVENTS) || [];
+export const saveEvents  = (v) => storage.set(KEYS.EVENTS, v);
+export const addEvent    = (ev) => { const list = getEvents(); const n = {...ev, id: genId(), createdAt: new Date().toISOString()}; saveEvents([...list, n]); return n; };
+export const updateEvent = (id, updates) => saveEvents(getEvents().map(e => e.id === id ? {...e,...updates} : e));
+export const deleteEvent = (id) => saveEvents(getEvents().filter(e => e.id !== id));

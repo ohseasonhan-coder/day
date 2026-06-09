@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import PrintPreviewModal from '../components/PrintPreviewModal';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
@@ -54,6 +55,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   // 양식 적용
   const [formApplied, setFormApplied] = useState(false);
   const [matchedForm, setMatchedForm] = useState(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // 아이 선택 (null = 전체 반)
   const [selectedChildId, setSelectedChildId] = useState(null);
@@ -354,7 +356,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
               <ShareButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
               {!(formApplied && matchedForm?.imageData) && (
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => setShowPrintModal(true)}
                   className="no-print"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
@@ -576,6 +578,14 @@ export default function DocsPage({ onNavigate, isDesktop }) {
             </div>
           </>
         )}
+        {showPrintModal && doc && (
+          <PrintPreviewModal
+            title={doc.title || '문서'}
+            sections={(doc.sections || []).map(s => ({ title: s.title, content: s.text || '' }))}
+            meta={{ date: doc.date || '', childName: doc.childName, className: doc.className }}
+            onClose={() => setShowPrintModal(false)}
+          />
+        )}
       </div>
     );
   }
@@ -603,6 +613,14 @@ export default function DocsPage({ onNavigate, isDesktop }) {
           {TypeSelector}
           {GeneratePanel}
         </>
+      )}
+      {showPrintModal && doc && (
+        <PrintPreviewModal
+          title={doc.title || '문서'}
+          sections={(doc.sections || []).map(s => ({ title: s.title, content: s.text || '' }))}
+          meta={{ date: doc.date || '', childName: doc.childName, className: doc.className }}
+          onClose={() => setShowPrintModal(false)}
+        />
       )}
     </div>
   );
@@ -1112,3 +1130,8 @@ function EmptyGuide({ activeType, onNavigate }) {
 function Spinner({ dark }) {
   return <div style={{ width: 16, height: 16, border: `2px solid ${dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.15)'}`, borderTopColor: dark ? 'white' : 'var(--gray-800)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />;
 }
+
+
+
+
+

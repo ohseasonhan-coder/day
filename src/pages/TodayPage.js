@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines } from '../utils/storage';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents } from '../utils/storage';
 import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 const SERVICE_CARDS = [
@@ -30,6 +30,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   const [classes, setClasses]           = useState([]);
   const [allRecords, setAllRecords]     = useState([]);
   const [todayMedicineCount, setTodayMedicineCount] = useState(0);
+  const [coachInsightCount, setCoachInsightCount] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
 
   const todayStr  = today();
   const dateLabel = formatDateKo(todayStr);
@@ -55,6 +57,34 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     try {
       const meds = getMedicines();
       setTodayMedicineCount(meds.filter(m => m.date === todayStr).length);
+    } catch {}
+
+    // Upcoming events (next 7 days)
+    try {
+      const now = new Date();
+      const in7 = new Date(now); in7.setDate(in7.getDate() + 7);
+      const todayISO = getDayStr(now);
+      const in7ISO = getDayStr(in7);
+      const evs = getEvents().filter(e => e.date >= todayISO && e.date <= in7ISO);
+      evs.sort((a, b) => a.date.localeCompare(b.date));
+      setUpcomingEvents(evs.slice(0, 3));
+    } catch {}
+
+    // Coach insight count (simple heuristic)
+    try {
+      const recs = getRecords();
+      const children2 = getChildren();
+      const now2 = new Date();
+      let cnt = 0;
+      children2.forEach(child => {
+        const childRecs = recs.filter(r => r.childId === child.id);
+        if (!childRecs.length) return;
+        const latest = new Date(childRecs.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date);
+        if ((now2 - latest) / 86400000 >= 3) cnt++;
+      });
+      const thisWeek = recs.filter(r => (now2 - new Date(r.date)) / 86400000 <= 7);
+      if (thisWeek.length === 0) cnt++;
+      setCoachInsightCount(cnt);
     } catch {}
   }, [todayStr]);
 
@@ -347,6 +377,41 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     </div>
   );
 
+  const CoachWidget = coachInsightCount > 0 ? (
+    <button
+      onClick={() => onNavigate('coach')}
+      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, background: '#EBF0FF', border: '1.5px solid var(--primary)', borderRadius: 14, padding: '13px 16px', marginBottom: 12, textAlign: 'left', boxShadow: 'var(--shadow-sm)' }}
+    >
+      <span style={{ fontSize: 22 }}>💡</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--primary)' }}>{coachInsightCount}개의 코칭 알림</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>AI 코칭 페이지에서 확인해 보세요</div>
+      </div>
+      <ChevronRight size={16} color="var(--primary)" />
+    </button>
+  ) : null;
+
+  const UpcomingEventsWidget = upcomingEvents.length > 0 ? (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontWeight: 900, fontSize: 14 }}>📅 다가오는 행사</span>
+        <button onClick={() => onNavigate('events')} style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 800 }}>전체 보기</button>
+      </div>
+      {upcomingEvents.map(ev => {
+        const evDate = new Date(ev.date + 'T00:00:00');
+        const daysLeft = Math.ceil((evDate - new Date(todayStr + 'T00:00:00')) / 86400000);
+        return (
+          <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 12, fontWeight: 900, color: daysLeft === 0 ? 'var(--accent)' : 'var(--primary)', background: daysLeft === 0 ? 'var(--accent-light)' : 'var(--primary-light)', padding: '3px 8px', borderRadius: 100, minWidth: 40, textAlign: 'center' }}>
+              {daysLeft === 0 ? '오늘' : `D-${daysLeft}`}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{ev.title}</span>
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
   const QuickLinks = (
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>빠른 바로가기</div>
@@ -399,6 +464,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         <div style={{ position: 'sticky', top: 80 }}>
           {QuickStatsRow}
           {HeatmapSection}
+          {CoachWidget}
+          {UpcomingEventsWidget}
           {QuickLinks}
           {CatDistribution}
           {ChecklistSection}
@@ -416,6 +483,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       {UnrecordedSection}
       {QuickStatsRow}
       {HeatmapSection}
+      {CoachWidget}
+      {UpcomingEventsWidget}
       {QuickLinks}
       {CatDistribution}
 
