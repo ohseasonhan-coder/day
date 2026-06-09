@@ -669,7 +669,12 @@ function hasFinalConsonant(value) {
 }
 
 function subject(name) {
-  return `${name}${hasFinalConsonant(name) ? '이' : ''}가`;
+  const clean = String(name || '아동').trim();
+  // 이름이 받침으로 끝나면 '하준이가', 받침이 없으면 '윤재가'처럼 자연스럽게 붙인다.
+  // 이미 '하준이'처럼 애칭형으로 저장된 이름은 '하준이가'로 처리한다.
+  if (clean.endsWith('이')) return `${clean}가`;
+  if (clean === '아동' || clean === '유아') return `${clean}이`;
+  return `${clean}${hasFinalConsonant(clean) ? '이가' : '가'}`;
 }
 
 const TYPO_NORMALIZATION_RULES = [
