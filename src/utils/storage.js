@@ -10,11 +10,12 @@ function _getUid() {
 
 // getter 프로퍼티로 선언 → 호출 시점의 userId를 반영
 const KEYS = {
-  get CLASSES()   { return `sw_${_getUid()}_classes`; },
-  get CHILDREN()  { return `sw_${_getUid()}_children`; },
-  get RECORDS()   { return `sw_${_getUid()}_records`; },
-  get DOCUMENTS() { return `sw_${_getUid()}_documents`; },
-  get SETTINGS()  { return `sw_${_getUid()}_settings`; },
+  get CLASSES()    { return `sw_${_getUid()}_classes`; },
+  get CHILDREN()   { return `sw_${_getUid()}_children`; },
+  get RECORDS()    { return `sw_${_getUid()}_records`; },
+  get DOCUMENTS()  { return `sw_${_getUid()}_documents`; },
+  get SETTINGS()   { return `sw_${_getUid()}_settings`; },
+  get TEMPLATES()  { return `sw_${_getUid()}_templates`; },
 };
 
 // Generic storage helpers
@@ -120,6 +121,19 @@ export const updateRecord = (id, updates) => {
 
 export const deleteRecord = (id) => {
   saveRecords(getRecords().filter(r => r.id !== id));
+};
+
+// Custom quick templates
+export const getCustomTemplates = () => storage.get(KEYS.TEMPLATES) || [];
+export const saveCustomTemplates = (v) => storage.set(KEYS.TEMPLATES, v);
+export const addCustomTemplate = (tpl) => {
+  const list = getCustomTemplates();
+  const newTpl = { ...tpl, id: genId(), custom: true };
+  saveCustomTemplates([...list, newTpl]);
+  return newTpl;
+};
+export const deleteCustomTemplate = (id) => {
+  saveCustomTemplates(getCustomTemplates().filter(t => t.id !== id));
 };
 
 export const addDocumentDraft = (document) => {
