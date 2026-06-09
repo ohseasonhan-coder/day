@@ -60,6 +60,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
   );
   const autoDocs = automation?.documents || {};
   const autoChecklist = automation?.checklist || {};
+  const audit = automation?.audit || { readyCount: 0, totalCount: 0, percent: 0, items: [] };
   const actionItems = [
     {
       title: '오늘 보육일지 초안',
@@ -113,6 +114,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
       <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>기록 현황과 누락을 확인해요</div>
       {PeriodSelector}
       <AutomationActionPanel items={actionItems} />
+      <AutomationAuditPanel audit={audit} onNavigate={onNavigate} />
 
       {/* Score Card */}
       <div style={{
@@ -269,6 +271,60 @@ function AutomationActionPanel({ items }) {
               {item.action}
             </span>
           </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AutomationAuditPanel({ audit, onNavigate }) {
+  const items = audit.items || [];
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>기록 1개 자동화 체크</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+            최근 기록 기준으로 자동화 가능한 업무를 점검합니다.
+          </div>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '6px 10px', flexShrink: 0 }}>
+          {audit.readyCount || 0}/{audit.totalCount || 0}
+        </div>
+      </div>
+      <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 100, marginBottom: 12 }}>
+        <div style={{ height: 8, width: `${audit.percent || 0}%`, background: 'var(--primary)', borderRadius: 100, transition: 'width 0.4s ease' }} />
+      </div>
+      {audit.latestRecord && (
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--gray-50)', borderRadius: 12, padding: '9px 11px', marginBottom: 12 }}>
+          최근 기록: <b>{audit.latestRecord.childName}</b> · {(audit.latestRecord.appliedLabels || []).slice(0, 4).join(', ')}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+        {items.map(item => (
+          <div key={item.key} style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr auto',
+            gap: 9,
+            alignItems: 'center',
+            padding: '10px 11px',
+            borderRadius: 12,
+            background: item.ready ? 'rgba(76,175,80,0.08)' : 'var(--gray-50)',
+            border: `1px solid ${item.ready ? 'rgba(76,175,80,0.24)' : 'var(--border)'}`,
+          }}>
+            <span style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: item.ready ? 'var(--cat-play)' : 'var(--gray-300)', color: 'white', fontSize: 12, fontWeight: 900 }}>
+              {item.ready ? '✓' : '!'}
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{item.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.45 }}>{item.detail}</div>
+            </div>
+            {!item.ready && (
+              <button onClick={() => onNavigate(item.key === 'missingCheck' ? 'settings' : 'record')} style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '5px 8px' }}>
+                보완
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </div>

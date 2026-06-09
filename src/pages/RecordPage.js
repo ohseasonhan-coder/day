@@ -19,6 +19,7 @@ import {
   today,
   formatDate,
   formatDateKo,
+  getAutomationState,
 } from '../utils/storage';
 import { processRecord } from '../utils/ai';
 import {
@@ -215,7 +216,9 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     setSaved(true);
     clearDraft(); setDraftBanner(false);
     const labels = newRecord.automation?.appliedLabels || [];
-    showToast(labels.length ? `${labels.slice(0, 3).join(', ')}에 자동 반영됐어요.` : '기록이 자동 반영됐어요.');
+    const audit = getAutomationState()?.audit;
+    const auditText = audit?.totalCount ? ` 자동화 ${audit.readyCount}/${audit.totalCount} 준비.` : '';
+    showToast(labels.length ? `${labels.slice(0, 3).join(', ')}에 자동 반영됐어요.${auditText}` : `기록이 자동 반영됐어요.${auditText}`);
   };
 
   const handleReset = () => {

@@ -246,6 +246,95 @@ const makeChecklist = (children, records) => {
   };
 };
 
+const makeAutomationAudit = (records, children) => {
+  const latest = records[0] || null;
+  const todayRecords = records.filter(r => r.date === today());
+  const weekRecords = records.filter(r => daysAgo(r.date) <= 7);
+  const monthRecords = records.filter(r => daysAgo(r.date) <= 30);
+  const parentRecords = monthRecords.filter(r => r.parent || r.recordType === 'consult');
+  const supportRecords = monthRecords.filter(r => r.support);
+  const developmentRecords = monthRecords.filter(r => toArray(r.devAreas).length > 0);
+  const reviewRecords = records.filter(r => r.automation?.needsReview || toArray(r.documentMeta?.reviewFlags).length > 0);
+
+  const items = [
+    {
+      key: 'recordProcessing',
+      label: '기록 문장 정리',
+      ready: !!latest?.observation,
+      detail: latest?.observation ? '최근 기록이 관찰일지 문장으로 정리됐습니다.' : '기록 정리 결과가 아직 없습니다.',
+    },
+    {
+      key: 'classification',
+      label: '카테고리·발달영역 분류',
+      ready: !!latest?.category || toArray(latest?.devAreas).length > 0,
+      detail: latest?.category ? '대표 카테고리와 발달영역이 문서 분류에 연결됩니다.' : '분류할 기록이 필요합니다.',
+    },
+    {
+      key: 'parentConsult',
+      label: '부모상담자료 누적',
+      ready: parentRecords.length > 0,
+      detail: parentRecords.length ? `최근 30일 상담자료용 기록 ${parentRecords.length}건이 준비됐습니다.` : '부모상담용 문장이 있는 기록이 필요합니다.',
+    },
+    {
+      key: 'supportPlan',
+      label: '지원계획 누적',
+      ready: supportRecords.length > 0,
+      detail: supportRecords.length ? `지원계획 ${supportRecords.length}건이 누적됐습니다.` : '지원계획 문장이 있는 기록이 필요합니다.',
+    },
+    {
+      key: 'dailyJournal',
+      label: '오늘 보육일지',
+      ready: todayRecords.length > 0,
+      detail: todayRecords.length ? `오늘 기록 ${todayRecords.length}건으로 보육일지 초안을 만들 수 있습니다.` : '오늘 기록이 필요합니다.',
+    },
+    {
+      key: 'weeklyReview',
+      label: '주간 놀이평가',
+      ready: weekRecords.length > 0,
+      detail: weekRecords.length ? `최근 7일 기록 ${weekRecords.length}건으로 주간평가를 만들 수 있습니다.` : '최근 7일 기록이 필요합니다.',
+    },
+    {
+      key: 'monthlyReview',
+      label: '월간 놀이평가',
+      ready: monthRecords.length > 0,
+      detail: monthRecords.length ? `최근 30일 기록 ${monthRecords.length}건으로 월간평가를 만들 수 있습니다.` : '최근 30일 기록이 필요합니다.',
+    },
+    {
+      key: 'development',
+      label: '발달평가',
+      ready: developmentRecords.length > 0,
+      detail: developmentRecords.length ? `발달영역 기록 ${developmentRecords.length}건이 평가 근거로 연결됩니다.` : '발달영역이 분류된 기록이 필요합니다.',
+    },
+    {
+      key: 'missingCheck',
+      label: '누락·균형 점검',
+      ready: children.length > 0,
+      detail: children.length ? '아이별 기록 수와 카테고리 균형을 자동 점검합니다.' : '아이 명단 등록이 필요합니다.',
+    },
+    {
+      key: 'reviewQueue',
+      label: '확인 필요 기록',
+      ready: reviewRecords.length === 0,
+      detail: reviewRecords.length ? `문서화 전 확인이 필요한 기록 ${reviewRecords.length}건이 있습니다.` : '확인 필요한 기록이 없습니다.',
+    },
+  ];
+
+  return {
+    readyCount: items.filter(item => item.ready).length,
+    totalCount: items.length,
+    percent: Math.round((items.filter(item => item.ready).length / items.length) * 100),
+    items,
+    latestRecord: latest ? {
+      id: latest.id,
+      childId: latest.childId,
+      childName: latest.childName,
+      date: latest.date,
+      appliedTargets: latest.automation?.appliedTargets || getRecordTargets(latest),
+      appliedLabels: latest.automation?.appliedLabels || getRecordTargets(latest).map(target => DOCUMENT_TARGETS[target] || target),
+    } : null,
+  };
+};
+
 export function rebuildAutomationState(records = getRecords(), children = getChildren(), classes = getClasses()) {
   const sortedRecords = [...records].sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
   const todayRecordIds = sortedRecords.filter(r => r.date === today()).map(r => r.id);
@@ -264,6 +353,7 @@ export function rebuildAutomationState(records = getRecords(), children = getChi
     documents: makeDocumentQueue(sortedRecords),
     children: makeChildAutomation(children, sortedRecords),
     checklist: makeChecklist(children, sortedRecords),
+    audit: makeAutomationAudit(sortedRecords, children),
   };
   storage.set(KEYS.AUTOMATION_STATE, state);
   return state;
