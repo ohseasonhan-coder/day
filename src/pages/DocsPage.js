@@ -24,13 +24,14 @@ const DOC_TYPES = [
 ];
 
 const PERIOD_OPTIONS = [
+  { key: '1week',   label: '최근 7일' },
   { key: 'date',    label: '선택 날짜' },
   { key: '1month',  label: '1개월' },
   { key: '3months', label: '3개월' },
   { key: '6months', label: '6개월' },
   { key: '1year',   label: '1년' },
 ];
-const PERIOD_DAYS = { date: 0, '1month': 30, '3months': 90, '6months': 180, '1year': 365 };
+const PERIOD_DAYS = { date: 0, '1week': 7, '1month': 30, '3months': 90, '6months': 180, '1year': 365 };
 
 const AVATAR_COLORS = [
   '#4F7FFF','#6C63FF','#FF8C42','#00B4D8',
@@ -41,7 +42,7 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-export default function DocsPage({ onNavigate, isDesktop }) {
+export default function DocsPage({ onNavigate, isDesktop, context }) {
   const [mainTab, setMainTab]       = useState('new'); // 'new' | 'history'
   const [viewDate, setViewDate]     = useState(today());
   const [allRecords, setAllRecords] = useState([]);
@@ -66,6 +67,16 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const [period, setPeriod] = useState('date');
 
   useEffect(() => {
+    if (!context) return;
+    if (context.docType) setActiveType(context.docType);
+    if (context.period) setPeriod(context.period);
+    if (context.date) setViewDate(context.date);
+    if (context.childId) setSelectedChildId(context.childId);
+    setMainTab('new');
+    setDoc(null);
+  }, [context]);
+
+  useEffect(() => {
     setAllRecords(getRecords());
     setChildren(getChildren());
     setClasses(getClasses());
@@ -84,11 +95,11 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   const autoDocs = automation?.documents || {};
   const autoChecklist = automation?.checklist || {};
   const docReadyItems = [
-    { key: 'daily', title: '보육일지', count: autoDocs.daily?.count || 0, desc: autoDocs.daily?.label || '오늘 기록을 기다리는 중입니다.', navType: 'daily' },
-    { key: 'weekly', title: '주간평가', count: autoDocs.weekly?.count || 0, desc: autoDocs.weekly?.label || '최근 7일 기록을 기다리는 중입니다.', navType: 'weekly' },
-    { key: 'monthly', title: '월간평가', count: autoDocs.monthly?.count || 0, desc: autoDocs.monthly?.label || '최근 30일 기록을 기다리는 중입니다.', navType: 'monthly' },
-    { key: 'parent', title: '부모상담자료', count: autoDocs.parent?.count || 0, desc: autoDocs.parent?.label || '상담용 기록을 기다리는 중입니다.', navType: 'parent' },
-    { key: 'development', title: '발달평가', count: autoDocs.development?.count || 0, desc: autoDocs.development?.label || '발달영역 기록을 기다리는 중입니다.', navType: 'development' },
+    { key: 'daily', title: '보육일지', count: autoDocs.daily?.count || 0, desc: autoDocs.daily?.label || '오늘 기록을 기다리는 중입니다.', navType: 'daily', periodKey: 'date' },
+    { key: 'weekly', title: '주간평가', count: autoDocs.weekly?.count || 0, desc: autoDocs.weekly?.label || '최근 7일 기록을 기다리는 중입니다.', navType: 'weekly', periodKey: '1week' },
+    { key: 'monthly', title: '월간평가', count: autoDocs.monthly?.count || 0, desc: autoDocs.monthly?.label || '최근 30일 기록을 기다리는 중입니다.', navType: 'monthly', periodKey: '1month' },
+    { key: 'parent', title: '부모상담자료', count: autoDocs.parent?.count || 0, desc: autoDocs.parent?.label || '상담용 기록을 기다리는 중입니다.', navType: 'parent', periodKey: '1month' },
+    { key: 'development', title: '발달평가', count: autoDocs.development?.count || 0, desc: autoDocs.development?.label || '발달영역 기록을 기다리는 중입니다.', navType: 'development', periodKey: '1month' },
   ];
 
   const AutomationReadyPanel = (
@@ -104,7 +115,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(5, 1fr)' : '1fr', gap: 9 }}>
         {docReadyItems.map(item => (
-          <button key={item.key} onClick={() => { setActiveType(item.navType); setDoc(null); }} style={{
+          <button key={item.key} onClick={() => { setActiveType(item.navType); setPeriod(item.periodKey); setDoc(null); }} style={{
             textAlign: 'left',
             borderRadius: 14,
             padding: 13,
@@ -289,7 +300,7 @@ export default function DocsPage({ onNavigate, isDesktop }) {
   );
 
   // 기간 선택 (아이 선택 시 표시)
-  const PeriodSelector = selectedChildId ? (
+  const PeriodSelector = (selectedChildId || activeType !== 'daily') ? (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8 }}>기간 선택</div>
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>

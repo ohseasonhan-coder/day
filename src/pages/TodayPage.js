@@ -158,10 +158,10 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         </button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', gap: 9 }}>
-        <AutoStatusItem title="보육일지" value={`${autoDocs.daily?.count || 0}건`} desc={autoDocs.daily?.ready ? '오늘 기록으로 초안 준비됨' : '오늘 기록이 필요함'} ready={autoDocs.daily?.ready} />
-        <AutoStatusItem title="주간평가" value={`${autoDocs.weekly?.count || 0}건`} desc={autoDocs.weekly?.ready ? '최근 7일 기록 반영 가능' : '최근 기록이 필요함'} ready={autoDocs.weekly?.ready} />
-        <AutoStatusItem title="월간평가" value={`${autoDocs.monthly?.count || 0}건`} desc={autoDocs.monthly?.ready ? '최근 30일 기록 반영 가능' : '월간 기록이 필요함'} ready={autoDocs.monthly?.ready} />
-        <AutoStatusItem title="상담자료" value={`${autoDocs.parent?.count || 0}건`} desc={autoDocs.parent?.ready ? '부모상담 문장 누적 중' : '상담용 기록이 필요함'} ready={autoDocs.parent?.ready} />
+        <AutoStatusItem title="보육일지" value={`${autoDocs.daily?.count || 0}건`} desc={autoDocs.daily?.ready ? '오늘 기록으로 초안 준비됨' : '오늘 기록이 필요함'} ready={autoDocs.daily?.ready} onClick={() => onNavigate('docs', { docType: 'daily', period: 'date' })} />
+        <AutoStatusItem title="주간평가" value={`${autoDocs.weekly?.count || 0}건`} desc={autoDocs.weekly?.ready ? '최근 7일 기록 반영 가능' : '최근 기록이 필요함'} ready={autoDocs.weekly?.ready} onClick={() => onNavigate('docs', { docType: 'weekly', period: '1week' })} />
+        <AutoStatusItem title="월간평가" value={`${autoDocs.monthly?.count || 0}건`} desc={autoDocs.monthly?.ready ? '최근 30일 기록 반영 가능' : '월간 기록이 필요함'} ready={autoDocs.monthly?.ready} onClick={() => onNavigate('docs', { docType: 'monthly', period: '1month' })} />
+        <AutoStatusItem title="상담자료" value={`${autoDocs.parent?.count || 0}건`} desc={autoDocs.parent?.ready ? '부모상담 문장 누적 중' : '상담용 기록이 필요함'} ready={autoDocs.parent?.ready} onClick={() => onNavigate('docs', { docType: 'parent', period: '1month' })} />
       </div>
       <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr', gap: 8 }}>
         <MiniAlert label="오늘 미기록" value={`${autoMissingCount}명`} active={autoMissingCount > 0} onClick={() => onNavigate('check')} />
@@ -607,20 +607,22 @@ function HeroStat({ label, value }) {
   );
 }
 
-function AutoStatusItem({ title, value, desc, ready }) {
+function AutoStatusItem({ title, value, desc, ready, onClick }) {
   return (
-    <div style={{
+    <button onClick={onClick} style={{
+      textAlign: 'left',
       border: `1px solid ${ready ? 'rgba(76,175,80,0.24)' : 'var(--border)'}`,
       background: ready ? 'rgba(76,175,80,0.08)' : 'var(--gray-50)',
       borderRadius: 14,
       padding: 13,
+      width: '100%',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{title}</span>
         <span style={{ fontSize: 13, fontWeight: 900, color: ready ? 'var(--cat-play)' : 'var(--text-tertiary)' }}>{value}</span>
       </div>
       <div style={{ fontSize: 11, color: ready ? 'var(--cat-play)' : 'var(--text-secondary)', lineHeight: 1.45 }}>{desc}</div>
-    </div>
+    </button>
   );
 }
 

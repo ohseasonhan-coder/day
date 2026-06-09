@@ -77,6 +77,7 @@ export default function App() {
   const [isSetup, setIsSetup]                 = useState(false);
   const [showSettings, setShowSettings]       = useState(false);
   const [recordContext, setRecordContext]     = useState(null);
+  const [docsContext, setDocsContext]         = useState(null);
   const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
@@ -135,6 +136,7 @@ export default function App() {
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
     setRecordContext(p === 'record' ? ctx : null);
+    setDocsContext(p === 'docs' ? ctx : null);
     setPortfolioChild(p === 'portfolio' ? ctx : null);
   };
 
@@ -146,7 +148,7 @@ export default function App() {
       case 'record':   return <RecordPage   {...pageProps} context={recordContext} />;
       case 'note':     return <NotePage     {...pageProps} />;
       case 'children': return <ChildrenPage {...pageProps} />;
-      case 'docs':     return <DocsPage     {...pageProps} />;
+      case 'docs':     return <DocsPage     {...pageProps} context={docsContext} />;
       case 'check':    return <CheckPage    {...pageProps} />;
       case 'stats':      return <StatsPage      {...pageProps} />;
       case 'medicine':   return <MedicinePage   {...pageProps} />;
@@ -360,7 +362,6 @@ export default function App() {
     </div>
   );
 }
-
 
 
 

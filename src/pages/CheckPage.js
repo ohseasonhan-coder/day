@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getRecords, today, formatDate, CATEGORIES } from '../utils/storage';
+import { getChildren, getRecords, today, formatDate, CATEGORIES, getAutomationState } from '../utils/storage';
 import { CheckCircle2, AlertCircle, XCircle, ChevronRight, BarChart2 } from 'lucide-react';
 
 export default function CheckPage({ onNavigate, isDesktop }) {
   const [children, setChildren] = useState([]);
   const [records, setRecords] = useState([]);
   const [period, setPeriod] = useState('thisMonth');
+  const [automation, setAutomation] = useState(() => getAutomationState());
 
   useEffect(() => {
     setChildren(getChildren());
     setRecords(getRecords());
+    setAutomation(getAutomationState());
   }, []);
 
 
@@ -56,6 +58,38 @@ export default function CheckPage({ onNavigate, isDesktop }) {
     Math.min(100, (totalRecords / Math.max(1, children.length * (periodDays / 7))) * 50 +
     ((Object.keys(CATEGORIES).length - missingCats.length) / Object.keys(CATEGORIES).length) * 50)
   );
+  const autoDocs = automation?.documents || {};
+  const autoChecklist = automation?.checklist || {};
+  const actionItems = [
+    {
+      title: '오늘 보육일지 초안',
+      desc: autoDocs.daily?.ready ? `${autoDocs.daily.count}건으로 바로 만들 수 있습니다.` : '오늘 기록을 먼저 남기면 자동 준비됩니다.',
+      action: '문서 만들기',
+      active: autoDocs.daily?.ready,
+      onClick: () => onNavigate('docs', { docType: 'daily', period: 'date' }),
+    },
+    {
+      title: '주간평가 초안',
+      desc: autoDocs.weekly?.ready ? `최근 7일 기록 ${autoDocs.weekly.count}건이 준비됐습니다.` : '최근 7일 기록이 더 필요합니다.',
+      action: '주간평가',
+      active: autoDocs.weekly?.ready,
+      onClick: () => onNavigate('docs', { docType: 'weekly', period: '1week' }),
+    },
+    {
+      title: '부모상담자료',
+      desc: autoDocs.parent?.ready ? `상담용 문장 ${autoDocs.parent.count}건이 누적됐습니다.` : '상담용 기록을 남기면 자동 누적됩니다.',
+      action: '상담자료',
+      active: autoDocs.parent?.ready,
+      onClick: () => onNavigate('docs', { docType: 'parent', period: '1month' }),
+    },
+    {
+      title: '부족 영역 보완',
+      desc: (autoChecklist.missingCategoryKeys?.length || 0) > 0 ? `부족한 카테고리 ${autoChecklist.missingCategoryKeys.length}개가 있습니다.` : '카테고리 기록 균형이 좋습니다.',
+      action: '기록 추가',
+      active: (autoChecklist.missingCategoryKeys?.length || 0) > 0,
+      onClick: () => onNavigate('record'),
+    },
+  ];
 
   const pad = isDesktop ? '32px 36px' : '20px';
 
@@ -78,6 +112,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
       <div style={{ fontSize: isDesktop ? 24 : 20, fontWeight: 900, marginBottom: 4, letterSpacing: '-0.5px' }}>점검</div>
       <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>기록 현황과 누락을 확인해요</div>
       {PeriodSelector}
+      <AutomationActionPanel items={actionItems} />
 
       {/* Score Card */}
       <div style={{
@@ -204,6 +239,38 @@ function MiniStat({ label, value, alert }) {
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 18, fontWeight: 800, color: alert ? '#FFD600' : 'white' }}>{value}</div>
       <div style={{ fontSize: 11, opacity: 0.7 }}>{label}</div>
+    </div>
+  );
+}
+
+function AutomationActionPanel({ items }) {
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 4 }}>자동 실행 제안</div>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>현재 기록 상태를 기준으로 바로 이어서 할 수 있는 작업입니다.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+        {items.map(item => (
+          <button key={item.title} onClick={item.onClick} style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            padding: '12px 13px',
+            borderRadius: 13,
+            border: `1px solid ${item.active ? 'rgba(79,127,255,0.3)' : 'var(--border)'}`,
+            background: item.active ? 'var(--primary-light)' : 'var(--gray-50)',
+            textAlign: 'left',
+          }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: item.active ? 'var(--primary)' : 'var(--text-primary)' }}>{item.title}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.45 }}>{item.desc}</div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 900, color: item.active ? 'white' : 'var(--text-secondary)', background: item.active ? 'var(--primary)' : 'var(--gray-200)', borderRadius: 100, padding: '5px 9px', flexShrink: 0 }}>
+              {item.action}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
