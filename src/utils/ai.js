@@ -2,6 +2,11 @@
  * 규칙 기반 AI 대체 모듈
  * API 키 없이 키워드 분류 + 표현 순화 + 템플릿 문서 생성
  */
+import {
+  generateSentence,
+  generateSentences,
+  detectCategoryFromText,
+} from './sentenceLibrary';
 
 export const RECORD_QUALITY_SAMPLES = [
   { category: '또래관계', text: '하준이/가 또래와의 놀이 상황에서 친구와 캠핑놀이를 하며 순서를 잘기다린다.' },
@@ -1688,6 +1693,17 @@ export async function processRecord({ childName, rawText, classAge, recordType }
   const observeFn = OBSERVATION_TEMPLATES[category] || OBSERVATION_TEMPLATES.play;
   const parentFn = PARENT_TEMPLATES[category] || PARENT_TEMPLATES.play;
 
+  // 문장 라이브러리 조합 제안 (100만+ 조합에서 추출)
+  const libDetect = detectCategoryFromText(normalizedText);
+  const age = classAge ? parseInt(classAge, 10) : 4;
+  const libSuggestions = generateSentences({
+    category: libDetect.category,
+    situation: libDetect.situation,
+    age: isNaN(age) ? 4 : age,
+    childName: name,
+    count: 5,
+  });
+
   return {
     category,
     devAreas,
@@ -1700,6 +1716,7 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     parent: makeParentMessage(name, category, normalizedText) || parentFn(name),
     support: makeSupportPlan(category, normalizedText),
     title: makeTitle(normalizedText, category),
+    libSuggestions,
   };
 }
 
