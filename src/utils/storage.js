@@ -29,6 +29,7 @@ const KEYS = {
   get CONSULTS()        { return `sw_${_getUid()}_consults`; },
   get BACKUP_HISTORY()  { return `sw_${_getUid()}_backup_history`; },
   get AUTOMATION_STATE(){ return `sw_${_getUid()}_automation_state`; },
+  get AUTOMATION_LOG()  { return `sw_${_getUid()}_automation_log`; },
 };
 
 // Generic storage helpers
@@ -123,6 +124,15 @@ const DOCUMENT_TARGETS = {
   development: '발달평가',
   checklist: '평가제 점검',
 };
+
+const AUTOMATION_CHANGE_LABELS = [
+  '알림장 초안',
+  '상담자료 누적',
+  '아이별 성장요약',
+  '문서 초안 후보',
+  '부족 기록 추천',
+  '자동화 점검표',
+];
 
 const toArray = (value) => Array.isArray(value) ? value : [];
 
@@ -363,6 +373,9 @@ const makeDraftCandidates = (records, classes) => {
   const todayRecords = records.filter(r => r.date === today());
   const weekRecords = records.filter(r => daysAgo(r.date) <= 7);
   const monthRecords = records.filter(r => daysAgo(r.date) <= 30);
+  const consultRecords = monthRecords.filter(r => r.parent || r.recordType === 'consult');
+  const developmentRecords = monthRecords.filter(r => toArray(r.devAreas).length > 0);
+  const safetyRecords = monthRecords.filter(r => r.category === 'special' || r.recordType === 'special');
   const makeCandidate = (type, title, sourceRecords) => ({
     type,
     title,
@@ -382,6 +395,18 @@ const makeDraftCandidates = (records, classes) => {
     daily: makeCandidate('daily', '오늘 보육일지 자동 초안 후보', todayRecords),
     weekly: makeCandidate('weekly', '주간 놀이평가 자동 초안 후보', weekRecords),
     monthly: makeCandidate('monthly', '월간 놀이평가 자동 초안 후보', monthRecords),
+    parent: makeCandidate('parent', '부모상담자료 자동 초안 후보', consultRecords),
+    development: makeCandidate('development', '발달평가 자동 초안 후보', developmentRecords),
+    safety: makeCandidate('safety', '안전·행사평가 자동 초안 후보', safetyRecords),
+    teacher: {
+      ...makeCandidate('teacher', '교사교육일지 기본 초안 후보', []),
+      ready: true,
+      count: 0,
+      preview: '교육명과 핵심 내용만 보완하면 바로 쓸 수 있는 기본 초안입니다.',
+    },
+    review: makeCandidate('review', '원장 검토자료 자동 초안 후보', monthRecords),
+    weekplan: makeCandidate('weekplan', '주간 계획안 자동 초안 후보', weekRecords),
+    monthplan: makeCandidate('monthplan', '월간 계획안 자동 초안 후보', monthRecords),
   };
 };
 
@@ -484,8 +509,8 @@ const makeAutomationAudit = (records, children) => {
     {
       key: 'draftCandidates',
       label: '문서 초안 후보',
-      ready: draftCandidates.daily.ready || draftCandidates.weekly.ready || draftCandidates.monthly.ready,
-      detail: '보육일지, 주간평가, 월간평가 초안 후보를 문서 이력과 분리해 준비합니다.',
+      ready: Object.values(draftCandidates).some(item => item.ready),
+      detail: '보육일지, 놀이평가, 상담자료, 발달평가, 행사평가, 교사교육일지 후보를 문서 이력과 분리해 준비합니다.',
     },
   ];
 
@@ -537,6 +562,39 @@ export function rebuildAutomationState(records = getRecords(), children = getChi
 
 export const getAutomationState = () => storage.get(KEYS.AUTOMATION_STATE) || rebuildAutomationState();
 
+export const getAutomationLog = () => storage.get(KEYS.AUTOMATION_LOG) || [];
+
+const pushAutomationLog = (event) => {
+  const next = [
+    {
+      id: genId(),
+      createdAt: new Date().toISOString(),
+      changedLabels: AUTOMATION_CHANGE_LABELS,
+      ...event,
+    },
+    ...getAutomationLog(),
+  ].slice(0, 80);
+  storage.set(KEYS.AUTOMATION_LOG, next);
+  return next[0];
+};
+
+const makeAutomationLogEvent = (action, record, state) => {
+  const actionLabel = action === 'create' ? '기록 저장' : action === 'update' ? '기록 수정' : '기록 삭제';
+  const childName = record?.childName || '기록';
+  return pushAutomationLog({
+    action,
+    actionLabel,
+    recordId: record?.id || null,
+    childId: record?.childId || null,
+    childName,
+    message: `${actionLabel}으로 ${childName}의 상담자료, 성장요약, 문서 초안 후보, 누락 점검이 다시 반영됐습니다.`,
+    auditReadyCount: state?.audit?.readyCount || 0,
+    auditTotalCount: state?.audit?.totalCount || 0,
+    documentReadyCount: Object.values(state?.documents || {}).filter(item => item.ready).length,
+    recommendationCount: state?.recommendations?.length || 0,
+  });
+};
+
 // Records helpers
 export const getRecordsByChild = (childId) =>
   getRecords().filter(r => r.childId === childId);
@@ -550,25 +608,32 @@ export const addRecord = (record) => {
   const newRecord = { ...baseRecord, automation: makeRecordAutomationMeta(baseRecord) };
   const nextRecords = [newRecord, ...records];
   saveRecords(nextRecords);
-  rebuildAutomationState(nextRecords);
-  return newRecord;
+  const state = rebuildAutomationState(nextRecords);
+  const automationEvent = makeAutomationLogEvent('create', newRecord, state);
+  return { ...newRecord, automationEvent };
 };
 
 export const updateRecord = (id, updates) => {
   const records = getRecords();
+  let updatedRecord = null;
   const nextRecords = records.map(r => {
     if (r.id !== id) return r;
     const updated = { ...r, ...updates, updatedAt: new Date().toISOString() };
-    return { ...updated, automation: makeRecordAutomationMeta(updated) };
+    updatedRecord = { ...updated, automation: makeRecordAutomationMeta(updated) };
+    return updatedRecord;
   });
   saveRecords(nextRecords);
-  rebuildAutomationState(nextRecords);
+  const state = rebuildAutomationState(nextRecords);
+  return makeAutomationLogEvent('update', updatedRecord, state);
 };
 
 export const deleteRecord = (id) => {
-  const nextRecords = getRecords().filter(r => r.id !== id);
+  const records = getRecords();
+  const deletedRecord = records.find(r => r.id === id);
+  const nextRecords = records.filter(r => r.id !== id);
   saveRecords(nextRecords);
-  rebuildAutomationState(nextRecords);
+  const state = rebuildAutomationState(nextRecords);
+  return makeAutomationLogEvent('delete', deletedRecord, state);
 };
 
 // ── 기록 임시저장 (자동저장) ──────────────────────────────────────────────────
@@ -618,10 +683,25 @@ export const addDocumentDraft = (document) => {
     ...document,
     id: genId(),
     status: document.status || 'draft',
+    source: document.source || 'generated',
+    sourceLabel: document.sourceLabel || '자동 생성 문서',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   saveDocuments([newDocument, ...documents]);
+  pushAutomationLog({
+    action: 'document',
+    actionLabel: '문서 저장',
+    recordId: null,
+    childId: document.childId || null,
+    childName: document.childName || document.className || '문서',
+    changedLabels: ['문서함', '문서 이력', '자동 초안 후보'],
+    message: `${document.title || '문서 초안'}이 문서함에 저장됐습니다.`,
+    auditReadyCount: getAutomationState()?.audit?.readyCount || 0,
+    auditTotalCount: getAutomationState()?.audit?.totalCount || 0,
+    documentReadyCount: Object.values(getAutomationState()?.documents || {}).filter(item => item.ready).length,
+    recommendationCount: getAutomationState()?.recommendations?.length || 0,
+  });
   return newDocument;
 };
 

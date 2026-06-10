@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getRecords, today, formatDate, CATEGORIES, getAutomationState } from '../utils/storage';
+import { getChildren, getRecords, today, formatDate, CATEGORIES, getAutomationState, getAutomationLog } from '../utils/storage';
 import { CheckCircle2, AlertCircle, XCircle, ChevronRight, BarChart2 } from 'lucide-react';
 
 export default function CheckPage({ onNavigate, isDesktop }) {
@@ -7,11 +7,13 @@ export default function CheckPage({ onNavigate, isDesktop }) {
   const [records, setRecords] = useState([]);
   const [period, setPeriod] = useState('thisMonth');
   const [automation, setAutomation] = useState(() => getAutomationState());
+  const [automationLog, setAutomationLog] = useState(() => getAutomationLog());
 
   useEffect(() => {
     setChildren(getChildren());
     setRecords(getRecords());
     setAutomation(getAutomationState());
+    setAutomationLog(getAutomationLog());
   }, []);
 
 
@@ -117,6 +119,7 @@ export default function CheckPage({ onNavigate, isDesktop }) {
       <AutomationActionPanel items={actionItems} />
       <AutomationAuditPanel audit={audit} onNavigate={onNavigate} />
       <RecommendationPanel items={recommendations} onNavigate={onNavigate} />
+      <AutomationHistoryPanel items={automationLog} />
 
       {/* Score Card */}
       <div style={{
@@ -362,6 +365,45 @@ function RecommendationPanel({ items, onNavigate }) {
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{item.prompt}</div>
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.45, marginTop: 5 }}>{item.example}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AutomationHistoryPanel({ items }) {
+  const recent = (items || []).slice(0, 5);
+  if (!recent.length) return null;
+
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>자동화 이력</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>기록 1개가 어디까지 다시 반영됐는지 보여줍니다.</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '5px 10px', height: 24 }}>
+          최근 {recent.length}건
+        </span>
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {recent.map(item => (
+          <div key={item.id} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 13, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+              <div style={{ fontSize: 13, fontWeight: 900 }}>{item.actionLabel || '자동화 반영'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                {item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8 }}>{item.message}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {(item.changedLabels || []).slice(0, 6).map(label => (
+                <span key={label} style={{ fontSize: 10, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '3px 7px' }}>
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
       </div>

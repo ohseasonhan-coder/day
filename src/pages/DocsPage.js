@@ -152,6 +152,13 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
           { key: 'daily', label: '오늘 보육일지', docType: 'daily', periodKey: 'date' },
           { key: 'weekly', label: '주간평가', docType: 'weekly', periodKey: '1week' },
           { key: 'monthly', label: '월간평가', docType: 'monthly', periodKey: '1month' },
+          { key: 'parent', label: '부모상담자료', docType: 'parent', periodKey: '1month' },
+          { key: 'development', label: '발달평가', docType: 'development', periodKey: '1month' },
+          { key: 'safety', label: '안전·행사평가', docType: 'safety', periodKey: '1month' },
+          { key: 'teacher', label: '교사교육일지', docType: 'teacher', periodKey: 'date' },
+          { key: 'review', label: '원장 검토자료', docType: 'review', periodKey: '1month' },
+          { key: 'weekplan', label: '주간 계획안', docType: 'weekplan', periodKey: '1week' },
+          { key: 'monthplan', label: '월간 계획안', docType: 'monthplan', periodKey: '1month' },
         ].map(meta => {
           const item = draftCandidates[meta.key] || {};
           return (
@@ -166,7 +173,18 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
                 <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{meta.label}</span>
                 <span style={{ fontSize: 12, fontWeight: 900, color: item.ready ? 'var(--cat-play)' : 'var(--text-tertiary)' }}>{item.count || 0}건</span>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{item.preview || '반영할 기록이 생기면 자동 후보가 준비됩니다.'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: 8 }}>{item.preview || '반영할 기록이 생기면 자동 후보가 준비됩니다.'}</div>
+              <span style={{
+                display: 'inline-flex',
+                fontSize: 11,
+                fontWeight: 900,
+                color: item.ready ? 'white' : 'var(--text-tertiary)',
+                background: item.ready ? 'var(--cat-play)' : 'var(--gray-200)',
+                borderRadius: 100,
+                padding: '4px 8px',
+              }}>
+                {item.ready ? '문서 만들기' : '대기 중'}
+              </span>
             </button>
           );
         })}
@@ -236,6 +254,8 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
         childId: selChild?.id, childName: selChild?.name,
         period,
         sourceRecordIds: targetRecords.map(r => r.id),
+        source: 'autoCandidate',
+        sourceLabel: '자동 초안 후보에서 저장',
       });
       setDoc(savedDraft);
       // 매칭 양식 자동 탐색
@@ -722,7 +742,158 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
 
 
 // ── 문서 빌더 ─────────────────────────────────────────────────────────────────
+function buildCompleteDocument(type, records, date, cl, selChild, period) {
+  const categorySummary = summarizeCategories(records);
+  const periodLabel = selChild ? (PERIOD_OPTIONS.find(p => p.key === period)?.label || '선택 기간') : formatDateKo(date);
+  const subjectLabel = selChild ? selChild.name : (cl?.name || '우리 반');
+  const childNames = selChild ? [selChild.name] : [...new Set(records.map(r => r.childName).filter(Boolean))];
+  const commonBadge = selChild
+    ? `${subjectLabel} · ${periodLabel} · ${records.length}건 반영`
+    : `${formatDateKo(date)} 기준 · ${records.length}건 반영`;
+  const samples = records.map(r => r.observation || r.parent || r.rawText).filter(Boolean);
+  const sampleText = samples.slice(0, 3).join(' ');
+  const supportText = records.map(r => r.support).filter(Boolean).slice(0, 3).join(' ');
+  const categoryText = categorySummary.mainLabels || '놀이·생활 기록';
+
+  const fallback = samples.length
+    ? sampleText
+    : '아직 반영할 기록이 충분하지 않습니다. 기록을 추가하면 문서 내용이 더 구체화됩니다.';
+
+  if (type === 'daily') {
+    return {
+      title: selChild ? `${selChild.name} 보육일지 초안` : '보육일지 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '놀이 흐름 및 활동', text: `${subjectLabel}은(는) ${periodLabel} 동안 ${categoryText}을(를) 중심으로 놀이와 일과에 참여하였다. ${fallback}` },
+        { title: '유아 반응', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : `${childNames.join(', ') || '유아들'}은(는) 놀이 과정에서 자신의 생각을 표현하고 또래와 상호작용하는 모습을 보였다.` },
+        { title: '교사 지원', text: supportText || '교사는 유아의 흥미와 반응을 관찰하며 필요한 언어적 안내와 환경적 지원을 제공하였다.' },
+        { title: '평가 및 다음 지원', text: '오늘의 기록을 바탕으로 유아의 흥미가 이어질 수 있도록 자료와 공간을 조정하고, 부족한 발달영역 기록을 보완한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'weekly') {
+    return {
+      title: selChild ? `${selChild.name} 주간 놀이평가 초안` : '주간 놀이평가 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '주간 놀이 흐름', text: `${subjectLabel}은(는) 최근 일주일 동안 ${categoryText} 관련 경험을 중심으로 놀이를 이어갔다. ${fallback}` },
+        { title: '유아 반응과 배움', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : '유아들은 놀이 과정에서 탐색, 표현, 협력, 문제 해결을 경험하였다.' },
+        { title: '교사 지원 평가', text: supportText || '교사는 유아의 놀이 의도를 존중하며 자료 제공, 질문, 기다림, 갈등 중재를 통해 놀이 확장을 도왔다.' },
+        { title: '다음 주 예상놀이 및 지원계획', text: `${categorySummary.topLabel} 경험이 이어질 수 있도록 관련 자료를 추가하고, 또래와 함께 구성하는 놀이 기회를 제공한다.`, accent: true },
+      ],
+    };
+  }
+
+  if (type === 'monthly') {
+    return {
+      title: selChild ? `${selChild.name} 월간 놀이평가 초안` : '월간 놀이평가 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '월간 놀이 흐름', text: `${subjectLabel}은(는) 이번 기간 ${categoryText} 영역의 경험을 주로 보였다. ${fallback}` },
+        { title: '발달 및 성장 흐름', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : `기록 전반에서 ${categorySummary.topLabel} 관련 흥미와 참여가 관찰되었다.` },
+        { title: '보육과정 평가', text: '유아의 흥미와 실제 놀이 흐름을 반영하여 보육과정이 운영되었으며, 기록을 통해 다음 지원 방향을 확인할 수 있었다.' },
+        { title: '다음 달 운영 방향', text: '놀이가 자연스럽게 확장될 수 있도록 자료를 보완하고, 기록이 부족한 영역은 일과 속에서 의도적으로 관찰한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'parent') {
+    return {
+      title: selChild ? `${selChild.name} 부모상담자료 초안` : '부모상담자료 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '최근 성장 흐름', text: selChild ? makeChildSummaryText(selChild.name, records, categorySummary) : `${childNames.join(', ') || '유아'}의 최근 기록을 바탕으로 상담자료를 정리하였다.` },
+        { title: '강점과 긍정적 모습', text: `${subjectLabel}은(는) 관심 있는 활동에 참여하며 자신의 생각과 감정을 표현하려는 모습을 보이고 있다.` },
+        { title: '지원이 필요한 부분', text: supportText || '상황에 따라 교사의 안내를 받아 말로 표현하기, 차례 기다리기, 스스로 시도하기를 반복 경험하면 좋다.' },
+        { title: '가정 연계 문장', text: '가정에서도 아이의 이야기를 충분히 들어주시고, 기다리기와 말로 표현하기를 자연스럽게 연습할 수 있도록 격려해 주세요.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'development') {
+    return {
+      title: selChild ? `${selChild.name} 발달평가 초안` : '발달평가 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '신체운동·건강', text: makeAreaText(records, 'body', `${subjectLabel}은(는) 일과와 놀이 속에서 신체를 조절하고 건강한 생활 경험을 쌓고 있다.`) },
+        { title: '의사소통', text: makeAreaText(records, 'comm', `${subjectLabel}은(는) 자신의 생각과 감정을 말, 표정, 행동으로 표현하려는 모습을 보인다.`) },
+        { title: '사회관계', text: makeAreaText(records, 'peer', `${subjectLabel}은(는) 또래와 함께 놀이하며 관계 맺기, 기다리기, 협력하기를 경험하고 있다.`) },
+        { title: '예술경험', text: makeAreaText(records, 'art', `${subjectLabel}은(는) 다양한 재료와 표현 방식을 탐색하며 자신의 느낌을 나타낸다.`) },
+        { title: '자연탐구', text: makeAreaText(records, 'nature', `${subjectLabel}은(는) 주변 사물과 자연현상에 관심을 가지고 관찰하고 탐색한다.`) },
+        { title: '종합평가 및 지원계획', text: `${categorySummary.topLabel} 영역의 기록이 두드러지며, 앞으로 기록이 부족한 영역도 균형 있게 경험하도록 지원한다.`, accent: true },
+      ],
+    };
+  }
+
+  if (type === 'safety') {
+    return {
+      title: '안전교육·행사평가 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '활동 개요', text: `${formatDateKo(date)} 진행한 안전교육 또는 행사에서 유아들은 교사의 안내에 따라 활동에 참여하였다.` },
+        { title: '유아 반응', text: samples.length ? fallback : '유아들은 새로운 경험에 관심을 보이며 교사의 설명을 듣고 활동에 참여하였다.' },
+        { title: '교사 지원', text: '교사는 이동, 대기, 활동 참여 과정에서 안전 약속을 반복 안내하고 유아가 안정적으로 참여할 수 있도록 도왔다.' },
+        { title: '평가 및 추후 지원', text: '활동은 유아의 발달 수준에 맞게 진행되었으며, 가정과도 안전 약속을 공유하고 일상 속에서 반복 경험하도록 지원한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'teacher') {
+    return {
+      title: '교사교육일지 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '교육명', text: '영유아 관찰기록과 놀이 중심 보육과정 운영의 실제' },
+        { title: '교육 내용', text: '영유아의 놀이 장면을 객관적으로 기록하고, 기록을 보육일지·부모상담자료·발달평가·지원계획으로 연결하는 방법을 학습하였다.' },
+        { title: '느낀 점', text: '관찰기록은 단순한 서류가 아니라 유아의 흥미와 발달을 이해하고 다음 지원을 계획하는 중요한 근거임을 확인하였다.' },
+        { title: '현장 적용 계획', text: '매일 짧은 기록을 누적하고, 주간 단위로 놀이 흐름과 지원계획을 점검하여 문서 업무와 보육과정 운영을 함께 개선한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'weekplan') {
+    return {
+      title: '주간 계획안 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '목표 및 방향', text: `이번 주는 ${categorySummary.topLabel} 영역을 중심으로 유아의 자발적 놀이 흐름을 지원한다.` },
+        { title: '놀이 주제', text: `${categoryText} 관련 놀이를 중심으로 유아의 흥미와 이전 기록을 반영하여 활동을 계획한다.` },
+        { title: '요일별 활동', text: '월: 주제 소개 및 자료 탐색\n화: 소그룹 놀이 확장\n수: 바깥놀이 및 자유선택\n목: 표현 활동\n금: 한 주 놀이 되돌아보기' },
+        { title: '환경 구성 및 가정연계', text: '관련 자료를 영역별로 배치하고, 가정에서도 주제와 연결된 대화를 나눌 수 있도록 안내한다.', accent: true },
+      ],
+    };
+  }
+
+  if (type === 'monthplan') {
+    return {
+      title: '월간 계획안 초안',
+      badge: commonBadge,
+      sections: [
+        { title: '이달의 목표', text: `유아가 주도하는 놀이 흐름 속에서 ${categoryText} 영역의 경험을 확장한다.` },
+        { title: '놀이 흐름 계획', text: '1주: 주제 도입 및 탐색\n2주: 또래와 협력하는 놀이 확장\n3주: 표현 및 심화 활동\n4주: 한 달 놀이 되돌아보기와 다음 달 준비' },
+        { title: '발달영역별 지원 계획', text: '신체, 의사소통, 사회관계, 예술경험, 자연탐구, 기본생활습관이 일과 속에서 균형 있게 나타나도록 지원한다.' },
+        { title: '행사·가정연계', text: '예정된 행사, 견학, 안전교육을 월간 흐름에 반영하고 가정 연계 안내를 준비한다.', accent: true },
+      ],
+    };
+  }
+
+  return {
+    title: selChild ? `${selChild.name} 원장 검토자료 초안` : '원장 검토자료 초안',
+    badge: commonBadge,
+    sections: [
+      { title: '기록 현황', text: `${subjectLabel}의 반영 기록은 ${records.length}건입니다.` },
+      { title: '주요 흐름', text: `현재 기록은 ${categoryText} 영역에 집중되어 있습니다.` },
+      { title: '검토 필요 사항', text: '기록이 적은 유아, 부족한 발달영역, 부정적 표현 순화 여부, 지원계획 포함 여부를 확인합니다.' },
+      { title: '원장 검토 메모', text: '기록 누락을 보완하고 문서별 표현을 다듬으면 기관용 문서 완성도를 높일 수 있습니다.', accent: true },
+    ],
+  };
+}
+
 function buildDocument(type, records, date, cl, children, selChild, period) {
+  const completeDoc = buildCompleteDocument(type, records, date, cl, selChild, period);
+  if (completeDoc) return completeDoc;
+
   const childNames      = selChild
     ? [selChild.name]
     : [...new Set(records.map(r => r.childName))];

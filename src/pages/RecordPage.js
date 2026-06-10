@@ -286,16 +286,18 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   };
 
   const handleUpdateRecord = (id, updates) => {
-    updateRecord(id, updates);
+    const event = updateRecord(id, updates);
     const refreshed = getRecords();
     setRecords(refreshed);
     if (detailRecord?.id === id) setDetailRecord(refreshed.find(r => r.id === id) || null);
+    if (event?.message) showToast(event.message);
   };
 
   const handleDeleteRecord = (id) => {
-    deleteRecord(id);
+    const event = deleteRecord(id);
     setRecords(getRecords());
     if (detailRecord?.id === id) setDetailRecord(null);
+    if (event?.message) showToast(event.message);
   };
 
   const clearFilters = () => { setSearchText(''); setFilterChildId('all'); setFilterCategory('all'); setFilterDate(''); setFilterStarred(false); };

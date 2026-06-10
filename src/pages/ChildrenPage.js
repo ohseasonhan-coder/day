@@ -615,6 +615,7 @@ function CopyCard({ title, text, accent }) {
 
 function RecordCard({ record, classAge, onChange }) {
   const cat = CATEGORIES[record.category] || CATEGORIES.special;
+  const showToast = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState({
@@ -643,7 +644,7 @@ function RecordCard({ record, classAge, onChange }) {
       const keepManualParent = draft.parent !== (record.parent || '');
       const keepManualSupport = draft.support !== (record.support || '');
 
-      updateRecord(record.id, {
+      const event = updateRecord(record.id, {
         ...draft,
         rawText: draft.rawText.trim(),
         ...(generated ? {
@@ -662,6 +663,7 @@ function RecordCard({ record, classAge, onChange }) {
         updatedAt: new Date().toISOString(),
       });
       setEditing(false);
+      if (event?.message) showToast(event.message);
       onChange?.();
     } catch (e) {
       alert(e.message || '기록을 다시 정리하는 중 오류가 발생했습니다.');
@@ -672,7 +674,8 @@ function RecordCard({ record, classAge, onChange }) {
 
   const handleDelete = () => {
     if (!window.confirm('이 기록을 삭제할까요? 삭제한 기록은 되돌릴 수 없습니다.')) return;
-    deleteRecord(record.id);
+    const event = deleteRecord(record.id);
+    if (event?.message) showToast(event.message);
     onChange?.();
   };
 
