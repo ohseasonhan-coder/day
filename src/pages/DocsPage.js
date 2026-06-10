@@ -8,7 +8,7 @@ import {
   getDocumentHistory, getFormTemplates, updateDocumentDraft, deleteDocumentDraft, getAutomationState,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
-import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star } from 'lucide-react';
+import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star, Download } from 'lucide-react';
 
 const DOC_TYPES = [
   { key: 'daily',       label: '보육일지',      icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
@@ -475,6 +475,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
             {/* 공유 / 인쇄 버튼 — 이미지 양식 적용 중이면 인쇄 버튼 숨김 (ImageOverlayView 내부 버튼 사용) */}
             <div style={{ display:'flex', gap:7, flexShrink:0 }}>
               <ShareButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
+              <DownloadButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
               {!(formApplied && matchedForm?.imageData) && (
                 <button
                   onClick={() => setShowPrintModal(true)}
@@ -606,7 +607,8 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
 
   const handleDeleteHistoryDoc = () => {
     if (!historyPreview) return;
-    if (!window.confirm('이 문서를 삭제할까요? 원본 기록은 유지됩니다.')) return;
+    const typed = window.prompt('이 문서를 삭제하려면 "삭제"를 입력하세요. 원본 기록은 유지됩니다.');
+    if (typed !== '삭제') return;
     deleteDocumentDraft(historyPreview.id);
     setHistoryDocs(getDocumentHistory());
     setHistoryPreview(null);
@@ -717,6 +719,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
               )}
               <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 <ShareButton doc={historyPreview} />
+                <DownloadButton doc={historyPreview} />
                 <button onClick={() => setEditingHistory(v => !v)} style={{ padding:'8px 10px', borderRadius:8, background:'var(--primary-light)', color:'var(--primary)', fontSize:12, fontWeight:900 }}>
                   {editingHistory ? '취소' : '수정'}
                 </button>
@@ -1480,6 +1483,40 @@ function ShareButton({ doc }) {
       background:'var(--primary)', color:'white', fontSize:13, fontWeight:800,
     }}>
       <Share2 size={14}/> 공유
+    </button>
+  );
+}
+
+function safeFileName(value) {
+  return String(value || '문서').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+}
+
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function DownloadButton({ doc }) {
+  const showToast = useToast();
+  if (!doc) return null;
+  const handleDownload = () => {
+    const text = formatDocumentForCopy(doc, 'detail');
+    downloadTextFile(`${safeFileName(doc.title)}.txt`, text);
+    showToast('TXT 파일로 저장했어요.', 'success');
+  };
+  return (
+    <button onClick={handleDownload} className="no-print" style={{
+      display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+      background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 900,
+    }}>
+      <Download size={14}/> 다운로드
     </button>
   );
 }

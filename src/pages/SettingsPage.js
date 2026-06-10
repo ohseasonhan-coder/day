@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
-  addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly } from '../utils/storage';
+  addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
+  getFeedback, addFeedback, deleteFeedback } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
@@ -67,6 +68,12 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   // 백업/복구
   const [backupMsg, setBackupMsg] = useState(null); // { ok, text }
   const fileRef = useRef(null);
+
+  // 피드백
+  const [feedbacks, setFeedbacks] = useState(() => getFeedback());
+  const [feedbackType, setFeedbackType] = useState('문장이 어색해요');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
 
   const handleSave = () => {
     saveSettings(settings);
@@ -152,14 +159,16 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   };
 
   const handleClearDocuments = () => {
-    if (!window.confirm('문서 이력을 모두 삭제할까요? 기록은 유지됩니다. 먼저 백업을 권장합니다.')) return;
+    const typed = window.prompt('문서 이력을 모두 삭제하려면 "삭제"를 입력하세요. 기록은 유지됩니다. 먼저 백업을 권장합니다.');
+    if (typed !== '삭제') return;
     clearDocumentsOnly();
     setBackupMsg({ ok: true, text: '문서 이력이 모두 삭제됐어요.' });
     setTimeout(() => setBackupMsg(null), 4000);
   };
 
   const handleClearRecordsAndDocs = () => {
-    if (!window.confirm('기록과 문서 이력을 모두 삭제할까요? 아이 명단은 유지됩니다. 먼저 백업을 권장합니다.')) return;
+    const typed = window.prompt('기록과 문서 이력을 모두 삭제하려면 "삭제"를 입력하세요. 아이 명단은 유지됩니다. 먼저 백업을 권장합니다.');
+    if (typed !== '삭제') return;
     clearRecordsAndDocuments();
     setBackupMsg({ ok: true, text: '기록과 문서 이력이 모두 삭제됐어요.' });
     setTimeout(() => setBackupMsg(null), 4000);
@@ -181,6 +190,23 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   };
 
   const cl = classes.find(c => c.id === activeClassId) || classes[0];
+  const handleSubmitFeedback = () => {
+    if (!feedbackText.trim()) {
+      setFeedbackMsg({ ok: false, text: '피드백 내용을 입력해 주세요.' });
+      return;
+    }
+    addFeedback({ type: feedbackType, text: feedbackText.trim(), page: activeTab });
+    setFeedbacks(getFeedback());
+    setFeedbackText('');
+    setFeedbackMsg({ ok: true, text: '피드백이 저장됐어요. 다음 수정 기준으로 확인할 수 있습니다.' });
+    setTimeout(() => setFeedbackMsg(null), 4000);
+  };
+
+  const handleDeleteFeedback = (id) => {
+    deleteFeedback(id);
+    setFeedbacks(getFeedback());
+  };
+
   const TABS = [
     ['general',  '⚙️ 일반'],
     ['routines', '🔄 반복일정'],
@@ -189,6 +215,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     ['backup',   '💾 백업/복구'],
     ['account',  '👤 계정'],
     ['api',      '🤖 AI'],
+    ['feedback', '💬 피드백'],
     ['about',    'ℹ️ 정보'],
   ];
 
@@ -797,18 +824,110 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
           </div>
         )}
 
+        {/* ── 피드백 ─────────────────────────────────────────── */}
+        {activeTab === 'feedback' && (
+          <div>
+            {feedbackMsg && (
+              <div style={{
+                background: feedbackMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',
+                color: feedbackMsg.ok ? 'var(--cat-play)' : 'var(--accent)',
+                borderRadius: 12, padding: '13px 16px', fontSize: 13, fontWeight: 700,
+                marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                {feedbackMsg.ok ? <Check size={16} /> : <AlertCircle size={16} />}
+                {feedbackMsg.text}
+              </div>
+            )}
+
+            <SettingCard title="피드백 남기기">
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 14 }}>
+                자동 정리 문장이 어색하거나, 분류가 맞지 않거나, 추가 문서가 필요할 때 바로 남겨두는 공간입니다. 현재는 이 기기에 저장됩니다.
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>유형</div>
+                <select
+                  value={feedbackType}
+                  onChange={e => setFeedbackType(e.target.value)}
+                  style={{ width: '100%', padding: '11px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, background: 'var(--white)', boxSizing: 'border-box' }}
+                >
+                  {['문장이 어색해요', '분류가 틀렸어요', '필요한 문서가 있어요', '오류가 있어요', '기타'].map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>내용</div>
+                <textarea
+                  value={feedbackText}
+                  onChange={e => setFeedbackText(e.target.value)}
+                  rows={5}
+                  placeholder="예: 부모상담용 문장이 조금 딱딱해요. 더 부드럽게 바뀌면 좋겠어요."
+                  style={{ width: '100%', padding: 12, borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, lineHeight: 1.7, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              </div>
+              <button
+                onClick={handleSubmitFeedback}
+                style={{ width: '100%', padding: '13px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900 }}
+              >
+                피드백 저장
+              </button>
+            </SettingCard>
+
+            <SettingCard title={`저장된 피드백 (${feedbacks.length}건)`}>
+              {feedbacks.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '22px 0', color: 'var(--text-tertiary)', fontSize: 13 }}>
+                  아직 저장된 피드백이 없어요.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 9 }}>
+                  {feedbacks.map(item => (
+                    <div key={item.id} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 7 }}>
+                        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)' }}>{item.type}</span>
+                        <button onClick={() => handleDeleteFeedback(item.id)} style={{ color: 'var(--accent)', fontSize: 12, fontWeight: 900 }}>
+                          삭제
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{item.text}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR') : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SettingCard>
+          </div>
+        )}
+
         {/* ── 정보 ─────────────────────────────────────────── */}
         {activeTab === 'about' && (
           <div>
             <div style={{ textAlign: 'center', padding: '40px 0 20px' }}>
               <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--primary)', marginBottom: 8 }}>쌤워크</div>
               <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 4 }}>선생님은 기록만, 문서는 앱이.</div>
-              <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>v0.2.0 · 로그인 + 백업/복구</div>
+              <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>v0.4.0 · 문서 편집 + 다운로드 + 피드백</div>
             </div>
             <SettingCard title="앱 소개">
               <div style={{ fontSize: 14, lineHeight: 1.9, color: 'var(--text-secondary)' }}>
                 어린이집 교사가 하루 동안 짧게 남긴 기록을 바탕으로, 아이별 관찰일지·부모상담자료·발달평가·보육일지·주간/월간 놀이평가 문서를 자동으로 작성하는 AI 실무형 교사 업무관리 앱입니다.
               </div>
+            </SettingCard>
+            <SettingCard title="최근 업데이트">
+              {[
+                '문서함에서 생성 문서와 문서 이력을 TXT 파일로 다운로드',
+                '문서 이력 수정·삭제 기능 추가',
+                '중요 데이터 삭제 시 “삭제” 직접 입력 안전장치 적용',
+                '샘플 데이터 추가·삭제와 기록/문서 초기화 기능 정리',
+                '문장·분류·오류를 남길 수 있는 피드백 화면 추가',
+              ].map((item, i) => (
+                <div key={item} style={{ display: 'flex', gap: 9, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>
+                    {i + 1}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{item}</span>
+                </div>
+              ))}
             </SettingCard>
             <SettingCard title="주요 기능">
               {[
@@ -824,6 +943,28 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   {item}
                 </div>
               ))}
+            </SettingCard>
+            <SettingCard title="데이터 저장 방식">
+              <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                현재 데이터는 사용하는 브라우저의 로컬 저장소에 보관됩니다. 서버 API 키나 외부 AI 연결 없이 작동하지만, 기기를 바꾸거나 브라우저 데이터를 삭제하기 전에는 백업 파일을 내려받아야 합니다.
+              </div>
+              <button
+                onClick={() => setActiveTab('backup')}
+                style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 900 }}
+              >
+                백업/복구로 이동
+              </button>
+            </SettingCard>
+            <SettingCard title="문의 / 피드백">
+              <div style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                자동 정리 결과가 어색한 사례를 남겨두면 다음 규칙 보강과 화면 수정 기준으로 활용할 수 있습니다.
+              </div>
+              <button
+                onClick={() => setActiveTab('feedback')}
+                style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900 }}
+              >
+                피드백 남기기
+              </button>
             </SettingCard>
           </div>
         )}

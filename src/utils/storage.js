@@ -30,6 +30,7 @@ const KEYS = {
   get BACKUP_HISTORY()  { return `sw_${_getUid()}_backup_history`; },
   get AUTOMATION_STATE(){ return `sw_${_getUid()}_automation_state`; },
   get AUTOMATION_LOG()  { return `sw_${_getUid()}_automation_log`; },
+  get FEEDBACK()        { return `sw_${_getUid()}_feedback`; },
 };
 
 // Generic storage helpers
@@ -827,6 +828,22 @@ export function clearDocumentsOnly() {
     message: '문서 이력을 모두 삭제했습니다.',
   });
 }
+
+export const getFeedback = () => storage.get(KEYS.FEEDBACK) || [];
+
+export const addFeedback = (feedback) => {
+  const item = {
+    ...feedback,
+    id: genId(),
+    createdAt: new Date().toISOString(),
+  };
+  storage.set(KEYS.FEEDBACK, [item, ...getFeedback()].slice(0, 100));
+  return item;
+};
+
+export const deleteFeedback = (id) => {
+  storage.set(KEYS.FEEDBACK, getFeedback().filter(item => item.id !== id));
+};
 
 // ── 원 양식 템플릿 ────────────────────────────────────────────────────────────
 // 각 양식: { id, name, docType, fields: [{ id, label, mappedTo, charLimit }] }
