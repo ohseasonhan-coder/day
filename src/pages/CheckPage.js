@@ -349,7 +349,16 @@ function RecommendationPanel({ items, onNavigate }) {
           <div key={item.key} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 13, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
               <div style={{ fontSize: 13, fontWeight: 900 }}>{item.label}</div>
-              <button onClick={() => onNavigate('record')} style={{ fontSize: 11, fontWeight: 900, color: 'white', background: 'var(--primary)', borderRadius: 100, padding: '5px 9px' }}>기록하기</button>
+              <button
+                onClick={() => onNavigate('record', {
+                  mode: 'write',
+                  prefillText: item.example || item.prompt,
+                  recordType: item.key === 'special' ? 'special' : 'observe',
+                })}
+                style={{ fontSize: 11, fontWeight: 900, color: 'white', background: 'var(--primary)', borderRadius: 100, padding: '5px 9px' }}
+              >
+                기록하기
+              </button>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{item.prompt}</div>
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.45, marginTop: 5 }}>{item.example}</div>

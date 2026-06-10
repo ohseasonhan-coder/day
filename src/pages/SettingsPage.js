@@ -350,7 +350,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
           </div>
         )}
 
-        {/* ── 원 양식 탭 ────────────────────────────────���─────── */}
+        {/* 원 양식 탭 */}
         {activeTab === 'forms' && (
           <div>
             {editingForm ? (

@@ -158,6 +158,16 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       setCalendarMonth(parseDate(context.date));
       setMode('list');
     }
+    if (context?.prefillText) {
+      setRawText(context.prefillText);
+      setMode('write');
+      setResult(null);
+      setSaved(false);
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+    if (context?.recordType) {
+      setRecordType(context.recordType);
+    }
   }, [context]);
 
   // ── 자동 저장 (30초마다) ──────────────────────────────────────────────────
