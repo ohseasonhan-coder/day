@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getRecords, today, formatDate, CATEGORIES, getAutomationState, getAutomationLog } from '../utils/storage';
-import { CheckCircle2, AlertCircle, XCircle, ChevronRight, BarChart2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, XCircle, ChevronRight, BarChart2, CalendarCheck } from 'lucide-react';
 
 export default function CheckPage({ onNavigate, isDesktop }) {
   const [children, setChildren] = useState([]);
@@ -55,15 +55,34 @@ export default function CheckPage({ onNavigate, isDesktop }) {
   const todayRecs = records.filter(r => r.date === todayStr);
   const todayChildIds = new Set(todayRecs.map(r => r.childId));
   const todayCoverage = `${todayChildIds.size}/${children.length}명`;
+  const autoDocs = automation?.documents || {};
+  const autoChecklist = automation?.checklist || {};
+  const audit = automation?.audit || { readyCount: 0, totalCount: 0, percent: 0, items: [] };
+  const recommendations = automation?.recommendations || [];
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthRecords = records.filter(r => r.date?.startsWith(monthKey));
+  const monthChildStats = children.map(child => ({
+    child,
+    count: monthRecords.filter(r => r.childId === child.id).length,
+  }));
+  const monthLowChildren = monthChildStats.filter(item => item.count < 3);
+  const monthDocItems = [
+    { key: 'daily', label: '보육일지', ready: autoDocs.daily?.ready, count: autoDocs.daily?.count || 0, nav: { docType: 'daily', period: 'date' } },
+    { key: 'weekly', label: '주간평가', ready: autoDocs.weekly?.ready, count: autoDocs.weekly?.count || 0, nav: { docType: 'weekly', period: '1week' } },
+    { key: 'monthly', label: '월간평가', ready: autoDocs.monthly?.ready, count: autoDocs.monthly?.count || 0, nav: { docType: 'monthly', period: '1month' } },
+    { key: 'parent', label: '상담자료', ready: autoDocs.parent?.ready, count: autoDocs.parent?.count || 0, nav: { docType: 'parent', period: '1month' } },
+    { key: 'development', label: '발달평가', ready: autoDocs.development?.ready, count: autoDocs.development?.count || 0, nav: { docType: 'development', period: '1month' } },
+  ];
+  const monthCloseScore = Math.round(Math.min(100,
+    (monthRecords.length / Math.max(1, children.length * 3)) * 45 +
+    ((children.length - monthLowChildren.length) / Math.max(1, children.length)) * 30 +
+    (monthDocItems.filter(item => item.ready).length / monthDocItems.length) * 25
+  ));
 
   const overallScore = Math.round(
     Math.min(100, (totalRecords / Math.max(1, children.length * (periodDays / 7))) * 50 +
     ((Object.keys(CATEGORIES).length - missingCats.length) / Object.keys(CATEGORIES).length) * 50)
   );
-  const autoDocs = automation?.documents || {};
-  const autoChecklist = automation?.checklist || {};
-  const audit = automation?.audit || { readyCount: 0, totalCount: 0, percent: 0, items: [] };
-  const recommendations = automation?.recommendations || [];
   const actionItems = [
     {
       title: '오늘 보육일지 초안',
@@ -116,6 +135,14 @@ export default function CheckPage({ onNavigate, isDesktop }) {
       <div style={{ fontSize: isDesktop ? 24 : 20, fontWeight: 900, marginBottom: 4, letterSpacing: '-0.5px' }}>점검</div>
       <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>기록 현황과 누락을 확인해요</div>
       {PeriodSelector}
+      <MonthClosePanel
+        score={monthCloseScore}
+        monthKey={monthKey}
+        totalRecords={monthRecords.length}
+        lowChildren={monthLowChildren}
+        docItems={monthDocItems}
+        onNavigate={onNavigate}
+      />
       <AutomationActionPanel items={actionItems} />
       <AutomationAuditPanel audit={audit} onNavigate={onNavigate} />
       <RecommendationPanel items={recommendations} onNavigate={onNavigate} />
@@ -246,6 +273,77 @@ function MiniStat({ label, value, alert }) {
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 18, fontWeight: 800, color: alert ? '#FFD600' : 'white' }}>{value}</div>
       <div style={{ fontSize: 11, opacity: 0.7 }}>{label}</div>
+    </div>
+  );
+}
+
+function MonthClosePanel({ score, monthKey, totalRecords, lowChildren, docItems, onNavigate }) {
+  const doneCount = docItems.filter(item => item.ready).length;
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CalendarCheck size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--text-primary)' }}>월말 마감 모드</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{monthKey} 기준 문서와 기록 균형을 한 번에 확인합니다.</div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: score >= 80 ? 'var(--cat-play)' : score >= 50 ? 'var(--cat-habit)' : 'var(--accent)' }}>{score}%</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>마감 준비도</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <CloseMini label="이번 달 기록" value={`${totalRecords}건`} />
+        <CloseMini label="문서 준비" value={`${doneCount}/${docItems.length}`} />
+        <CloseMini label="보완 아이" value={`${lowChildren.length}명`} alert={lowChildren.length > 0} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: lowChildren.length ? 12 : 0 }}>
+        {docItems.map(item => (
+          <button key={item.key} onClick={() => onNavigate('docs', item.nav)} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            padding: '10px 12px', borderRadius: 12,
+            background: item.ready ? 'rgba(76,175,80,0.08)' : 'var(--gray-50)',
+            border: `1px solid ${item.ready ? 'rgba(76,175,80,0.25)' : 'var(--border)'}`,
+            textAlign: 'left',
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{item.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{item.count}건 반영 가능</div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 900, color: item.ready ? 'white' : 'var(--text-secondary)', background: item.ready ? 'var(--cat-play)' : 'var(--gray-200)', borderRadius: 100, padding: '5px 9px' }}>
+              {item.ready ? '작성' : '대기'}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {lowChildren.length > 0 && (
+        <div style={{ background: 'var(--accent-light)', borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--accent)', marginBottom: 7 }}>월말 전 보완하면 좋은 아이</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {lowChildren.slice(0, 8).map(({ child, count }) => (
+              <button key={child.id} onClick={() => onNavigate('record', { childId: child.id })} style={{ fontSize: 12, fontWeight: 900, color: 'var(--accent)', background: 'var(--white)', borderRadius: 100, padding: '6px 10px' }}>
+                {child.name} {count}건
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CloseMini({ label, value, alert }) {
+  return (
+    <div style={{ background: alert ? 'var(--accent-light)' : 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
+      <div style={{ fontSize: 15, fontWeight: 900, color: alert ? 'var(--accent)' : 'var(--text-primary)' }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{label}</div>
     </div>
   );
 }

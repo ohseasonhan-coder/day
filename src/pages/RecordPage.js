@@ -20,6 +20,10 @@ import {
   formatDate,
   formatDateKo,
   getAutomationState,
+  getCopyHistory,
+  addCopyHistory,
+  deleteCopyHistory,
+  clearCopyHistory,
 } from '../utils/storage';
 import { processRecord } from '../utils/ai';
 import {
@@ -38,6 +42,16 @@ const BUILTIN_TEMPLATES = [
   { id: 'b6', label: '정리',       emoji: '🧺', type: 'habit',   text: '{child} 놀이 후 교사의 안내를 듣고 사용한 놀잇감을 제자리에 정리하려는 모습을 보였다.' },
   { id: 'b7', label: '배변',       emoji: '🚽', type: 'habit',   text: '{child} 배변 의사를 표현하고 화장실을 이용하는 과정에 참여하며 기본생활습관을 경험하였다.' },
   { id: 'b8', label: '건강/컨디션', emoji: '🌡️', type: 'special', text: '{child} 평소와 다른 컨디션이 관찰되어 교사가 가까이에서 살피며 휴식과 안정을 지원하였다.' },
+  { id: 'b9', label: '갈등중재',   emoji: '🫱', type: 'peer',    text: '{child} 또래와 놀이하는 과정에서 원하는 것이 달라 갈등 상황을 경험했고, 교사의 중재를 통해 자신의 생각을 말로 표현해 보았다.' },
+  { id: 'b10', label: '차례',      emoji: '⏳', type: 'peer',    text: '{child} 친구가 사용하던 놀잇감에 관심을 보이며 차례를 기다린 뒤 놀이에 참여하는 경험을 하였다.' },
+  { id: 'b11', label: '감정표현',  emoji: '😊', type: 'comm',    text: '{child} 원하는 것이 바로 이루어지지 않는 상황에서 자신의 감정을 말과 표정으로 표현하고 교사의 안내를 들으며 진정하는 모습을 보였다.' },
+  { id: 'b12', label: '탐색',      emoji: '🔎', type: 'nature',  text: '{child} 주변 사물과 자연물에 관심을 보이며 살펴보고, 궁금한 점을 질문하며 탐색을 이어갔다.' },
+  { id: 'b13', label: '미술',      emoji: '🎨', type: 'art',     text: '{child} 미술 재료의 색과 질감에 관심을 보이며 자신의 생각을 그림이나 만들기로 표현하였다.' },
+  { id: 'b14', label: '역할놀이',  emoji: '🎭', type: 'play',    text: '{child} 친구와 역할을 정해 놀이하며 경험한 상황을 말과 행동으로 표현하였다.' },
+  { id: 'b15', label: '소근육',    emoji: '✋', type: 'body',    text: '{child} 손가락과 도구를 사용하여 끼우기, 붙이기, 옮기기 활동에 참여하며 소근육을 조절하였다.' },
+  { id: 'b16', label: '안전',      emoji: '🛡️', type: 'special', text: '{child} 안전 약속을 듣고 교사의 안내에 따라 이동하거나 놀이하는 방법을 경험하였다.' },
+  { id: 'b17', label: '부모요청',  emoji: '📌', type: 'special', text: '{child} 가정에서 전달된 내용을 바탕으로 원에서의 생활 모습을 관찰하고 필요한 지원을 이어갔다.' },
+  { id: 'b18', label: '칭찬',      emoji: '⭐', type: 'play',    text: '{child} 활동에 관심을 가지고 참여하며 스스로 시도하는 모습을 보여 교사가 긍정적으로 격려하였다.' },
 ];
 
 const RECORD_PRESETS = [
@@ -111,6 +125,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [filterStarred, setFilterStarred]   = useState(false);
   const [calendarMonth, setCalendarMonth]   = useState(() => parseDate(context?.date || today()));
   const [customTemplates, setCustomTemplates] = useState(() => getCustomTemplates());
+  const [copyHistory, setCopyHistory]       = useState(() => getCopyHistory());
   const [detailRecord, setDetailRecord]     = useState(null);
   const [draftBanner, setDraftBanner]       = useState(() => !!getDraft());
   const textareaRef = useRef(null);
@@ -149,6 +164,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     setClasses(cl);
     setRecords(getRecords());
     setCustomTemplates(getCustomTemplates());
+    setCopyHistory(getCopyHistory());
     if (context?.childId) {
       const found = ch.find(c => c.id === context.childId);
       if (found) setSelectedChild(found);
@@ -253,6 +269,10 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const insertTemplate = (template) => {
     const childText = nameSubject(selectedChild?.name || '아이');
     const insertText = template.text.replace('{child}', childText);
+    insertTextAtCursor(insertText);
+  };
+
+  const insertTextAtCursor = (insertText) => {
     const textarea = textareaRef.current;
     setError(''); setSaved(false); setResult(null);
     if (!textarea) { setRawText(prev => `${prev}${prev ? '\n' : ''}${insertText}`); return; }
@@ -265,6 +285,18 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     const nextCursor = before.length + spacer.length + insertText.length;
     setRawText(nextText);
     setTimeout(() => { textarea.focus(); textarea.setSelectionRange(nextCursor, nextCursor); }, 0);
+  };
+
+  const refreshCopyHistory = () => setCopyHistory(getCopyHistory());
+
+  const handleDeleteCopyHistory = (id) => {
+    deleteCopyHistory(id);
+    refreshCopyHistory();
+  };
+
+  const handleClearCopyHistory = () => {
+    clearCopyHistory();
+    refreshCopyHistory();
   };
 
   const handleAddTemplate = (tpl) => {
@@ -362,11 +394,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               </div>
             )}
-            <ResultSection title="관찰일지 문장"        text={result.observation} />
-            <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent />
-            <ResultSection title="교사 지원계획"        text={result.support} />
-            <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} />
-            <ResultSection title="원문 순화본"          text={result.softened} />
+            <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
+            <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
+            <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
+            <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
+            <ResultSection title="원문 순화본"          text={result.softened} onCopied={refreshCopyHistory} />
           </div>
         </div>
       </div>
@@ -491,6 +523,12 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               onFocus={e => { if (!isListening) e.target.style.borderColor = 'var(--primary)'; }}
               onBlur={e  => { if (!isListening) e.target.style.borderColor = 'var(--border)'; }}
             />
+            <WritingCoach
+              rawText={rawText}
+              selectedChild={selectedChild}
+              recordType={recordType}
+              onInsert={insertTextAtCursor}
+            />
             {speechSupported && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
                 <button
@@ -514,6 +552,12 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               onInsert={insertTemplate}
               onAdd={handleAddTemplate}
               onDelete={handleDeleteTemplate}
+            />
+            <CopyHistoryPanel
+              items={copyHistory}
+              onInsert={insertTextAtCursor}
+              onDelete={handleDeleteCopyHistory}
+              onClear={handleClearCopyHistory}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <button onClick={() => setRawText(EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)])} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-light)', borderRadius: 100, padding: '6px 12px' }}>
@@ -552,11 +596,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                   </div>
                 </div>
               )}
-              <ResultSection title="관찰일지 문장"        text={result.observation} />
-              <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent />
-              <ResultSection title="교사 지원계획"        text={result.support} />
-              <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} />
-              <ResultSection title="원문 순화본"          text={result.softened} />
+              <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
+              <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
+              <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
+              <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
+              <ResultSection title="원문 순화본"          text={result.softened} onCopied={refreshCopyHistory} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>
                 <button onClick={handleReset} style={{ padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   <RotateCcw size={15} /> 다시 입력
@@ -586,6 +630,104 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
           onToggleStar={handleToggleStar}
         />
       )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   작성 도우미 / 복사 이력
+══════════════════════════════════════════════════════════════════════════════ */
+function getWritingTips(rawText, selectedChild, recordType) {
+  const text = String(rawText || '').trim();
+  const tips = [];
+  if (!selectedChild) tips.push({ key: 'child', level: 'warn', text: '아이를 먼저 선택하면 이름과 조사가 자연스럽게 들어가요.' });
+  if (!text) {
+    tips.push({ key: 'empty', level: 'info', text: '상황, 아이 반응, 교사 지원을 한 문장씩만 적어도 문서 품질이 좋아져요.' });
+    return tips;
+  }
+  if (text.length < 20) tips.push({ key: 'short', level: 'warn', text: '내용이 짧아요. 어떤 상황이었는지 한 문장 더 넣으면 좋아요.' });
+  if (!/[.!?。요다]\s*$/.test(text)) tips.push({ key: 'sentence', level: 'info', text: '문장 끝을 마무리하면 자동 정리 결과가 더 안정적이에요.' });
+  if (!/(교사|선생님|안내|지원|격려|도움|중재|제안)/.test(text)) tips.push({ key: 'support', level: 'info', text: '교사 지원이 빠져 있어요. “교사가 ○○하도록 안내하였다”를 추가해 보세요.' });
+  if (!/(말|표현|이야기|질문|대답|울음|속상|기쁨|관심|시도)/.test(text)) tips.push({ key: 'reaction', level: 'info', text: '아이의 말, 표정, 감정, 시도를 넣으면 관찰일지 문장이 더 살아나요.' });
+  if (recordType === 'notice' && !/(가정|부모|전달|연계|안내)/.test(text)) tips.push({ key: 'notice', level: 'info', text: '알림장은 부모에게 전달할 변화나 가정 연계 문장을 함께 넣으면 좋아요.' });
+  if (recordType === 'special' && !/(시간|부위|상태|확인|연락|휴식|투약|안전)/.test(text)) tips.push({ key: 'special', level: 'warn', text: '특이사항은 시간, 상태, 교사 조치가 있으면 기록으로 쓰기 좋아요.' });
+  if (/(못|안 |싫|때렸|뺏|울|고집|산만|문제)/.test(text)) tips.push({ key: 'soft', level: 'good', text: '판단 표현이 있어도 저장 시 관찰 사실 중심으로 순화됩니다.' });
+  if (tips.length === 0) tips.push({ key: 'good', level: 'good', text: '상황, 반응, 지원이 잘 들어가 있어요. 바로 정리해도 좋습니다.' });
+  return tips.slice(0, 4);
+}
+
+function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
+  const tips = getWritingTips(rawText, selectedChild, recordType);
+  const helpers = [
+    '교사는 차례를 기다리는 방법을 안내하고, 말로 표현해볼 수 있도록 지원하였다.',
+    '이후 유아는 교사의 격려를 받으며 다시 놀이에 참여하였다.',
+    '가정에서도 짧은 문장으로 자신의 생각을 표현해볼 수 있도록 격려해 주세요.',
+  ];
+  return (
+    <div style={{ marginTop: 10, background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 14, padding: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>작성 도우미</div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{String(rawText || '').trim().length > 0 ? '실시간 점검' : '입력 전 안내'}</div>
+      </div>
+      <div style={{ display: 'grid', gap: 6, marginBottom: 9 }}>
+        {tips.map(tip => (
+          <div key={tip.key} style={{
+            fontSize: 12,
+            lineHeight: 1.45,
+            color: tip.level === 'warn' ? 'var(--accent)' : tip.level === 'good' ? 'var(--cat-play)' : 'var(--text-secondary)',
+            background: tip.level === 'warn' ? 'var(--accent-light)' : tip.level === 'good' ? 'var(--cat-play-light)' : 'var(--white)',
+            borderRadius: 10,
+            padding: '7px 9px',
+            fontWeight: 700,
+          }}>
+            {tip.text}
+          </div>
+        ))}
+      </div>
+      <div className="avatar-scroll" style={{ marginLeft: -2, marginRight: -2, padding: '0 2px 2px' }}>
+        <div style={{ display: 'flex', gap: 6, width: 'max-content' }}>
+          {helpers.map(text => (
+            <button key={text} onClick={() => onInsert(text)} style={{ padding: '6px 10px', borderRadius: 100, background: 'var(--white)', border: '1px solid var(--border)', color: 'var(--primary)', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' }}>
+              문장 추가
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CopyHistoryPanel({ items, onInsert, onDelete, onClear }) {
+  const showToast = useToast();
+  if (!items.length) return null;
+  const handleCopy = (item) => {
+    navigator.clipboard.writeText(item.text || '');
+    showToast('다시 복사했어요! 📋', 'success');
+  };
+  return (
+    <div style={{ marginTop: 10, background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 12, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>최근 복사 문장</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>상담·지원계획 문장을 다시 사용할 수 있어요.</div>
+        </div>
+        <button onClick={onClear} style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-tertiary)', background: 'var(--gray-100)', borderRadius: 100, padding: '5px 9px' }}>비우기</button>
+      </div>
+      <div style={{ display: 'grid', gap: 7 }}>
+        {items.slice(0, 4).map(item => (
+          <div key={item.id} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)' }}>{item.title}</span>
+              <button onClick={() => onDelete(item.id)} style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 900 }}>삭제</button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.text}</div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <button onClick={() => handleCopy(item)} style={{ flex: 1, padding: '7px 10px', borderRadius: 9, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 900 }}>복사</button>
+              <button onClick={() => onInsert(item.text)} style={{ flex: 1, padding: '7px 10px', borderRadius: 9, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 12, fontWeight: 900 }}>입력에 추가</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1209,7 +1351,11 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
 function DetailSection({ title, text, expanded, onToggle, accent }) {
   const showToast = useToast();
   if (!text) return null;
-  const handleCopy = () => { navigator.clipboard.writeText(text); showToast('복사했어요! 📋', 'success'); };
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    addCopyHistory({ title, text, source: 'record-detail' });
+    showToast('복사했어요! 📋', 'success');
+  };
   const isLong = text.length > 100;
 
   return (
@@ -1269,9 +1415,14 @@ function SummaryCard({ label, value, icon }) {
   );
 }
 
-function ResultSection({ title, text, accent }) {
+function ResultSection({ title, text, accent, onCopied }) {
   const showToast = useToast();
-  const handleCopy = () => { navigator.clipboard.writeText(text || ''); showToast('복사했어요! 📋', 'success'); };
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text || '');
+    addCopyHistory({ title, text, source: 'record-result' });
+    onCopied?.();
+    showToast('복사했어요! 📋', 'success');
+  };
   if (!text) return null;
   return (
     <div style={{ background: accent ? 'var(--primary-light)' : 'white', border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 15, padding: 16, marginBottom: 12, boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)' }}>

@@ -31,6 +31,7 @@ const KEYS = {
   get AUTOMATION_STATE(){ return `sw_${_getUid()}_automation_state`; },
   get AUTOMATION_LOG()  { return `sw_${_getUid()}_automation_log`; },
   get FEEDBACK()        { return `sw_${_getUid()}_feedback`; },
+  get COPY_HISTORY()    { return `sw_${_getUid()}_copy_history`; },
 };
 
 // Generic storage helpers
@@ -845,6 +846,31 @@ export const deleteFeedback = (id) => {
   storage.set(KEYS.FEEDBACK, getFeedback().filter(item => item.id !== id));
 };
 
+export const getCopyHistory = () => storage.get(KEYS.COPY_HISTORY) || [];
+
+export const addCopyHistory = ({ title, text, source }) => {
+  const cleanText = String(text || '').trim();
+  if (!cleanText) return null;
+  const item = {
+    id: genId(),
+    title: title || '복사 문장',
+    text: cleanText,
+    source: source || 'record',
+    createdAt: new Date().toISOString(),
+  };
+  const prev = getCopyHistory().filter(v => v.text !== cleanText);
+  storage.set(KEYS.COPY_HISTORY, [item, ...prev].slice(0, 20));
+  return item;
+};
+
+export const deleteCopyHistory = (id) => {
+  storage.set(KEYS.COPY_HISTORY, getCopyHistory().filter(item => item.id !== id));
+};
+
+export const clearCopyHistory = () => {
+  storage.set(KEYS.COPY_HISTORY, []);
+};
+
 // ── 원 양식 템플릿 ────────────────────────────────────────────────────────────
 // 각 양식: { id, name, docType, fields: [{ id, label, mappedTo, charLimit }] }
 // mappedTo: 앱 섹션 title 또는 '__date__' | '__childName__' | '__className__' | '__period__'
@@ -880,6 +906,8 @@ export function exportBackup() {
     formTemplates: getFormTemplates(),
     automationState: getAutomationState(),
     automationLog: getAutomationLog(),
+    copyHistory: getCopyHistory(),
+    feedback: getFeedback(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -909,6 +937,8 @@ export function importBackup(jsonString) {
     if (data.routines)  storage.set(KEYS.ROUTINES, data.routines);
     if (data.formTemplates) saveFormTemplates(data.formTemplates);
     if (data.automationLog) storage.set(KEYS.AUTOMATION_LOG, data.automationLog);
+    if (data.copyHistory) storage.set(KEYS.COPY_HISTORY, data.copyHistory);
+    if (data.feedback) storage.set(KEYS.FEEDBACK, data.feedback);
     rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
 
     return {
