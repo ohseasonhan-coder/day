@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
-  addBackupRecord } from '../utils/storage';
+  addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
@@ -134,6 +134,35 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleSeedSamples = () => {
+    const result = seedSampleData();
+    setChildren(getChildren());
+    setBackupMsg({ ok: true, text: `샘플 데이터 추가 완료: 아이 ${result.children}명 · 기록 ${result.records}건 · 문서 ${result.documents}건` });
+    setTimeout(() => setBackupMsg(null), 5000);
+  };
+
+  const handleClearSamples = () => {
+    if (!window.confirm('샘플 데이터만 삭제할까요? 직접 작성한 데이터는 유지됩니다.')) return;
+    clearSampleData();
+    setChildren(getChildren());
+    setBackupMsg({ ok: true, text: '샘플 데이터가 삭제됐어요.' });
+    setTimeout(() => setBackupMsg(null), 4000);
+  };
+
+  const handleClearDocuments = () => {
+    if (!window.confirm('문서 이력을 모두 삭제할까요? 기록은 유지됩니다. 먼저 백업을 권장합니다.')) return;
+    clearDocumentsOnly();
+    setBackupMsg({ ok: true, text: '문서 이력이 모두 삭제됐어요.' });
+    setTimeout(() => setBackupMsg(null), 4000);
+  };
+
+  const handleClearRecordsAndDocs = () => {
+    if (!window.confirm('기록과 문서 이력을 모두 삭제할까요? 아이 명단은 유지됩니다. 먼저 백업을 권장합니다.')) return;
+    clearRecordsAndDocuments();
+    setBackupMsg({ ok: true, text: '기록과 문서 이력이 모두 삭제됐어요.' });
+    setTimeout(() => setBackupMsg(null), 4000);
   };
 
   // 원 양식 상태
@@ -563,6 +592,47 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               }}>
                 <Upload size={18} color="var(--primary)" /> 백업 파일에서 복구
               </button>
+            </SettingCard>
+
+            <SettingCard title="샘플 데이터">
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 14 }}>
+                기능을 바로 확인할 수 있도록 샘플 아이 3명, 샘플 기록, 샘플 문서를 넣을 수 있습니다. 샘플 데이터는 언제든 따로 삭제할 수 있어요.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <button onClick={handleSeedSamples} style={{ padding: '13px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900 }}>
+                  샘플 넣기
+                </button>
+                <button onClick={handleClearSamples} style={{ padding: '13px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 900 }}>
+                  샘플 삭제
+                </button>
+              </div>
+            </SettingCard>
+
+            <SettingCard title="데이터 삭제 / 초기화">
+              <div style={{ background: 'var(--accent-light)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--accent)', fontWeight: 800, marginBottom: 14, lineHeight: 1.6 }}>
+                삭제 전 백업을 먼저 받아두세요. 삭제한 데이터는 앱 안에서 되돌릴 수 없습니다.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                <button onClick={handleClearDocuments} style={{ padding: '13px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 900 }}>
+                  문서 이력만 삭제
+                </button>
+                <button onClick={handleClearRecordsAndDocs} style={{ padding: '13px', borderRadius: 12, background: 'var(--accent)', color: 'white', fontSize: 14, fontWeight: 900 }}>
+                  기록 + 문서 이력 삭제
+                </button>
+              </div>
+            </SettingCard>
+
+            <SettingCard title="개인정보 및 사용 주의">
+              {[
+                '아동 이름, 건강, 상담 내용은 민감할 수 있으므로 백업 파일을 안전한 위치에 보관하세요.',
+                '이 앱의 문장은 진단이 아니라 관찰 사실과 교사 지원 방향을 정리하는 초안입니다.',
+                '부모 상담, 평가제, 공식 문서 제출 전에는 원 상황에 맞게 최종 검토하세요.',
+                '현재 데이터는 이 기기 브라우저 저장소에 보관됩니다. 기기 변경 전 백업이 필요합니다.',
+              ].map(item => (
+                <div key={item} style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  {item}
+                </div>
+              ))}
             </SettingCard>
           </div>
         )}

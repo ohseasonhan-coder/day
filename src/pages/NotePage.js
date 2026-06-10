@@ -343,7 +343,7 @@ function BulkNoteCard({ child, text, onChange }) {
     <div style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:16, padding:16, marginBottom:12, boxShadow:'var(--shadow-sm)' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
         <span style={{ fontWeight:900, fontSize:15 }}>{child.name}</span>
-        <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1800); }} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:9, background:'var(--gray-100)', fontSize:12, fontWeight:800, color:'var(--text-secondary)' }}>
+        <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1800); }} style={{ minWidth:64, minHeight:34, display:'flex', alignItems:'center', justifyContent:'center', gap:5, padding:'7px 12px', borderRadius:10, background:'var(--gray-100)', fontSize:13, fontWeight:900, color:'var(--text-secondary)' }}>
           {copied ? '복사됨' : '복사'}
         </button>
       </div>
@@ -443,12 +443,12 @@ function NoteCard({ child, color, recs, hasRec, noteText, generated, onRegenerat
           )}
           {noteText && (
             <button onClick={handleCopy} style={{
-              width: 30, height: 30, borderRadius: 8,
+              minWidth: 64, height: 36, borderRadius: 10,
               background: copied ? 'var(--cat-play-light)' : 'var(--gray-100)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '0 12px', fontSize: 13, fontWeight: 900,
               color: copied ? 'var(--cat-play)' : 'var(--text-secondary)',
             }}>
-              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? '복사됨' : '복사'}
             </button>
           )}
         </div>

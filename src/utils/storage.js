@@ -714,6 +714,120 @@ export const deleteDocumentDraft = (id) => {
   saveDocuments(getDocuments().filter(d => d.id !== id));
 };
 
+const SAMPLE_TAG = 'saemwork-sample';
+
+export function seedSampleData() {
+  const now = new Date();
+  const dateAgo = (days) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - days);
+    return d.toISOString().slice(0, 10);
+  };
+  const sampleClass = { id: `${SAMPLE_TAG}-class`, name: '햇살반', year: String(now.getFullYear()), age: '4', sample: true };
+  const sampleChildren = [
+    { id: `${SAMPLE_TAG}-child-hajun`, name: '하준', classId: sampleClass.id, sample: true },
+    { id: `${SAMPLE_TAG}-child-yunjae`, name: '윤재', classId: sampleClass.id, sample: true },
+    { id: `${SAMPLE_TAG}-child-seoa`, name: '서아', classId: sampleClass.id, sample: true },
+  ];
+  const sampleRecords = [
+    ['hajun', 'peer', 0, '하준이는 친구와 캠핑놀이를 하며 순서를 기다렸다.', '또래와의 놀이 상황에서 친구와 역할을 나누고 차례를 기다리는 경험을 하였다.', '하준이가 친구와 함께 놀이하며 순서를 기다리는 모습을 보였습니다.', '차례를 기다리는 상황에서 교사가 짧은 언어 모델링을 제공한다.'],
+    ['hajun', 'play', 1, '하준이가 블록으로 텐트를 만들고 친구에게 같이 캠핑하자고 말했다.', '블록을 활용해 캠핑 상황을 구성하고 친구에게 놀이를 제안하였다.', '캠핑놀이에 관심을 보이며 친구에게 함께 놀이하자고 표현했습니다.', '상상놀이가 이어질 수 있도록 캠핑 소품과 역할 카드를 제공한다.'],
+    ['yunjae', 'nature', 0, '윤재가 장수풍뎅이 애벌레를 돋보기로 관찰하며 움직인다고 말했다.', '곤충의 움직임에 관심을 보이며 돋보기를 사용해 관찰하였다.', '윤재가 곤충의 움직임을 관찰하며 궁금한 점을 말로 표현했습니다.', '관찰한 내용을 그림이나 말로 다시 표현해볼 수 있도록 지원한다.'],
+    ['yunjae', 'comm', 2, '윤재가 친구에게 내가 먼저 해볼게라고 말한 뒤 차례를 정했다.', '자신의 생각을 말로 표현하고 친구와 차례를 정하는 모습을 보였다.', '자신의 생각을 말로 표현하며 친구와 순서를 정해보았습니다.', '친구의 의견을 듣고 조율하는 상호작용을 반복 경험한다.'],
+    ['seoa', 'habit', 0, '서아가 점심시간에 새로운 반찬 냄새를 맡고 작은 한입을 시도했다.', '새로운 음식에 관심을 보이며 냄새를 맡고 조금 맛보는 경험을 하였다.', '서아가 새로운 반찬을 작은 양으로 시도해보는 모습을 보였습니다.', '새로운 음식은 강요하지 않고 탐색과 작은 시도를 격려한다.'],
+    ['seoa', 'special', 3, '서아가 등원 후 엄마를 찾으며 울었지만 그림책을 보며 안정되었다.', '등원 시 보호자와 헤어지는 상황에서 속상함을 표현하였고 교사의 지원으로 안정되었다.', '등원 직후 아쉬운 마음을 표현했지만 그림책을 보며 점차 안정되었습니다.', '안정 물건과 예측 가능한 등원 루틴을 제공한다.'],
+  ].map(([childKey, category, days, rawText, observation, parent, support], index) => {
+    const child = childKey === 'hajun' ? sampleChildren[0] : childKey === 'yunjae' ? sampleChildren[1] : sampleChildren[2];
+    const base = {
+      id: `${SAMPLE_TAG}-record-${index}`,
+      childId: child.id,
+      childName: child.name,
+      date: dateAgo(days),
+      rawText,
+      recordType: category === 'special' ? 'special' : 'observe',
+      category,
+      devAreas: category === 'nature' ? ['자연탐구', '의사소통'] : category === 'habit' ? ['기본생활습관'] : ['사회관계', '의사소통'],
+      tags: [CATEGORIES[category]?.label || '기록'],
+      observation,
+      parent,
+      support,
+      softened: observation,
+      sample: true,
+      createdAt: new Date(now.getTime() - index * 3600000).toISOString(),
+    };
+    return { ...base, automation: makeRecordAutomationMeta(base) };
+  });
+  const sampleDocs = [
+    {
+      id: `${SAMPLE_TAG}-doc-daily`,
+      title: '샘플 보육일지 초안',
+      badge: `${formatDateKo(today())} 기준 · 샘플 기록 반영`,
+      type: 'daily',
+      date: today(),
+      classId: sampleClass.id,
+      className: sampleClass.name,
+      source: SAMPLE_TAG,
+      sourceLabel: '샘플 데이터',
+      sample: true,
+      sections: [
+        { title: '놀이 흐름 및 활동', text: '유아들은 캠핑놀이, 곤충 관찰, 점심 식사 경험을 중심으로 하루 일과에 참여하였다.' },
+        { title: '유아 반응', text: '친구와 함께 놀이를 제안하고, 자연물을 관찰하며 궁금한 점을 말로 표현하는 모습이 나타났다.' },
+        { title: '교사 지원', text: '교사는 차례 기다리기, 감정 표현, 탐구 확장을 위해 언어적 안내와 자료를 제공하였다.' },
+        { title: '다음 지원계획', text: '캠핑놀이와 자연탐구 경험이 이어질 수 있도록 소품과 관찰 기록지를 제공한다.', accent: true },
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+
+  const nextClasses = [...getClasses().filter(item => !item.sample), sampleClass];
+  const nextChildren = [...getChildren().filter(item => !item.sample), ...sampleChildren];
+  const nextRecords = [...sampleRecords, ...getRecords().filter(item => !item.sample)];
+  const nextDocuments = [...sampleDocs, ...getDocuments().filter(item => !item.sample)];
+  saveClasses(nextClasses);
+  saveChildren(nextChildren);
+  saveRecords(nextRecords);
+  saveDocuments(nextDocuments);
+  rebuildAutomationState(nextRecords, nextChildren, nextClasses);
+  pushAutomationLog({
+    action: 'sample',
+    actionLabel: '샘플 데이터 추가',
+    changedLabels: ['샘플 아이', '샘플 기록', '샘플 문서', '자동화 점검'],
+    message: '샘플 아이 3명, 기록 6건, 문서 1건을 추가했습니다.',
+  });
+  return { children: sampleChildren.length, records: sampleRecords.length, documents: sampleDocs.length };
+}
+
+export function clearSampleData() {
+  const nextClasses = getClasses().filter(item => !item.sample && !String(item.id || '').startsWith(SAMPLE_TAG));
+  const nextChildren = getChildren().filter(item => !item.sample && !String(item.id || '').startsWith(SAMPLE_TAG));
+  const nextRecords = getRecords().filter(item => !item.sample && !String(item.id || '').startsWith(SAMPLE_TAG));
+  const nextDocuments = getDocuments().filter(item => !item.sample && !String(item.id || '').startsWith(SAMPLE_TAG));
+  saveClasses(nextClasses);
+  saveChildren(nextChildren);
+  saveRecords(nextRecords);
+  saveDocuments(nextDocuments);
+  rebuildAutomationState(nextRecords, nextChildren, nextClasses);
+  return true;
+}
+
+export function clearRecordsAndDocuments() {
+  saveRecords([]);
+  saveDocuments([]);
+  storage.set(KEYS.AUTOMATION_LOG, []);
+  rebuildAutomationState([], getChildren(), getClasses());
+}
+
+export function clearDocumentsOnly() {
+  saveDocuments([]);
+  pushAutomationLog({
+    action: 'clearDocuments',
+    actionLabel: '문서 이력 삭제',
+    changedLabels: ['문서함', '문서 이력'],
+    message: '문서 이력을 모두 삭제했습니다.',
+  });
+}
+
 // ── 원 양식 템플릿 ────────────────────────────────────────────────────────────
 // 각 양식: { id, name, docType, fields: [{ id, label, mappedTo, charLimit }] }
 // mappedTo: 앱 섹션 title 또는 '__date__' | '__childName__' | '__className__' | '__period__'

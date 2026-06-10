@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
-  getDocumentHistory, getFormTemplates, updateDocumentDraft, getAutomationState,
+  getDocumentHistory, getFormTemplates, updateDocumentDraft, deleteDocumentDraft, getAutomationState,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
 import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star } from 'lucide-react';
@@ -58,6 +58,8 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
   const [historySearch, setHistorySearch] = useState('');
   const [historyTypeFilter, setHistoryTypeFilter] = useState('all');
   const [historyChildFilter, setHistoryChildFilter] = useState('all');
+  const [editingHistory, setEditingHistory] = useState(false);
+  const [historyDraft, setHistoryDraft] = useState(null);
   // 양식 적용
   const [formApplied, setFormApplied] = useState(false);
   const [matchedForm, setMatchedForm] = useState(null);
@@ -581,6 +583,37 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
     setHistoryDocs(getDocumentHistory());
   };
 
+  const openHistoryPreview = (document) => {
+    setHistoryPreview(document);
+    setHistoryDraft(JSON.parse(JSON.stringify(document)));
+    setEditingHistory(false);
+  };
+
+  const handleSaveHistoryEdit = () => {
+    if (!historyDraft) return;
+    updateDocumentDraft(historyDraft.id, {
+      title: historyDraft.title,
+      badge: historyDraft.badge,
+      sections: historyDraft.sections || [],
+    });
+    const refreshed = getDocumentHistory();
+    setHistoryDocs(refreshed);
+    const updated = refreshed.find(d => d.id === historyDraft.id) || historyDraft;
+    setHistoryPreview(updated);
+    setHistoryDraft(JSON.parse(JSON.stringify(updated)));
+    setEditingHistory(false);
+  };
+
+  const handleDeleteHistoryDoc = () => {
+    if (!historyPreview) return;
+    if (!window.confirm('이 문서를 삭제할까요? 원본 기록은 유지됩니다.')) return;
+    deleteDocumentDraft(historyPreview.id);
+    setHistoryDocs(getDocumentHistory());
+    setHistoryPreview(null);
+    setHistoryDraft(null);
+    setEditingHistory(false);
+  };
+
   const sortedHistoryDocs = [...historyDocs].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
@@ -644,7 +677,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
           const docType = DOC_TYPES.find(t => t.key === d.type) || { icon:'📄', label:'문서' };
           return (
             <div key={d.id}
-              onClick={() => setHistoryPreview(d)}
+              onClick={() => openHistoryPreview(d)}
               style={{ background:'var(--white)', border: d.pinned ? '1.5px solid #F5A623' : '1px solid var(--border)', borderRadius:14, padding:'14px 16px', marginBottom:10, cursor:'pointer', boxShadow:'var(--shadow-sm)', display:'flex', alignItems:'center', gap:12 }}
             >
               <div style={{ fontSize:28, flexShrink:0 }}>{docType.icon}</div>
@@ -673,19 +706,77 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
         <div onClick={() => setHistoryPreview(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:900, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'var(--white)', borderRadius:'24px 24px 0 0', padding:24, width:'100%', maxWidth:640, maxHeight:'85vh', overflowY:'auto' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-              <div style={{ fontWeight:900, fontSize:17 }}>{historyPreview.title}</div>
+              {editingHistory ? (
+                <input
+                  value={historyDraft?.title || ''}
+                  onChange={e => setHistoryDraft(d => ({ ...d, title: e.target.value }))}
+                  style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 15, fontWeight: 900 }}
+                />
+              ) : (
+                <div style={{ fontWeight:900, fontSize:17 }}>{historyPreview.title}</div>
+              )}
               <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 <ShareButton doc={historyPreview} />
+                <button onClick={() => setEditingHistory(v => !v)} style={{ padding:'8px 10px', borderRadius:8, background:'var(--primary-light)', color:'var(--primary)', fontSize:12, fontWeight:900 }}>
+                  {editingHistory ? '취소' : '수정'}
+                </button>
+                <button onClick={handleDeleteHistoryDoc} style={{ padding:'8px 10px', borderRadius:8, background:'var(--accent-light)', color:'var(--accent)', fontSize:12, fontWeight:900 }}>
+                  삭제
+                </button>
                 <button onClick={() => setHistoryPreview(null)} style={{ padding:6, borderRadius:8, background:'var(--gray-100)', color:'var(--text-secondary)' }}><X size={18}/></button>
               </div>
             </div>
-            <div style={{ fontSize:12, color:'var(--primary)', background:'var(--primary-light)', padding:'5px 12px', borderRadius:100, display:'inline-block', marginBottom:14, fontWeight:700 }}>
-              {historyPreview.badge}
-            </div>
-            {(historyPreview.sections||[]).map((s,i) => (
-              <DocumentSection key={i} title={s.title} text={s.text} accent={s.accent} />
-            ))}
-            <CopyAllButton doc={historyPreview} />
+            {editingHistory ? (
+              <div>
+                <input
+                  value={historyDraft?.badge || ''}
+                  onChange={e => setHistoryDraft(d => ({ ...d, badge: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, marginBottom: 14, boxSizing: 'border-box' }}
+                />
+                {(historyDraft?.sections || []).map((section, index) => (
+                  <div key={index} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                    <input
+                      value={section.title || ''}
+                      onChange={e => setHistoryDraft(d => ({ ...d, sections: d.sections.map((s, i) => i === index ? { ...s, title: e.target.value } : s) }))}
+                      style={{ width: '100%', padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', fontSize: 13, fontWeight: 800, marginBottom: 8, boxSizing: 'border-box' }}
+                    />
+                    <textarea
+                      value={section.text || ''}
+                      onChange={e => setHistoryDraft(d => ({ ...d, sections: d.sections.map((s, i) => i === index ? { ...s, text: e.target.value } : s) }))}
+                      rows={4}
+                      style={{ width: '100%', padding: '10px', borderRadius: 9, border: '1px solid var(--border)', fontSize: 13, lineHeight: 1.7, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
+                    />
+                    <button
+                      onClick={() => setHistoryDraft(d => ({ ...d, sections: d.sections.filter((_, i) => i !== index) }))}
+                      style={{ marginTop: 8, fontSize: 12, fontWeight: 800, color: 'var(--accent)', background: 'var(--accent-light)', borderRadius: 8, padding: '7px 10px' }}
+                    >
+                      섹션 삭제
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button
+                    onClick={() => setHistoryDraft(d => ({ ...d, sections: [...(d.sections || []), { title: '새 섹션', text: '' }] }))}
+                    style={{ padding: '12px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontWeight: 900 }}
+                  >
+                    섹션 추가
+                  </button>
+                  <button onClick={handleSaveHistoryEdit} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontWeight: 900 }}>
+                    수정본 저장
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:12, color:'var(--primary)', background:'var(--primary-light)', padding:'5px 12px', borderRadius:100, display:'inline-block', marginBottom:14, fontWeight:700 }}>
+                  {historyPreview.badge}
+                </div>
+                {(historyPreview.sections||[]).map((s,i) => (
+                  <DocumentSection key={i} title={s.title} text={s.text} accent={s.accent} />
+                ))}
+                <CopyAllButton doc={historyPreview} />
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1289,8 +1380,8 @@ function FormFieldView({ label, text, charLimit, charCount, isOver, mappedTo }) 
           )}
           {!isEmpty && (
             <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1500); }}
-              style={{ fontSize:11, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:3, fontWeight:700 }}>
-              {copied ? <><Check size={11}/> 복사됨</> : <><Copy size={11}/> 복사</>}
+              style={{ minWidth:64, minHeight:34, padding:'7px 12px', borderRadius:10, background:'var(--gray-100)', fontSize:13, color:'var(--text-secondary)', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontWeight:900 }}>
+              {copied ? <><Check size={14}/> 복사됨</> : <><Copy size={14}/> 복사</>}
             </button>
           )}
         </div>
@@ -1355,9 +1446,9 @@ function DocumentSection({ title, text, accent }) {
         <span style={{ fontSize: 13, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
         <button
           onClick={() => { navigator.clipboard.writeText(text); showToast('복사했어요! 📋', 'success'); }}
-          style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
+          style={{ minWidth: 64, minHeight: 34, padding: '7px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}
         >
-          <Copy size={12} /> 복사
+          <Copy size={14} /> 복사
         </button>
       </div>
       {/* 인쇄용 제목 */}

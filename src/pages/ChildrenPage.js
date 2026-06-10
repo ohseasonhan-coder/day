@@ -604,8 +604,8 @@ function CopyCard({ title, text, accent }) {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
-        <button onClick={handleCopy} style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-          <Copy size={12} /> 복사
+        <button onClick={handleCopy} style={{ minWidth: 64, minHeight: 34, padding: '7px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}>
+          <Copy size={14} /> 복사
         </button>
       </div>
       <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{textStr}</div>

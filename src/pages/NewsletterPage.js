@@ -88,7 +88,7 @@ export default function NewsletterPage({ isDesktop }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <button onClick={() => handleCopy(nl.content)} style={{ color: 'var(--text-secondary)', padding: 4 }}><Copy size={15} /></button>
+                  <button onClick={() => handleCopy(nl.content)} style={{ minWidth:64, minHeight:34, color: 'var(--text-secondary)', background:'var(--gray-100)', borderRadius:10, padding:'7px 12px', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:13, fontWeight:900 }}><Copy size={14} /> 복사</button>
                   <button onClick={() => handlePrint(nl)} style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-light)', borderRadius: 7, padding: '4px 8px' }}>인쇄</button>
                   <button onClick={() => handleDelete(nl.id)} style={{ color: 'var(--text-tertiary)', padding: 4 }}><Trash2 size={15} /></button>
                   <button onClick={() => setExpandedId(expanded ? null : nl.id)} style={{ color: 'var(--text-secondary)', padding: 4 }}>

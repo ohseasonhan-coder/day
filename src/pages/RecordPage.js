@@ -1217,8 +1217,8 @@ function DetailSection({ title, text, expanded, onToggle, accent }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: expanded || !isLong ? 8 : 0 }}>
         <span style={{ fontSize: 12, fontWeight: 800, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={handleCopy} style={{ fontSize: 11, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700 }}>
-            <Copy size={12} /> 복사
+          <button onClick={handleCopy} style={{ minWidth: 64, minHeight: 34, padding: '7px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}>
+            <Copy size={14} /> 복사
           </button>
           {isLong && <button onClick={onToggle} style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', fontWeight: 700 }}>{expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</button>}
         </div>
@@ -1277,8 +1277,8 @@ function ResultSection({ title, text, accent }) {
     <div style={{ background: accent ? 'var(--primary-light)' : 'white', border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 15, padding: 16, marginBottom: 12, boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 800, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
-        <button onClick={handleCopy} style={{ fontSize: 12, color: accent ? 'var(--primary)' : 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-          <Copy size={13} /> 복사
+        <button onClick={handleCopy} style={{ minWidth: 64, minHeight: 34, padding: '7px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}>
+          <Copy size={14} /> 복사
         </button>
       </div>
       <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
