@@ -168,6 +168,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     if (context?.childId) {
       const found = ch.find(c => c.id === context.childId);
       if (found) setSelectedChild(found);
+      if (context?.mode === 'list') setFilterChildId(context.childId);
     }
     if (context?.date) {
       setFilterDate(context.date);
@@ -222,6 +223,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       })
       .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
   }, [records, searchText, filterDate, filterChildId, filterCategory, filterStarred]);
+
+  const duplicateRecords = useMemo(() => {
+    if (!selectedChild || rawText.trim().length < 12) return [];
+    return findSimilarRecords(rawText, records.filter(r => r.childId === selectedChild.id)).slice(0, 3);
+  }, [rawText, records, selectedChild]);
 
   const handleProcess = async () => {
     if (!selectedChild) return setError('위에서 아이를 먼저 선택해 주세요.');
@@ -529,6 +535,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               recordType={recordType}
               onInsert={insertTextAtCursor}
             />
+            <DuplicateWarning
+              items={duplicateRecords}
+              onOpen={record => setDetailRecord(record)}
+              onInsert={text => insertTextAtCursor(text)}
+            />
             {speechSupported && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
                 <button
@@ -656,8 +667,49 @@ function getWritingTips(rawText, selectedChild, recordType) {
   return tips.slice(0, 4);
 }
 
+function getRecordQuality(rawText, recordType) {
+  const text = String(rawText || '').trim();
+  const checks = [
+    { key: 'scene', label: '상황', ok: text.length >= 18 || /(놀이|시간|활동|중|때|후|전)/.test(text) },
+    { key: 'reaction', label: '아이 반응', ok: /(말|표현|보였|하였다|시도|관심|울|웃|질문|대답|참여)/.test(text) },
+    { key: 'support', label: '교사 지원', ok: /(교사|선생님|안내|지원|격려|중재|제안|도움)/.test(text) },
+    { key: 'finish', label: '마무리', ok: /(후|뒤|이후|다시|경험|참여|진정|기다|정리|완료)/.test(text) },
+  ];
+  if (recordType === 'special') {
+    checks.push({ key: 'action', label: '조치', ok: /(확인|연락|휴식|소독|투약|관찰|전달|보고)/.test(text) });
+  }
+  const score = Math.round((checks.filter(item => item.ok).length / checks.length) * 100);
+  return { score, checks };
+}
+
+function normalizeForCompare(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^\w가-힣\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length >= 2);
+}
+
+function findSimilarRecords(text, records) {
+  const words = new Set(normalizeForCompare(text));
+  if (words.size < 3) return [];
+  const now = new Date();
+  return records
+    .map(record => {
+      const target = normalizeForCompare([record.rawText, record.observation, record.parent].filter(Boolean).join(' '));
+      const overlap = target.filter(word => words.has(word)).length;
+      const score = overlap / Math.max(1, Math.min(words.size, target.length));
+      const days = record.date ? (now - new Date(record.date)) / 86400000 : 999;
+      return { record, score, days };
+    })
+    .filter(item => item.score >= 0.35 && item.days <= 14)
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.record);
+}
+
 function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
   const tips = getWritingTips(rawText, selectedChild, recordType);
+  const quality = getRecordQuality(rawText, recordType);
   const helpers = [
     '교사는 차례를 기다리는 방법을 안내하고, 말로 표현해볼 수 있도록 지원하였다.',
     '이후 유아는 교사의 격려를 받으며 다시 놀이에 참여하였다.',
@@ -667,7 +719,31 @@ function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
     <div style={{ marginTop: 10, background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 14, padding: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>작성 도우미</div>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{String(rawText || '').trim().length > 0 ? '실시간 점검' : '입력 전 안내'}</div>
+        <div style={{
+          fontSize: 11,
+          color: quality.score >= 75 ? 'var(--cat-play)' : quality.score >= 50 ? 'var(--cat-habit)' : 'var(--accent)',
+          fontWeight: 900,
+          background: quality.score >= 75 ? 'var(--cat-play-light)' : quality.score >= 50 ? 'var(--cat-habit-light)' : 'var(--accent-light)',
+          borderRadius: 100,
+          padding: '4px 8px',
+        }}>
+          기록 품질 {quality.score}점
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5, marginBottom: 8 }}>
+        {quality.checks.slice(0, 4).map(item => (
+          <div key={item.key} style={{
+            textAlign: 'center',
+            fontSize: 11,
+            fontWeight: 900,
+            borderRadius: 9,
+            padding: '5px 4px',
+            color: item.ok ? 'var(--cat-play)' : 'var(--text-tertiary)',
+            background: item.ok ? 'var(--cat-play-light)' : 'var(--gray-100)',
+          }}>
+            {item.ok ? '✓ ' : ''}{item.label}
+          </div>
+        ))}
       </div>
       <div style={{ display: 'grid', gap: 6, marginBottom: 9 }}>
         {tips.map(tip => (
@@ -692,6 +768,33 @@ function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DuplicateWarning({ items, onOpen, onInsert }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ marginTop: 10, background: 'var(--cat-habit-light)', border: '1px solid var(--cat-habit)', borderRadius: 14, padding: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--cat-habit)', marginBottom: 7 }}>
+        비슷한 기록이 최근에 있어요
+      </div>
+      <div style={{ display: 'grid', gap: 7 }}>
+        {items.map(record => (
+          <div key={record.id} style={{ background: 'var(--white)', borderRadius: 11, padding: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-primary)' }}>{record.date ? formatDate(record.date) : '최근 기록'}</span>
+              <button onClick={() => onOpen(record)} style={{ fontSize: 11, color: 'var(--cat-habit)', fontWeight: 900 }}>보기</button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {record.rawText || record.observation}
+            </div>
+            <button onClick={() => onInsert('이전 기록 이후 이어진 모습으로, ')} style={{ marginTop: 7, fontSize: 11, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '5px 9px' }}>
+              이어쓰기 문장 추가
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -24,6 +24,19 @@ function getDayStr(date) {
   return `${y}-${m}-${d}`;
 }
 
+function hasFinalConsonant(value) {
+  const last = [...String(value || '').trim()].pop();
+  if (!last) return false;
+  const code = last.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+function childTopic(name) {
+  const clean = String(name || '유아').trim();
+  return `${clean}${hasFinalConsonant(clean) ? '이는' : '는'}`;
+}
+
 export default function TodayPage({ onNavigate, isDesktop }) {
   const [todayRecords, setTodayRecords] = useState([]);
   const [children, setChildren]         = useState([]);
@@ -138,6 +151,20 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     { id: 'doc_note',  label: '알림장 작성',  type: 'doc', nav: 'note' },
     ...todayRoutines.map(r => ({ id: 'routine_' + r.id, label: r.title + ' 완료', type: 'routine' })),
   ];
+
+  const completeDayClose = () => {
+    try {
+      const s = localStorage.getItem('sw_session');
+      const uid = s ? (JSON.parse(s)?.userId || 'default') : 'default';
+      const storageKey = 'sw_' + uid + '_checklist_' + todayStr;
+      const next = {};
+      allCheckItems.forEach(item => { next[item.id] = true; });
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      setTodayChecks(next);
+    } catch {}
+    onNavigate('docs', { docType: 'daily', period: 'date' });
+  };
+
   const checkedCount = allCheckItems.filter(item => todayChecks[item.id]).length;
   const checkPct = allCheckItems.length > 0 ? Math.round((checkedCount / allCheckItems.length) * 100) : 100;
   const autoDocs = automation?.documents || {};
@@ -170,6 +197,71 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       </div>
     </div>
   );
+
+  const DayClosePanel = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 13 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>원클릭 하루 마감</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>오늘 기록, 알림장, 보육일지, 미기록 아이를 한 번에 확인합니다.</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 900, color: checkPct === 100 ? 'var(--cat-play)' : 'var(--primary)', background: checkPct === 100 ? 'var(--cat-play-light)' : 'var(--primary-light)', borderRadius: 100, padding: '6px 10px', flexShrink: 0 }}>
+          {checkPct}%
+        </span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(4, 1fr)' : '1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <DayCloseMini label="오늘 기록" value={`${todayRecords.length}건`} ready={todayRecords.length > 0} />
+        <DayCloseMini label="미기록 아이" value={`${unrecordedChildren.length}명`} ready={unrecordedChildren.length === 0} />
+        <DayCloseMini label="보육일지" value={autoDocs.daily?.ready ? '준비됨' : '대기'} ready={autoDocs.daily?.ready} />
+        <DayCloseMini label="알림장" value={todayRecords.length ? '작성 가능' : '대기'} ready={todayRecords.length > 0} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '2fr 1fr 1fr' : '1fr', gap: 8 }}>
+        <button onClick={completeDayClose} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900 }}>
+          마감하고 보육일지 만들기
+        </button>
+        <button onClick={() => onNavigate('note')} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 14, fontWeight: 900 }}>
+          알림장 확인
+        </button>
+        <button onClick={() => onNavigate('check')} style={{ padding: '12px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 900 }}>
+          누락 점검
+        </button>
+      </div>
+    </div>
+  );
+
+  const ChildQuickPanel = children.length > 0 ? (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>아이별 빠른 작업</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>기록, 알림장, 상담메모, 최근 기록으로 바로 이동합니다.</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', gap: 9 }}>
+        {children.slice(0, isDesktop ? 8 : 5).map(child => {
+          const color = getAvatarColor(child.name);
+          const hasToday = recordedChildIds.has(child.id);
+          return (
+            <div key={child.id} style={{ border: `1px solid ${hasToday ? 'rgba(76,175,80,0.24)' : 'var(--border)'}`, borderRadius: 14, padding: 11, background: hasToday ? 'rgba(76,175,80,0.06)' : 'var(--gray-50)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900 }}>{child.name[0]}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>{child.name}</div>
+                  <div style={{ fontSize: 11, color: hasToday ? 'var(--cat-play)' : 'var(--accent)', fontWeight: 800 }}>{hasToday ? '오늘 기록 있음' : '오늘 기록 필요'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
+                <ChildQuickBtn label="기록" onClick={() => onNavigate('record', { childId: child.id })} />
+                <ChildQuickBtn label="알림장" onClick={() => onNavigate('record', { childId: child.id, recordType: 'notice', prefillText: `${childTopic(child.name)} 오늘 ` })} />
+                <ChildQuickBtn label="상담" onClick={() => onNavigate('record', { childId: child.id, recordType: 'consult', prefillText: `${child.name}의 최근 모습은 ` })} />
+                <ChildQuickBtn label="최근" onClick={() => onNavigate('record', { mode: 'list', childId: child.id })} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
 
   /* ── 공통 블록들 ──────────────────────────────── */
   const HeroCard = (
@@ -496,6 +588,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         <div>
           {HeroCard}
           {UnrecordedSection}
+          {DayClosePanel}
+          {ChildQuickPanel}
           {AutomationPanel}
 
           <SectionTitle title="오늘 핵심 업무" style={{ marginBottom: 12 }} />
@@ -549,6 +643,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
       {UnrecordedSection}
+      {DayClosePanel}
+      {ChildQuickPanel}
       {AutomationPanel}
       {QuickStatsRow}
       {HeatmapSection}
@@ -643,6 +739,31 @@ function MiniAlert({ label, value, active, onClick }) {
     }}>
       <span>{label}</span>
       <span>{value}</span>
+    </button>
+  );
+}
+
+function DayCloseMini({ label, value, ready }) {
+  return (
+    <div style={{ background: ready ? 'var(--cat-play-light)' : 'var(--gray-50)', border: `1px solid ${ready ? 'rgba(76,175,80,0.28)' : 'var(--border)'}`, borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
+      <div style={{ fontSize: 13, fontWeight: 900, color: ready ? 'var(--cat-play)' : 'var(--text-primary)' }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function ChildQuickBtn({ label, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      minHeight: 30,
+      borderRadius: 9,
+      background: 'var(--white)',
+      border: '1px solid var(--border)',
+      color: 'var(--text-secondary)',
+      fontSize: 11,
+      fontWeight: 900,
+    }}>
+      {label}
     </button>
   );
 }
