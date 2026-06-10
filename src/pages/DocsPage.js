@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
@@ -8,7 +8,7 @@ import {
   getDocumentHistory, getFormTemplates, updateDocumentDraft, deleteDocumentDraft, getAutomationState,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
-import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star, Download } from 'lucide-react';
+import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star, Download, History, RotateCcw } from 'lucide-react';
 
 const DOC_TYPES = [
   { key: 'daily',       label: '보육일지',      icon: '📄', desc: '오늘 기록으로 일일 보육일지 초안 생성' },
@@ -541,7 +541,15 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
             {formApplied && matchedForm
               ? <FormAppliedView doc={doc} form={matchedForm} selChild={selChild} cl={cl} period={period} />
               : doc.sections.map((s, i) => (
-                  <DocumentSection key={`${s.title}-${i}`} title={s.title} text={s.text} accent={s.accent} />
+                  <DocumentSection
+                    key={`${s.title}-${i}`}
+                    title={s.title} text={s.text} accent={s.accent}
+                    onUpdate={(newText) => {
+                      const updated = { ...doc, sections: doc.sections.map((sec, idx) => idx === i ? { ...sec, text: newText } : sec) };
+                      setDoc(updated);
+                      if (updated.id) updateDocumentDraft(updated.id, { sections: updated.sections });
+                    }}
+                  />
                 ))
             }
           </div>
@@ -1435,8 +1443,30 @@ function RecordPreview({ records, onNavigate }) {
   );
 }
 
-function DocumentSection({ title, text, accent }) {
-  const showToast = useToast();
+function DocumentSection({ title, text, accent, onUpdate }) {
+  const { showToast } = useToast();
+  const [editing, setEditing]   = useState(false);
+  const [editVal, setEditVal]   = useState(text || '');
+  const [history, setHistory]   = useState([]);
+  const [showHist, setShowHist] = useState(false);
+
+  useEffect(() => { setEditVal(text || ''); }, [text]);
+
+  const saveEdit = useCallback(() => {
+    if (editVal !== text) {
+      setHistory(prev => [text, ...prev].slice(0, 10));
+      onUpdate?.(editVal);
+    }
+    setEditing(false);
+  }, [editVal, text, onUpdate]);
+
+  const restore = useCallback((old) => {
+    setHistory(prev => [editVal, ...prev.filter(h => h !== old)].slice(0, 10));
+    onUpdate?.(old);
+    setShowHist(false);
+    showToast('이전 버전으로 복원했어요', 'success');
+  }, [editVal, onUpdate, showToast]);
+
   if (!text) return null;
   return (
     <div className="print-section" style={{
@@ -1447,16 +1477,65 @@ function DocumentSection({ title, text, accent }) {
     }}>
       <div className="print-section-title no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
         <span style={{ fontSize: 13, fontWeight: 900, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
-        <button
-          onClick={() => { navigator.clipboard.writeText(text); showToast('복사했어요! 📋', 'success'); }}
-          style={{ minWidth: 64, minHeight: 34, padding: '7px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}
-        >
-          <Copy size={14} /> 복사
-        </button>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {history.length > 0 && (
+            <button
+              onClick={() => setShowHist(p => !p)}
+              style={{ minHeight: 34, padding: '7px 10px', borderRadius: 10, background: 'var(--gray-100)', fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
+            >
+              <History size={13} /> {history.length}
+            </button>
+          )}
+          <button
+            onClick={() => { setEditing(p => !p); setEditVal(text); }}
+            style={{ minHeight: 34, padding: '7px 10px', borderRadius: 10, background: editing ? 'var(--primary)' : 'var(--gray-100)', fontSize: 11, color: editing ? 'white' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
+          >
+            ✏️ {editing ? '취소' : '수정'}
+          </button>
+          <button
+            onClick={() => { navigator.clipboard.writeText(text); showToast('복사했어요! 📋', 'success'); }}
+            style={{ minWidth: 60, minHeight: 34, padding: '7px 10px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}
+          >
+            <Copy size={14} /> 복사
+          </button>
+        </div>
       </div>
-      {/* 인쇄용 제목 */}
-      <div className="print-section-title" style={{ display: 'none' }}>{title}</div>
-      <div className="print-section-body" style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
+
+      {/* 히스토리 드롭다운 */}
+      {showHist && history.length > 0 && (
+        <div style={{ marginBottom: 10, background: 'var(--gray-50)', borderRadius: 10, padding: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', marginBottom: 6 }}>이전 버전 ({history.length}개)</div>
+          {history.map((h, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{h}</div>
+              <button onClick={() => restore(h)} style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 100, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 11, fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                <RotateCcw size={11} /> 복원
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 편집 모드 */}
+      {editing ? (
+        <div>
+          <textarea
+            value={editVal}
+            onChange={e => setEditVal(e.target.value)}
+            style={{ width: '100%', minHeight: 140, padding: 12, borderRadius: 10, border: '1.5px solid var(--primary)', fontSize: 14, lineHeight: 1.8, fontFamily: 'inherit', resize: 'vertical' }}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button onClick={saveEdit} style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 800, border: 'none', cursor: 'pointer' }}>저장</button>
+            <button onClick={() => setEditing(false)} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>취소</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 인쇄용 제목 */}
+          <div className="print-section-title" style={{ display: 'none' }}>{title}</div>
+          <div className="print-section-body" style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
+        </>
+      )}
     </div>
   );
 }

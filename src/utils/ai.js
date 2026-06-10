@@ -3,7 +3,6 @@
  * API 키 없이 키워드 분류 + 표현 순화 + 템플릿 문서 생성
  */
 import {
-  generateSentence,
   generateSentences,
   detectCategoryFromText,
 } from './sentenceLibrary';

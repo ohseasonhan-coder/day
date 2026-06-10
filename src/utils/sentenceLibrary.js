@@ -1,17 +1,85 @@
 // ── 문장 라이브러리 ────────────────────────────────────────────────────────────
-// 8 카테고리 × 3 상황 × 20+ 맥락 × 20+ 행동(연령별) × 10+ 마무리
-// 최소 96만 개 이상의 조합 보장 (외부 API 없음, 100% 로컬)
+// 8 카테고리 × 3 상황 × 계절/날씨/행사 맥락 × 연령별 행동 × 교사관찰 × 마무리
+// 총 조합 1,000만+ 보장 (외부 API 없음, 100% 로컬)
 
 // ── 유틸 ──────────────────────────────────────────────────────────────────────
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 function nameSubj(name) {
-  // 이름 + 이/가 조사
-  const last = name.charCodeAt(name.length - 1);
+  const last = (name || '아동').charCodeAt((name || '아동').length - 1);
   const hasFinal = (last - 0xAC00) % 28 !== 0;
-  return name + (hasFinal ? '이' : '가');
+  return (name || '아동') + (hasFinal ? '이' : '가');
 }
+
+// ── 계절 맥락 문구 ─────────────────────────────────────────────────────────────
+export const SEASON_CONTEXTS = {
+  spring: [
+    '봄이 되어 따뜻한 날씨 속에',
+    '봄꽃이 피어나는 계절에',
+    '봄 소풍과 나들이 활동이 많아지는 요즘',
+    '새 학기가 시작된 설레는 봄날에',
+    '꽃가루가 날리는 포근한 봄날에',
+    '개나리·벚꽃을 관찰하는 봄 산책 중에',
+  ],
+  summer: [
+    '더운 여름 날씨에도 불구하고',
+    '물놀이가 즐거운 여름 활동 중에',
+    '장마철 실내 활동이 늘어난 요즘',
+    '시원한 그늘에서 바깥 활동을 하며',
+    '여름 특유의 에너지가 넘치는 날에',
+    '매미 소리가 가득한 여름날에',
+  ],
+  autumn: [
+    '선선한 가을 날씨 속에서',
+    '단풍이 물드는 계절에',
+    '가을 운동회 준비가 한창인 요즘',
+    '열매와 낙엽을 탐색하는 계절에',
+    '추수와 결실의 계절을 느끼며',
+    '높고 파란 가을 하늘 아래에서',
+  ],
+  winter: [
+    '추운 겨울이지만 따뜻한 실내에서',
+    '눈이 오는 겨울날 바깥 놀이 중에',
+    '연말 행사와 발표회 준비로 바쁜 요즘',
+    '따뜻한 핫초코가 생각나는 겨울날에',
+    '두꺼운 외투를 입고 바깥 놀이를 하며',
+    '겨울잠에 대해 이야기 나누는 활동 중에',
+  ],
+};
+
+// ── 날씨 맥락 문구 ─────────────────────────────────────────────────────────────
+export const WEATHER_CONTEXTS = {
+  sunny: ['맑고 화창한 날씨 덕분에', '햇살이 좋은 오늘', '쾌청한 하늘 아래에서'],
+  cloudy: ['구름이 많은 흐린 날씨에', '날씨가 흐리지만 즐겁게', '흐린 하늘 아래 실내에서'],
+  rainy: ['비가 내리는 날 실내 활동 중에', '빗소리를 들으며 조용히', '장마로 바깥 놀이 대신 실내에서'],
+  snowy: ['첫눈이 내리는 설레는 날에', '눈 쌓인 마당에서 신나게', '눈송이를 관찰하며'],
+  hot: ['무더운 여름 날씨에도', '더위를 잊고 즐겁게', '냉방이 켜진 실내에서'],
+  cold: ['쌀쌀한 날씨에 따뜻하게 입고', '차가운 바람을 맞으며', '추위를 이기며 바깥 놀이에서'],
+};
+
+// ── 행사·요일별 맥락 문구 ──────────────────────────────────────────────────────
+export const EVENT_CONTEXTS = {
+  mondayOutdoor:  ['월요일 바깥 놀이 시간에', '한 주를 시작하는 월요일 바깥 활동 중에'],
+  fridayClean:    ['금요일 정리정돈 활동 중에', '한 주를 마무리하는 금요일에'],
+  birthday:       ['친구의 생일 파티가 열린 오늘', '생일 파티를 즐겁게 준비하며'],
+  fieldTrip:      ['현장 학습을 다녀온 후', '즐거운 견학 활동 중에', '체험 학습 버스 안에서'],
+  concert:        ['발표회 연습을 하는 요즘', '공연 준비로 설레는 시간에'],
+  sportDay:       ['운동회 연습이 한창인 요즘', '운동회 당일 신나는 활동 중에'],
+  graduation:     ['졸업식을 앞두고 의미 있는 시간을 보내며', '진급을 앞둔 특별한 날에'],
+  newYear:        ['새 학기 첫 날 설레는 마음으로', '입학·진급의 기쁨 속에서'],
+  campDay:        ['특별한 야영·캠프 활동 중에'],
+  cookingClass:   ['요리 활동이 진행된 오늘'],
+  musicTime:      ['음악 감상 및 노래 시간에'],
+  readingTime:    ['그림책 읽기 시간에'],
+};
+
+// ── 강도 수식어 ────────────────────────────────────────────────────────────────
+const INTENSITY_WORDS = {
+  high:   ['매우', '특히', '눈에 띄게', '두드러지게', '인상적으로'],
+  medium: ['꽤', '제법', '충분히', '나름', '꾸준하게'],
+  low:    ['조금', '약간', '조심스럽게', '소극적으로', '간간이'],
+};
 
 // ── 공통 마무리 문구 (상황별) ──────────────────────────────────────────────────
 const ENDINGS = {
@@ -865,22 +933,61 @@ export const CATEGORIES = Object.keys(LIBRARY);
 export const SITUATIONS = ['positive', 'growing', 'support'];
 
 /**
+ * 현재 날짜 기준 계절 자동 감지
+ * @returns {'spring'|'summer'|'autumn'|'winter'}
+ */
+export function getCurrentSeason() {
+  const m = new Date().getMonth() + 1;
+  if (m >= 3 && m <= 5)  return 'spring';
+  if (m >= 6 && m <= 8)  return 'summer';
+  if (m >= 9 && m <= 11) return 'autumn';
+  return 'winter';
+}
+
+/**
  * 단일 문장 생성
- * @param {{category:string, situation:string, age:number, childName:string}} opts
+ * @param {{
+ *   category:string,
+ *   situation:string,
+ *   age:number,
+ *   childName:string,
+ *   season?:string,
+ *   weather?:string,
+ *   event?:string,
+ *   intensity?:'high'|'medium'|'low'
+ * }} opts
  * @returns {string}
  */
-export function generateSentence({ category, situation, age, childName }) {
+export function generateSentence({ category, situation, age, childName, season, weather, event, intensity }) {
   const cat = LIBRARY[category] || LIBRARY.peer;
   const sit = cat[situation] || cat.positive;
 
+  // 맥락 결정: 행사 > 날씨 > 계절 > 기본 contexts 중 랜덤
+  let ctxPrefix = '';
+  if (event && EVENT_CONTEXTS[event]) {
+    ctxPrefix = pick(EVENT_CONTEXTS[event]) + ' ';
+  } else if (weather && WEATHER_CONTEXTS[weather]) {
+    ctxPrefix = pick(WEATHER_CONTEXTS[weather]) + ' ';
+  } else if (Math.random() < 0.4) {
+    const s = season || getCurrentSeason();
+    const pool = SEASON_CONTEXTS[s] || [];
+    if (pool.length) ctxPrefix = pick(pool) + ' ';
+  }
+
   const ctx    = pick(sit.contexts);
   const ageKey = `age${age}`;
-  const pool   = sit.actions[ageKey] || sit.actions.common || [];
-  const act    = pick(pool.length ? pool : sit.actions.common);
+  const actPool = (sit.actions[ageKey] || []).concat(sit.actions.common || []);
+  const act    = pick(actPool.length ? actPool : (sit.actions.common || ['활동에 참여하였고']));
   const obs    = pick(TEACHER_OBS);
   const end    = pick(ENDINGS[situation] || ENDINGS.positive);
 
-  return `${nameSubj(childName)} ${ctx} ${act} ${obs} ${end}`;
+  // 강도 수식어 삽입 (30% 확률)
+  let intensityWord = '';
+  if (Math.random() < 0.3 && intensity) {
+    intensityWord = (pick(INTENSITY_WORDS[intensity] || INTENSITY_WORDS.medium)) + ' ';
+  }
+
+  return `${ctxPrefix}${nameSubj(childName)} ${ctx} ${intensityWord}${act} ${obs} ${end}`;
 }
 
 /**

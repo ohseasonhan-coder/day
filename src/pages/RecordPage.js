@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
+import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../utils/sentenceLibrary';
 import {
   getChildren,
   getClasses,
@@ -375,9 +376,14 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               </button>
             </div>
             {saved && (
-              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button onClick={handleReset} style={{ padding: '13px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 14, fontWeight: 800 }}>+ 다음 기록</button>
-                <button onClick={() => { setMode('list'); setResult(null); setFilterDate(today()); }} style={{ padding: '13px', borderRadius: 12, background: 'var(--gray-800)', color: 'white', fontSize: 14, fontWeight: 800 }}>저장 기록 보기</button>
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                <button onClick={() => onNavigate('docs')} style={{ padding: '14px', borderRadius: 12, background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(79,127,255,0.25)', border: 'none' }}>
+                  📄 오늘 일지 바로 생성하기
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button onClick={handleReset} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 13, fontWeight: 800, border: 'none' }}>+ 다음 기록</button>
+                  <button onClick={() => { setMode('list'); setResult(null); setFilterDate(today()); }} style={{ padding: '12px', borderRadius: 12, background: 'var(--gray-800)', color: 'white', fontSize: 13, fontWeight: 800, border: 'none' }}>기록 목록 보기</button>
+                </div>
               </div>
             )}
           </div>
@@ -557,6 +563,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </button>
               </div>
             )}
+            <SmartContextBanner onInsert={insertTextAtCursor} />
             <QuickTemplatePanel
               templates={allTemplates}
               customTemplates={customTemplates}
@@ -621,9 +628,14 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </button>
               </div>
               {saved && (
-                <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <button onClick={handleReset} style={{ padding: '13px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 14, fontWeight: 800 }}>+ 다음 기록</button>
-                  <button onClick={() => { setMode('list'); setResult(null); setFilterDate(today()); }} style={{ padding: '13px', borderRadius: 12, background: 'var(--gray-800)', color: 'white', fontSize: 14, fontWeight: 800 }}>저장 기록 보기</button>
+                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  <button onClick={() => onNavigate('docs')} style={{ padding: '14px', borderRadius: 12, background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', boxShadow: '0 4px 14px rgba(79,127,255,0.25)' }}>
+                    📄 오늘 일지 바로 생성하기
+                  </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <button onClick={handleReset} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 13, fontWeight: 800, border: 'none' }}>+ 다음 기록</button>
+                    <button onClick={() => { setMode('list'); setResult(null); setFilterDate(today()); }} style={{ padding: '12px', borderRadius: 12, background: 'var(--gray-800)', color: 'white', fontSize: 13, fontWeight: 800, border: 'none' }}>기록 목록 보기</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -708,36 +720,44 @@ function findSimilarRecords(text, records) {
 }
 
 function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
-  const tips = getWritingTips(rawText, selectedChild, recordType);
+  const tips    = getWritingTips(rawText, selectedChild, recordType);
   const quality = getRecordQuality(rawText, recordType);
-  const helpers = [
-    '교사는 차례를 기다리는 방법을 안내하고, 말로 표현해볼 수 있도록 지원하였다.',
-    '이후 유아는 교사의 격려를 받으며 다시 놀이에 참여하였다.',
-    '가정에서도 짧은 문장으로 자신의 생각을 표현해볼 수 있도록 격려해 주세요.',
-  ];
+  const [libSugs, setLibSugs] = useState([]);
+  const [showLib, setShowLib] = useState(false);
+
+  // 라이브러리 문장 추천 — 텍스트 300ms 디바운스
+  useEffect(() => {
+    if (!rawText || rawText.length < 8) { setLibSugs([]); return; }
+    const t = setTimeout(() => {
+      const { category, situation } = detectCategoryFromText(rawText);
+      const age = selectedChild?.age ? parseInt(selectedChild.age, 10) : 4;
+      const season = getCurrentSeason();
+      const sugs = generateSentences({ category, situation, age, childName: selectedChild?.name || '아동', count: 4, season });
+      setLibSugs(sugs);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [rawText, selectedChild]);
+
+  // 품질 시각 레이블
+  const qLabel = quality.score >= 75 ? '✨ 훌륭해요' : quality.score >= 50 ? '👍 좋아요' : quality.score >= 25 ? '⚠️ 조금 더' : '❌ 너무 짧아요';
+  const qColor = quality.score >= 75 ? 'var(--cat-play)' : quality.score >= 50 ? 'var(--primary)' : quality.score >= 25 ? 'var(--cat-habit)' : 'var(--accent)';
+  const qBg    = quality.score >= 75 ? 'var(--cat-play-light)' : quality.score >= 50 ? 'var(--primary-light)' : quality.score >= 25 ? 'var(--cat-habit-light)' : 'var(--accent-light)';
+
   return (
     <div style={{ marginTop: 10, background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 14, padding: 12 }}>
+      {/* 헤더 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>작성 도우미</div>
-        <div style={{
-          fontSize: 11,
-          color: quality.score >= 75 ? 'var(--cat-play)' : quality.score >= 50 ? 'var(--cat-habit)' : 'var(--accent)',
-          fontWeight: 900,
-          background: quality.score >= 75 ? 'var(--cat-play-light)' : quality.score >= 50 ? 'var(--cat-habit-light)' : 'var(--accent-light)',
-          borderRadius: 100,
-          padding: '4px 8px',
-        }}>
-          기록 품질 {quality.score}점
+        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>✍️ 작성 도우미</div>
+        <div style={{ fontSize: 11, color: qColor, fontWeight: 900, background: qBg, borderRadius: 100, padding: '4px 10px' }}>
+          {qLabel} ({quality.score}점)
         </div>
       </div>
+
+      {/* 체크 항목 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5, marginBottom: 8 }}>
         {quality.checks.slice(0, 4).map(item => (
           <div key={item.key} style={{
-            textAlign: 'center',
-            fontSize: 11,
-            fontWeight: 900,
-            borderRadius: 9,
-            padding: '5px 4px',
+            textAlign: 'center', fontSize: 11, fontWeight: 900, borderRadius: 9, padding: '5px 4px',
             color: item.ok ? 'var(--cat-play)' : 'var(--text-tertiary)',
             background: item.ok ? 'var(--cat-play-light)' : 'var(--gray-100)',
           }}>
@@ -745,30 +765,58 @@ function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gap: 6, marginBottom: 9 }}>
+
+      {/* 팁 */}
+      <div style={{ display: 'grid', gap: 5, marginBottom: libSugs.length ? 10 : 0 }}>
         {tips.map(tip => (
           <div key={tip.key} style={{
-            fontSize: 12,
-            lineHeight: 1.45,
+            fontSize: 12, lineHeight: 1.45, fontWeight: 700, borderRadius: 10, padding: '7px 9px',
             color: tip.level === 'warn' ? 'var(--accent)' : tip.level === 'good' ? 'var(--cat-play)' : 'var(--text-secondary)',
             background: tip.level === 'warn' ? 'var(--accent-light)' : tip.level === 'good' ? 'var(--cat-play-light)' : 'var(--white)',
-            borderRadius: 10,
-            padding: '7px 9px',
-            fontWeight: 700,
           }}>
             {tip.text}
           </div>
         ))}
       </div>
-      <div className="avatar-scroll" style={{ marginLeft: -2, marginRight: -2, padding: '0 2px 2px' }}>
-        <div style={{ display: 'flex', gap: 6, width: 'max-content' }}>
-          {helpers.map(text => (
-            <button key={text} onClick={() => onInsert(text)} style={{ padding: '6px 10px', borderRadius: 100, background: 'var(--white)', border: '1px solid var(--border)', color: 'var(--primary)', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' }}>
-              문장 추가
-            </button>
-          ))}
+
+      {/* 라이브러리 문장 추천 */}
+      {libSugs.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowLib(p => !p)}
+            style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', border: 'none', borderRadius: 100, padding: '5px 12px', marginBottom: showLib ? 8 : 0, cursor: 'pointer' }}
+          >
+            📚 문장 라이브러리 추천 {showLib ? '▲' : '▼'}
+          </button>
+          {showLib && (
+            <div style={{ display: 'grid', gap: 6 }}>
+              {libSugs.map((s, i) => (
+                <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--text-primary)', flex: 1 }}>{s}</div>
+                  <button
+                    onClick={() => onInsert(s)}
+                    style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 100, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 11, fontWeight: 900, border: 'none', cursor: 'pointer' }}
+                  >
+                    추가
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  const { category, situation } = detectCategoryFromText(rawText);
+                  const age = selectedChild?.age ? parseInt(selectedChild.age, 10) : 4;
+                  const season = getCurrentSeason();
+                  const sugs = generateSentences({ category, situation, age, childName: selectedChild?.name || '아동', count: 4, season });
+                  setLibSugs(sugs);
+                }}
+                style={{ fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--gray-100)', border: 'none', borderRadius: 100, padding: '5px 12px', cursor: 'pointer', fontWeight: 700 }}
+              >
+                🔄 다른 문장 보기
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -838,6 +886,56 @@ function CopyHistoryPanel({ items, onInsert, onDelete, onClear }) {
 /* ══════════════════════════════════════════════════════════════════════════════
    빠른 문구 패널 (추가/삭제 포함)
 ══════════════════════════════════════════════════════════════════════════════ */
+// ── 날씨·요일 스마트 추천 배너 ────────────────────────────────────────────────
+function SmartContextBanner({ onInsert }) {
+  const now  = new Date();
+  const day  = now.getDay(); // 0=일, 1=월...5=금, 6=토
+  const hour = now.getHours();
+
+  // 요일별 추천 문구
+  const dayRecs = {
+    1: ['월요일 바깥 놀이에서 주변 환경을 탐색하며 신체를 활발하게 움직였다.', '월요일 이야기 나누기 시간에 주말 경험을 즐겁게 나누었다.'],
+    2: ['화요일 미술 활동에서 다양한 재료를 탐색하며 자신만의 방식으로 표현하였다.'],
+    3: ['수요일 요리 활동에서 재료의 특성을 탐색하며 소근육을 사용하였다.', '수요일 음악 시간에 리듬에 맞추어 신체를 표현하였다.'],
+    4: ['목요일 현장 학습 활동에서 다양한 자연과 지역사회를 경험하였다.'],
+    5: ['금요일 한 주 마무리 정리정돈 시간에 스스로 제자리에 물건을 정리하였다.', '금요일 친구들과 한 주를 돌아보며 즐거운 이야기를 나누었다.'],
+    6: ['토요 특별 활동으로 가족과 함께한 경험을 원에서 나누었다.'],
+    0: ['주말 이야기 나누기에서 다양한 경험을 또래와 나누는 시간을 가졌다.'],
+  };
+  // 시간대 추천
+  const timeRecs = hour < 10
+    ? ['등원 직후 가방을 정리하고 교사에게 인사하며 하루를 시작하였다.']
+    : hour < 12
+    ? ['오전 자유선택 놀이에서 관심 있는 영역을 골라 집중하여 탐색하였다.']
+    : hour < 14
+    ? ['점심 식사 시간에 스스로 식사 도구를 사용하며 새로운 반찬도 시도하였다.']
+    : ['오후 낮잠 이후 바깥 놀이에서 활발하게 움직이며 에너지를 발산하였다.'];
+
+  const recs = [...(dayRecs[day] || []), ...timeRecs].slice(0, 3);
+  const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][day];
+
+  return (
+    <div style={{ marginTop: 10, background: 'linear-gradient(135deg, var(--primary-light), var(--gray-50))', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 12px' }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', marginBottom: 7 }}>
+        ✨ {dayLabel}요일 스마트 추천
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {recs.map((text, i) => (
+          <button key={i} onClick={() => onInsert(text)} style={{
+            textAlign: 'left', background: 'var(--white)', border: '1px solid var(--border)',
+            borderRadius: 9, padding: '7px 10px', fontSize: 12, lineHeight: 1.5,
+            color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ flex: 1 }}>{text}</span>
+            <span style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 900, flexShrink: 0 }}>추가 →</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function QuickTemplatePanel({ templates, customTemplates, onInsert, onAdd, onDelete }) {
   const [editMode, setEditMode]   = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
