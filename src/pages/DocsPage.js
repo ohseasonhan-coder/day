@@ -55,6 +55,9 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
   const [historyDocs, setHistoryDocs] = useState([]);
   const [historyPreview, setHistoryPreview] = useState(null);
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState('all');
+  const [historyChildFilter, setHistoryChildFilter] = useState('all');
   // 양식 적용
   const [formApplied, setFormApplied] = useState(false);
   const [matchedForm, setMatchedForm] = useState(null);
@@ -583,23 +586,53 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
     if (!a.pinned && b.pinned) return 1;
     return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
   });
-  const displayedHistoryDocs = showPinnedOnly ? sortedHistoryDocs.filter(d => d.pinned) : sortedHistoryDocs;
+  const displayedHistoryDocs = sortedHistoryDocs.filter(d => {
+    if (showPinnedOnly && !d.pinned) return false;
+    if (historyTypeFilter !== 'all' && d.type !== historyTypeFilter) return false;
+    if (historyChildFilter !== 'all' && d.childId !== historyChildFilter) return false;
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [d.title, d.badge, d.childName, d.className, d.sourceLabel, ...(d.sections || []).flatMap(s => [s.title, s.text])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
+  });
 
   const HistoryTab = (
     <div>
-      {/* 즐겨찾기 필터 */}
+      {/* 문서 이력 필터 */}
       {historyDocs.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <button onClick={() => setShowPinnedOnly(v => !v)} style={{
-            padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 700,
-            background: showPinnedOnly ? '#FFF8E1' : 'var(--gray-100)',
-            color: showPinnedOnly ? '#E65100' : 'var(--text-secondary)',
-            border: `1.5px solid ${showPinnedOnly ? '#F5A623' : 'transparent'}`,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <Star size={13} fill={showPinnedOnly ? '#F5A623' : 'none'} color={showPinnedOnly ? '#F5A623' : 'var(--text-secondary)'} />
-            즐겨찾기만 보기
-          </button>
+        <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14, boxShadow: 'var(--shadow-sm)' }}>
+          <input
+            value={historySearch}
+            onChange={e => setHistorySearch(e.target.value)}
+            placeholder="문서 제목, 내용, 아이 이름으로 검색"
+            style={{ width: '100%', padding: '11px 13px', borderRadius: 11, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', marginBottom: 10, boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr auto' : '1fr', gap: 8 }}>
+            <select value={historyTypeFilter} onChange={e => setHistoryTypeFilter(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, background: 'var(--white)' }}>
+              <option value="all">전체 문서 유형</option>
+              {DOC_TYPES.map(t => <option key={t.key} value={t.key}>{t.icon} {t.label}</option>)}
+            </select>
+            <select value={historyChildFilter} onChange={e => setHistoryChildFilter(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, background: 'var(--white)' }}>
+              <option value="all">전체 아이/반</option>
+              {children.map(child => <option key={child.id} value={child.id}>{child.name}</option>)}
+            </select>
+            <button onClick={() => setShowPinnedOnly(v => !v)} style={{
+              padding: '9px 14px', borderRadius: 10, fontSize: 13, fontWeight: 800,
+              background: showPinnedOnly ? '#FFF8E1' : 'var(--gray-100)',
+              color: showPinnedOnly ? '#E65100' : 'var(--text-secondary)',
+              border: `1.5px solid ${showPinnedOnly ? '#F5A623' : 'transparent'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+              <Star size={13} fill={showPinnedOnly ? '#F5A623' : 'none'} color={showPinnedOnly ? '#F5A623' : 'var(--text-secondary)'} />
+              즐겨찾기
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 9 }}>
+            검색 결과 {displayedHistoryDocs.length}건 / 전체 {historyDocs.length}건
+          </div>
         </div>
       )}
       {historyDocs.length === 0 ? (
@@ -623,6 +656,9 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
                 <div style={{ fontSize:12, color:'var(--text-secondary)' }}>
                   {d.badge} · {d.createdAt ? new Date(d.createdAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}
                 </div>
+                {d.sourceLabel && (
+                  <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 4, fontWeight: 800 }}>{d.sourceLabel}</div>
+                )}
               </div>
               <button onClick={(e) => handleTogglePin(d.id, e)} style={{ padding: 6, borderRadius: 8, background: d.pinned ? '#FFF8E1' : 'var(--gray-100)', flexShrink:0 }}>
                 <Star size={16} fill={d.pinned ? '#F5A623' : 'none'} color={d.pinned ? '#F5A623' : 'var(--text-tertiary)'} />
@@ -1357,20 +1393,62 @@ function ShareButton({ doc }) {
   );
 }
 
+function formatDocumentForCopy(doc, mode) {
+  const sections = doc.sections || [];
+  if (mode === 'short') {
+    return `${doc.title}\n${doc.badge}\n\n` + sections.map(s => `${s.title}: ${(s.text || '').split(/[.!?]\s/)[0] || s.text}`).join('\n');
+  }
+  if (mode === 'table') {
+    return `문서명\t${doc.title}\n정보\t${doc.badge}\n\n항목\t내용\n` + sections.map(s => `${s.title}\t${String(s.text || '').replace(/\n/g, ' ')}`).join('\n');
+  }
+  if (mode === 'detail') {
+    return `${doc.title}\n${doc.badge}\n\n` + sections.map((s, i) => `${i + 1}. ${s.title}\n${s.text}`).join('\n\n') + '\n\n검토 메모:\n- 표현은 기관 상황에 맞게 최종 확인해 주세요.\n- 진단 표현 대신 관찰 사실과 지원 방향 중심으로 사용해 주세요.';
+  }
+  return `${doc.title}\n${doc.badge}\n\n` + sections.map(s => `[${s.title}]\n${s.text}`).join('\n\n');
+}
+
 function CopyAllButton({ doc }) {
   const showToast = useToast();
+  const [copyMode, setCopyMode] = useState('paragraph');
   const handleCopyAll = () => {
-    const text = `${doc.title}\n${doc.badge}\n\n` + doc.sections.map(s => `[${s.title}]\n${s.text}`).join('\n\n');
+    const text = formatDocumentForCopy(doc, copyMode);
     navigator.clipboard.writeText(text);
     showToast('전체 복사했어요! 📋', 'success');
   };
+  const modes = [
+    ['paragraph', '문단형'],
+    ['table', '표형'],
+    ['short', '짧은형'],
+    ['detail', '자세한형'],
+  ];
   return (
-    <button onClick={handleCopyAll} className="no-print" style={{
-      width: '100%', padding: '14px', borderRadius: 14, background: 'var(--gray-800)', color: 'white',
-      fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 4,
-    }}>
-      <Copy size={16} /> 전체 복사하기
-    </button>
+    <div className="no-print" style={{ marginTop: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
+        {modes.map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setCopyMode(key)}
+            style={{
+              padding: '8px 6px',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 900,
+              background: copyMode === key ? 'var(--primary-light)' : 'var(--gray-100)',
+              color: copyMode === key ? 'var(--primary)' : 'var(--text-secondary)',
+              border: `1.5px solid ${copyMode === key ? 'var(--primary)' : 'transparent'}`,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <button onClick={handleCopyAll} style={{
+        width: '100%', padding: '14px', borderRadius: 14, background: 'var(--gray-800)', color: 'white',
+        fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+      }}>
+        <Copy size={16} /> {modes.find(([key]) => key === copyMode)?.[1]} 전체 복사
+      </button>
+    </div>
   );
 }
 

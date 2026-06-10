@@ -4,6 +4,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord } from '../utils/storage';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
+import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
 
@@ -686,6 +687,42 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   </div>
                 ))}
               </div>
+            </SettingCard>
+
+            <SettingCard title="실사용 샘플 테스트 세트">
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+                아래 샘플은 규칙 기반 자동 정리가 실제 교사 기록에서 흔히 만나는 상황을 안정적으로 처리하는지 확인하기 위한 기준 문장입니다.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, maxHeight: 360, overflowY: 'auto', paddingRight: 2 }}>
+                {RECORD_QUALITY_SAMPLES.map((sample, index) => (
+                  <div key={`${sample.category}-${index}`} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: 11 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--primary)' }}>{sample.category}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>#{index + 1}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{sample.text}</div>
+                  </div>
+                ))}
+              </div>
+            </SettingCard>
+
+            <SettingCard title="배포 후 점검표">
+              {[
+                'Vercel URL에서 새로고침 후 흰 화면 없이 첫 화면이 뜨는지 확인',
+                '모바일 화면에서 오늘, 기록하기, 문서함, 점검 탭이 겹치지 않는지 확인',
+                '샘플 기록 1개 저장 후 알림장, 상담자료, 성장요약, 문서 후보가 갱신되는지 확인',
+                '문서함에서 보육일지와 부모상담자료를 생성하고 문서 이력에 저장되는지 확인',
+                '문서 이력 검색, 유형 필터, 아이 필터, 즐겨찾기 필터가 동작하는지 확인',
+                '백업 파일 다운로드 후 다른 브라우저에서 복구가 되는지 확인',
+                '기록 수정/삭제 후 자동화 이력에 반영 문구가 남는지 확인',
+              ].map((item, index) => (
+                <div key={item} style={{ display: 'flex', gap: 9, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>
+                    {index + 1}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{item}</span>
+                </div>
+              ))}
             </SettingCard>
           </div>
         )}

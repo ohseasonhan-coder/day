@@ -745,6 +745,10 @@ export function exportBackup() {
     records: getRecords(),
     documents: getDocuments(),
     settings: getSettings(),
+    routines: getRoutines(),
+    formTemplates: getFormTemplates(),
+    automationState: getAutomationState(),
+    automationLog: getAutomationLog(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -771,6 +775,9 @@ export function importBackup(jsonString) {
     if (data.records)   saveRecords(data.records);
     if (data.documents) saveDocuments(data.documents);
     if (data.settings)  saveSettings(data.settings);
+    if (data.routines)  storage.set(KEYS.ROUTINES, data.routines);
+    if (data.formTemplates) saveFormTemplates(data.formTemplates);
+    if (data.automationLog) storage.set(KEYS.AUTOMATION_LOG, data.automationLog);
     rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
 
     return {
@@ -779,6 +786,8 @@ export function importBackup(jsonString) {
         children:  (data.children  || []).length,
         records:   (data.records   || []).length,
         documents: (data.documents || []).length,
+        routines:  (data.routines || []).length,
+        forms:     (data.formTemplates || []).length,
         exportedAt: data.exportedAt,
       },
     };
