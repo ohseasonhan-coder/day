@@ -88,11 +88,12 @@ export default function StatsPage({ onNavigate, isDesktop }) {
 
   // ── 발달 영역별 추이 (최근 6개월) ─────────────────────────────────────
   const TREND_AREAS = [
-    { key: 'peer',   label: '사회관계', cats: ['peer'],          color: '#9C27B0' },
-    { key: 'comm',   label: '의사소통', cats: ['comm'],          color: '#4F7FFF' },
-    { key: 'body',   label: '신체건강', cats: ['body','habit'],  color: '#4CAF50' },
-    { key: 'art',    label: '예술경험', cats: ['art'],           color: '#E91E9A' },
-    { key: 'nature', label: '자연탐구', cats: ['nature','play'], color: '#FF8C42' },
+    { key: 'body',   label: '신체운동·건강',      cats: ['body'],           color: '#4CAF50' },
+    { key: 'nature', label: '자연탐구',           cats: ['nature','play'],  color: '#FF8C42' },
+    { key: 'art',    label: '예술경험',           cats: ['art'],            color: '#E91E9A' },
+    { key: 'peer',   label: '사회관계',           cats: ['peer'],           color: '#9C27B0' },
+    { key: 'comm',   label: '의사소통',           cats: ['comm'],           color: '#4F7FFF' },
+    { key: 'habit',  label: '일상생활(기본생활습관)', cats: ['habit'],         color: '#00B4D8' },
   ];
   const trendData = useMemo(() => {
     const months = [];
