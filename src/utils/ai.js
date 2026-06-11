@@ -59,21 +59,21 @@ const CATEGORY_RULES = [
   {
     id: 'comm',
     label: '의사소통',
-    keywords: ['말', '말했', '얘기', '이야기', '물어봤', '질문', '대답', '표현', '설명', '"', "'",
+    keywords: ['말을', '말로', '말했', '얘기', '이야기', '물어봤', '질문', '대답', '표현', '설명', '"', "'",
       '말하', '소리', '울면서', '소리쳤', '목소리', '속삭', '발표', '읽', '글자', '책',
       '단어', '문장', '이름', '불렀'],
   },
   {
     id: 'nature',
     label: '자연탐구',
-    keywords: ['벌레', '곤충', '개미', '나비', '장수풍뎅이', '달팽이', '꽃', '나무', '풀', '씨앗',
-      '관찰', '돋보기', '날씨', '비', '눈', '바람', '하늘', '구름', '흙', '돌', '모래',
-      '물', '색깔 변', '숫자', '세', '크기', '비교', '왜', '어떻게', '궁금'],
+    keywords: ['벌레', '곤충', '개미', '나비', '장수풍뎅이', '달팽이', '꽃', '나무', '풀잎', '씨앗',
+      '관찰', '돋보기', '날씨', '비가', '눈이 내', '눈사람', '바람', '하늘', '구름', '흙', '돌멩이', '모래',
+      '물놀이', '물을', '물이', '색깔 변', '숫자', '수를 세', '세어보', '크기', '비교', '왜', '어떻게', '궁금'],
   },
   {
     id: 'art',
     label: '예술경험',
-    keywords: ['그림', '색', '색깔', '칠하', '붙이', '오리', '만들', '찰흙', '클레이', '노래', '음악',
+    keywords: ['그림', '색', '색깔', '칠하', '붙이', '오리', '만들', '찰흙', '클레이', '점토', '물감', '크레파스', '색종이', '노래', '음악',
       '춤', '리듬', '박수', '악기', '피아노', '북', '마라카스', '무대', '공연', '역할놀이',
       '표현', '꾸미', '디자인'],
   },
@@ -81,7 +81,7 @@ const CATEGORY_RULES = [
     id: 'body',
     label: '신체운동',
     keywords: ['달리', '뛰', '점프', '던지', '잡', '기어', '올라', '내려', '균형', '바깥놀이',
-      '미끄럼틀', '그네', '철봉', '줄넘기', '공', '자전거', '가위', '풀', '젓가락', '소근육',
+      '미끄럼틀', '그네', '철봉', '줄넘기', '공을', '공 던', '공놀이', '자전거', '가위', '젓가락', '소근육',
       '대근육', '힘'],
   },
   {
@@ -93,7 +93,7 @@ const CATEGORY_RULES = [
   {
     id: 'special',
     label: '특이사항',
-    keywords: ['열', '아프', '다쳤', '넘어', '긁', '물렸', '투약', '약', '병원', '부모님', '연락',
+    keywords: ['열이', '발열', '아프', '아파', '다쳤', '넘어', '긁', '물렸', '투약', '약을', '약 복용', '병원', '부모님', '연락',
       '울음', '분리불안', '낯선', '적응', '안전', '위험', '사고', '갑자기', '특이', '오늘따라'],
   },
 ];
@@ -103,7 +103,7 @@ const DEV_AREA_RULES = [
   { id: '의사소통', keywords: ['말', '얘기', '이야기', '표현', '질문', '대답', '"', "'", '읽', '글자', '단어', '발표', '설명'] },
   { id: '사회관계', keywords: ['친구', '함께', '같이', '갈등', '협력', '양보', '배려', '차례', '어울', '도와', '나눠', '화해'] },
   { id: '예술경험', keywords: ['그림', '색', '노래', '음악', '춤', '만들', '꾸미', '표현', '역할', '붙이', '오리'] },
-  { id: '자연탐구', keywords: ['관찰', '탐색', '궁금', '왜', '비교', '크기', '수', '숫자', '자연', '곤충', '식물', '날씨', '실험'] },
+  { id: '자연탐구', keywords: ['관찰', '탐색', '궁금', '왜', '비교', '크기', '수를 세', '숫자', '자연', '곤충', '식물', '날씨', '실험'] },
   { id: '기본생활습관', keywords: ['밥', '식사', '잠', '낮잠', '화장실', '씻', '정리', '치우', '스스로', '혼자', '옷', '가방'] },
 ];
 
@@ -385,7 +385,8 @@ Object.entries(PRACTICAL_DEV_AREA_KEYWORDS).forEach(([id, keywords]) => {
 
 // ─── 부정 표현 순화 사전 ───────────────────────────────────────────
 const SOFTEN_MAP = [
-  { pattern: /산만하다|산만해(?=[\s.,!?]|$)|집중을 못|집중하지 못|집중 안/g, replace: '관심이 다양한 곳으로 이동하는 모습이 있다' },
+  { pattern: /집중을 못\s*했다|집중하지 못했다/g, replace: '주의를 모으는 데 시간이 필요하였다' },
+  { pattern: /산만하다|산만해(?=[\s.,!?]|$)/g, replace: '관심이 다양한 곳으로 이동하는 모습이 있다' },
   { pattern: /말을 안 듣는다|말을 안 들어|말을 듣지 않|지시를 따르지 않/g, replace: '교사의 안내를 반복적으로 경험하고 있다' },
   { pattern: /친구를 때렸다|친구를 때렸|때리는 행동|손으로 쳤/g, replace: '갈등 상황에서 손으로 표현하는 모습이 있었다' },
   { pattern: /고집이 세다|고집이 강|고집을 부려|억지를 쓴/g, replace: '자신의 생각과 요구를 분명하게 표현한다' },
@@ -397,7 +398,7 @@ const SOFTEN_MAP = [
   { pattern: /소리를 지른다|소리를 질렀|소리 질러/g, replace: '큰 목소리로 자신의 감정을 표현하는 모습이 있다' },
   { pattern: /말이 느리다|말이 늦다|언어가 느린|발음이 안 좋|발음이 부정확/g, replace: '언어 표현이 발달하는 과정에 있으며 교사의 지원이 이루어지고 있다' },
   { pattern: /못 한다|할 줄 모른다|어려워한다/g, replace: '아직 경험이 적어 교사의 도움을 받아 익히고 있다' },
-  { pattern: /빼앗았다|빼앗으려 했다|가져갔다/g, replace: '원하는 놀잇감에 관심을 보이며 사용하고 싶어 하는 모습을 보였다' },
+  { pattern: /빼앗았다|빼앗으려 했다/g, replace: '가져가고 싶어 하는 모습을 보였다' },
   { pattern: /울고불고|떼썼다|떼를 부렸다/g, replace: '속상한 마음을 울음과 말로 표현하는 모습이 있었다' },
   { pattern: /짜증냈다|짜증을 냈다|화냈다|화를 냈다/g, replace: '불편한 감정을 표정과 말로 표현하는 모습이 있었다' },
   { pattern: /안 하려고 했다|하기 싫어했다|거부했다/g, replace: '활동 참여에 조심스러운 모습을 보이며 시간이 필요하였다' },
@@ -410,8 +411,9 @@ const SOFTEN_MAP = [
   { pattern: /싫다고 했다|싫어했다/g, replace: '자신의 선호와 감정을 말로 표현하였다' },
   { pattern: /잘기다린다|잘 기다린다/g, replace: '차례를 기다리는 모습이 보였다' },
   { pattern: /잘한다/g, replace: '익숙하게 시도하는 모습이 보였다' },
-  { pattern: /던졌다|집어던졌다|던져버렸다/g, replace: '불편한 감정을 행동으로 표현하는 모습이 있었다' },
-  { pattern: /밀쳤다|밀었다|잡아당겼다/g, replace: '또래와의 거리 조절이 필요한 상황에서 몸으로 표현하는 모습이 있었다' },
+  { pattern: /집어던졌다|던져버렸다|던졌다/g, replace: '던지며 불편한 감정을 표현하였다' },
+  { pattern: /밀쳤다|잡아당겼다/g, replace: '또래와의 거리 조절이 필요한 상황에서 몸으로 표현하는 모습이 있었다' },
+  { pattern: /(^|[^내들])밀었다/g, replace: '$1밀며 또래와의 거리 조절이 필요한 모습을 보였다' },
   { pattern: /울보|예민하다|예민해(?=[\s.,!?]|$)/g, replace: '감정과 주변 변화에 민감하게 반응하는 모습이 있다' },
   { pattern: /말이 많다|계속 말한다/g, replace: '자신의 생각을 적극적으로 말로 표현하는 모습이 있다' },
   { pattern: /참견한다|끼어든다/g, replace: '주변 놀이와 대화에 관심을 보이며 참여하고 싶어 하는 모습이 있다' },
@@ -577,7 +579,7 @@ POSITIVE_REPHRASE_MAP.push(
   { pattern: /친구를 달래/g, replace: '친구의 마음을 살피며 달래는 모습을 보였다' },
   { pattern: /역할을 바꾸자/g, replace: '"역할을 바꾸자"라고 제안하며 놀이를 조율하였다' },
   { pattern: /내 생각은/g, replace: '"내 생각은"이라고 말하며 자신의 의견을 표현하였다' },
-  { pattern: /선생님/g, replace: '교사에게 관심을 보이며' },
+  { pattern: /선생님/g, replace: '교사' },
   { pattern: /사진을 보고/g, replace: '사진을 보며 경험을 회상하고' },
   { pattern: /작품을 보여/g, replace: '완성한 작품을 보여주며 표현 과정을 나누었다' }
 );
@@ -669,20 +671,27 @@ Object.entries(AI_LIKE_RULE_PACK.devAreas).forEach(([id, keywords]) => {
 SOFTEN_MAP.push(...AI_LIKE_RULE_PACK.soften);
 POSITIVE_REPHRASE_MAP.push(...AI_LIKE_RULE_PACK.positive);
 
+// 따옴표 안 아이 발화는 원문 그대로 두고, 교사 서술 부분에만 변환 규칙을 적용한다
+function applyOutsideQuotes(text, rules) {
+  return text
+    .split(/("[^"]*"|'[^']*')/g)
+    .map((part, i) => {
+      if (i % 2 === 1) return part;
+      let result = part;
+      for (const { pattern, replace } of rules) {
+        result = result.replace(pattern, replace);
+      }
+      return result;
+    })
+    .join('');
+}
+
 function softenText(text) {
-  let result = normalizeRecordText(text);
-  for (const { pattern, replace } of SOFTEN_MAP) {
-    result = result.replace(pattern, replace);
-  }
-  return result;
+  return applyOutsideQuotes(normalizeRecordText(text), SOFTEN_MAP);
 }
 
 function applyPositiveRephrase(text) {
-  let result = text;
-  for (const { pattern, replace } of POSITIVE_REPHRASE_MAP) {
-    result = result.replace(pattern, replace);
-  }
-  return result;
+  return applyOutsideQuotes(text, POSITIVE_REPHRASE_MAP);
 }
 
 function hasFinalConsonant(value) {
@@ -707,14 +716,24 @@ function subject(name) {
 const SPOKEN_TO_WRITTEN_RULES = [
   [/힘들어\s*했어요|힘들어\s*해요|힘들어요/g, '힘들어하였다🔚'],
   [/아파\s*해요|아파해요/g, '아파하였다🔚'],
-  [/거예요/g, '것이다'],
-  [/이에요/g, '이다'],
-  [/습니다\s+(?=[가-힣])/g, '다. '],
-  [/습니다/g, '다'],
-  [/(았|었|였|갔|났|왔|봤|줬|렸|졌|했|냈|쳤|섰|찼|탔|놨|뒀)어요\s+(?=[가-힣])/g, '$1다. '],
-  [/(았|었|였|갔|났|왔|봤|줬|렸|졌|했|냈|쳤|섰|찼|탔|놨|뒀)어요/g, '$1다'],
-  [/([가-힣])해요\s+(?=[가-힣])/g, '$1하였다. '],
-  [/([가-힣])해요(?=[\s.,!?]|$)/g, '$1하였다'],
+  [/울어요/g, '운다🔚'],
+  [/거예요/g, '것이다🔚'],
+  [/이에요/g, '이다🔚'],
+  [/입니다/g, '이다🔚'],
+  [/습니다/g, '다🔚'],
+  // 해요체·하네요체 과거형 종결 — ㅆ받침 음절(했/었/채웠/키웠 등) + 어요/네요
+  [/([가-힣])(어요|네요)(?!\s*라고)/g, (match, ch) => {
+    const code = ch.charCodeAt(0);
+    if (code < 0xac00 || code > 0xd7a3) return match;
+    return (code - 0xac00) % 28 === 20 ? `${ch}다🔚` : match;
+  }],
+  [/([가-힣])해요(?!\s*라고)(?=[\s.,!?]|$)/g, '$1하였다🔚'],
+  // 명사형 종결(메모식 입력) → 평서문
+  [/([았었였])음(?=[\s.,!?]|$)/g, '$1다🔚'],
+  [/먹음(?=[\s.,!?]|$)/g, '먹었다🔚'],
+  [/떨어짐(?=[\s.,!?]|$)/g, '떨어졌다🔚'],
+  [/뒤척임(?=[\s.,!?]|$)/g, '뒤척였다🔚'],
+  [/잠듦(?=[\s.,!?]|$)|잠듬(?=[\s.,!?]|$)/g, '잠들었다🔚'],
 ];
 
 // 따옴표 안 아이 발화("아파요" 등)는 원문 그대로 보존하고, 교사 서술 부분만 변환한다
@@ -728,7 +747,9 @@ function convertSpokenEndings(text) {
         result = result.replace(pattern, replace);
       }
       // 🔚 = 문장 경계 후보 표시 — 뒤에 새 절이 이어지면 마침표로 분리
-      return result.replace(/🔚\s+(?=[가-힣])/g, '. ').replace(/🔚/g, '');
+      result = result.replace(/🔚\s+(?=[가-힣])/g, '. ').replace(/🔚/g, '');
+      // 종결어미 뒤 문장부호 없이 새 절이 이어지는 문장 분리 ("빼앗았다 친구가 울자" 등)
+      return result.replace(/([았었였렸졌혔쳤났냈왔갔탔섰뒀])다\s+(?!싶|보니|보면|듯|라고|라는|하며)(?=[가-힣])/g, '$1다. ');
     })
     .join('');
 }
@@ -772,7 +793,7 @@ const TYPO_NORMALIZATION_RULES = [
   [/안\s*먹어/g, '먹지 않아'],
   [/안\s*먹으려/g, '먹지 않으려'],
   [/안\s*먹(?=[\s.,!?]|$)/g, '먹지 않았다'],
-  [/낮잠\s*안\s*잠|안잠/g, '휴식에 어려움'],
+  [/낮잠\s*안\s*잠|안잠/g, '쉽게 잠들지 못하고'],
   [/화장실\s*갓/g, '화장실에 갔다'],
   [/손씻|손\s*씻/g, '손 씻'],
   [/관찰햇/g, '관찰했다'],
@@ -803,6 +824,7 @@ const PHRASE_NORMALIZATION_RULES = [
   [/([가-힣])([A-Za-z0-9])/g, '$1 $2'],
   [/([A-Za-z0-9])([가-힣])/g, '$1 $2'],
   [/가치\s*놀/g, '같이 놀'],
+  [/가치\s*노/g, '같이 노'],
   [/순서르/g, '순서를'],
   [/기다렷/g, '기다렸'],
   [/안먹/g, '안 먹'],
@@ -841,6 +863,9 @@ function normalizeRecordText(text) {
   for (const [pattern, replace] of PHRASE_NORMALIZATION_RULES) {
     result = result.replace(pattern, replace);
   }
+
+  // 숫자+단위는 붙여쓰기 복원 ("37.8 도" → "37.8도")
+  result = result.replace(/(\d)\s+(도|개|명|번|살|회|층|분|초)(?=[\s.,!?]|$)/g, '$1$2');
 
   return result.replace(/\s+/g, ' ').trim();
 }
@@ -884,17 +909,17 @@ function observationDetail(text, limit = 110) {
   const clean = cleanObservationInput(text);
   if (!clean) return '상황에 참여하며 경험을 이어가는 모습이 관찰되었다';
   const trimmed = smartTruncate(clean, limit).replace(/[.。!?]+$/u, '');
+  // 끝맺음 변환은 행위 동사에만 — 형용사·교사 행동(기특했다, 칭찬했다 등)은 원문 유지
   return trimmed
     .replace(/말했다$/u, '말하는 모습이 관찰되었다')
-    .replace(/했다$/u, '하는 모습이 관찰되었다')
-    .replace(/하였다$/u, '하는 모습이 관찰되었다')
+    .replace(/(시도|참여|표현|사용|관찰|탐색|반복|연습|조작|구성|완성|시작|대답|요청|정리)(했다|하였다)$/u, '$1하는 모습이 관찰되었다')
     .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
 }
 
 // 각 장면 규칙의 중립적 맥락 프레임 — 원문에 없는 결론·해석 추가 금지
 const SCENE_FRAMES = {
   peerWait: '또래와의 놀이 중', peerConflict: '또래와의 놀이 중',
-  emotion: '놀이 상황에서', speech: '의사소통 상황에서',
+  emotion: '활동 중', speech: '의사소통 상황에서',
   selfHelp: '일상생활 중', meal: '식사 시간에', nap: '휴식 시간에',
   toilet: '화장실 이용 상황에서', natureExplore: '자연탐구 상황에서',
   artExpression: '예술 활동에서', grossMotor: '신체 활동 중',
@@ -929,16 +954,26 @@ const SCENE_FRAMES = {
   roleVoiceDrama: '극놀이 상황에서',
 };
 
+// 기록 맨 앞의 아이 이름(조사 유무 무관)을 제거 — "지우가 지우 ..." 중복 방지
+function stripLeadingName(text, name) {
+  const clean = String(name || '').trim();
+  if (!clean) return text;
+  const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`^${escaped}(이가|이|가|은|는|도)?\\s+`, 'u'), '');
+}
+
 // 장면 프레임(맥락) + 교사가 입력한 사실만 — 원문에 없는 결론·해석 추가 금지
 function makeSceneObservation(name, text, sceneRule) {
   const s = subject(name);
   const rule = sceneRule || findSceneRule(text);
   if (!rule) return null;
   const frame = SCENE_FRAMES[rule.id] || '활동 중';
-  const detail = observationDetail(text);
-  // 원문 첫머리가 프레임과 같은 맥락이면 프레임 생략 — "식사 시간에 점심시간에" 같은 중복 방지
+  const detail = observationDetail(stripLeadingName(text, name));
+  // 원문이 이미 장소·시간 맥락으로 시작하거나 프레임과 같은 맥락이면 프레임 생략
+  // — "식사 시간에 점심시간에", "예술 활동에서 바깥놀이에서" 같은 중복 방지
   const frameHead = frame.split(' ')[0].replace(/(에서|에|중)$/u, '');
-  const sentence = detail.slice(0, 14).includes(frameHead)
+  const startsWithContext = /^[가-힣]{1,8}(에서|에)\s/u.test(detail);
+  const sentence = startsWithContext || detail.slice(0, 14).includes(frameHead)
     ? `${s} ${detail}`
     : `${s} ${frame} ${detail}`;
   return finishSentence(sentence.replace(/[가-힣]+\s?시간에\s+([가-힣]+\s?시간에)/g, '$1'));
@@ -1074,7 +1109,7 @@ SCENE_RULES.push(
   },
   {
     id: 'mathPattern',
-    keywords: ['패턴', '규칙성', '분류 기준', '도형', '몇 개', '몇 번째', '첫 번째', '마지막', '무게', '양', '같은 것', '다른 것'],
+    keywords: ['패턴', '규칙성', '분류 기준', '도형', '몇 개', '몇 번째', '첫 번째', '무게', '양이 많', '양이 적', '같은 것', '다른 것'],
     parent: (s) => `${s} 놀이 속에서 수, 모양, 규칙성을 탐색하는 모습이 나타나고 있습니다. 같은 점과 다른 점을 찾아보며 비교하고 분류하는 경험을 하고 있어요.`,
     support: '놀이 자료를 수, 색, 모양, 크기 등 다양한 기준으로 나누어보게 하고, 아이가 발견한 규칙을 말로 표현할 수 있도록 질문한다.',
   },
@@ -1681,9 +1716,11 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     count: 5,
   });
 
+  const fallbackDetail = observationDetail(stripLeadingName(normalizedText, name));
+  const fallbackFrame = /^[가-힣]{1,8}(에서|에)\s/u.test(fallbackDetail) ? '' : `${CAT_FRAME[category] || '활동 중'} `;
   const observation =
     makeSceneObservation(name, normalizedText, sceneRule) ||
-    finishSentence(`${subject(name)} ${CAT_FRAME[category] || '활동 중'} ${observationDetail(normalizedText)}`);
+    finishSentence(`${subject(name)} ${fallbackFrame}${fallbackDetail}`);
 
   return {
     category,
