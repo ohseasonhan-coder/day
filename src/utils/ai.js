@@ -844,10 +844,61 @@ function finishSentence(text) {
   return clean ? `${clean}.` : '';
 }
 
-function observationDetail(text, limit = 90) {
+/* 문장·어절 경계를 지키며 자르기 — 입력 내용이 단어 중간에서 잘려나가지 않도록 */
+function smartTruncate(text, limit = 110) {
+  if (text.length <= limit) return text;
+  const slice = text.slice(0, limit);
+  const lastSentenceEnd = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '));
+  if (lastSentenceEnd >= 30) return slice.slice(0, lastSentenceEnd + 1).trim();
+  const lastSpace = slice.lastIndexOf(' ');
+  return (lastSpace >= 30 ? slice.slice(0, lastSpace) : slice).trim();
+}
+
+function splitSentences(text) {
+  const out = [];
+  let buf = '';
+  for (const ch of text) {
+    buf += ch;
+    if (ch === '.' || ch === '!' || ch === '?') { out.push(buf.trim()); buf = ''; }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
+
+/* 종결형(~다)을 연결형(~으며/~하며)으로 변환. 변환 불가 시 null */
+function toConnective(fragment) {
+  const t = fragment.replace(/[.。!?]+$/g, '').trim();
+  const m = t.match(/^([\s\S]*?)([가-힣])다$/);
+  if (!m) return null;
+  const ch = m[2];
+  const code = ch.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return null;
+  const jong = (code - 0xac00) % 28;
+  if (jong === 20) return `${m[1]}${ch}으며`; // ㅆ받침(과거형: 했/었/았/갔/냈…) → ~으며
+  if (ch === '하') return `${m[1]}하며`;       // ~하다 → ~하며
+  if (ch === '이') return `${m[1]}이며`;       // ~이다 → ~이며
+  if (jong === 0) return `${m[1]}${ch}며`;     // 받침 없음(보이다 등) → ~며
+  return null;
+}
+
+/* 장면 템플릿의 문장 '중간'에 들어가는 연결형 detail.
+   마지막 서술어를 ~으며 형태로 바꿔 뒤 문장과 자연스럽게 이어지게 하고,
+   변환이 안 되는 형태는 문장을 끝맺은 뒤 '이 과정에서'로 이어붙인다. */
+function observationDetailConnective(text, limit = 110) {
+  const clean = cleanObservationInput(text);
+  if (!clean) return '상황에 참여하며';
+  const trimmed = smartTruncate(clean, limit);
+  const sentences = splitSentences(trimmed);
+  const last = sentences.pop() || '';
+  const connective = toConnective(last);
+  if (connective) return [...sentences, connective].join(' ');
+  return `${finishSentence(trimmed)} 이 과정에서`;
+}
+
+function observationDetail(text, limit = 110) {
   const clean = cleanObservationInput(text);
   if (!clean) return '상황에 참여하며 경험을 이어가는 모습이 관찰되었다';
-  const trimmed = clean.length > limit ? clean.slice(0, limit).trim() : clean;
+  const trimmed = smartTruncate(clean, limit);
   return trimmed
     .replace(/했다$/u, '하는 모습이 관찰되었다')
     .replace(/하였다$/u, '하는 모습이 관찰되었다')
@@ -857,7 +908,7 @@ function observationDetail(text, limit = 90) {
 
 function makeSceneObservation(name, text) {
   const s = subject(name);
-  const detail = observationDetail(text);
+  const detail = observationDetailConnective(text);
   const sceneRule = findSceneRule(text);
   if (!sceneRule) return null;
 

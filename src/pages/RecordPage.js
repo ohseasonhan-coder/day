@@ -670,8 +670,8 @@ function getWritingTips(rawText, selectedChild, recordType) {
   }
   if (text.length < 20) tips.push({ key: 'short', level: 'warn', text: '내용이 짧아요. 어떤 상황이었는지 한 문장 더 넣으면 좋아요.' });
   if (!/[.!?。요다]\s*$/.test(text)) tips.push({ key: 'sentence', level: 'info', text: '문장 끝을 마무리하면 자동 정리 결과가 더 안정적이에요.' });
-  if (!/(교사|선생님|안내|지원|격려|도움|중재|제안)/.test(text)) tips.push({ key: 'support', level: 'info', text: '교사 지원이 빠져 있어요. “교사가 ○○하도록 안내하였다”를 추가해 보세요.' });
-  if (!/(말|표현|이야기|질문|대답|울음|속상|기쁨|관심|시도)/.test(text)) tips.push({ key: 'reaction', level: 'info', text: '아이의 말, 표정, 감정, 시도를 넣으면 관찰일지 문장이 더 살아나요.' });
+  if (!/(교사|선생님|안내|지원|격려|도움|중재|제안|모델링|토닥|기다려 주|시범)/.test(text)) tips.push({ key: 'support', level: 'info', text: '교사 지원이 빠져 있어요. “교사가 ○○하도록 안내하였다”를 추가해 보세요.' });
+  if (!REACTION_PATTERN.test(text)) tips.push({ key: 'reaction', level: 'info', text: '아이의 말, 표정, 감정, 시도를 넣으면 관찰일지 문장이 더 살아나요. 아래 예시를 눌러 추가해 보세요.' });
   if (recordType === 'notice' && !/(가정|부모|전달|연계|안내)/.test(text)) tips.push({ key: 'notice', level: 'info', text: '알림장은 부모에게 전달할 변화나 가정 연계 문장을 함께 넣으면 좋아요.' });
   if (recordType === 'special' && !/(시간|부위|상태|확인|연락|휴식|투약|안전)/.test(text)) tips.push({ key: 'special', level: 'warn', text: '특이사항은 시간, 상태, 교사 조치가 있으면 기록으로 쓰기 좋아요.' });
   if (/(못|안 |싫|때렸|뺏|울|고집|산만|문제)/.test(text)) tips.push({ key: 'soft', level: 'good', text: '판단 표현이 있어도 저장 시 관찰 사실 중심으로 순화됩니다.' });
@@ -679,13 +679,27 @@ function getWritingTips(rawText, selectedChild, recordType) {
   return tips.slice(0, 4);
 }
 
+// 아이 반응 감지 — 감정·표정·몸짓·언어·행동 반응을 폭넓게 인식
+const REACTION_PATTERN = new RegExp([
+  // 언어 반응
+  '말|표현|이야기|질문|대답|얘기|물었|불렀|외치|소리|노래|흥얼|읊|따라 말|"',
+  // 감정 (긍정)
+  '기뻐|기쁨|즐거|즐겁|신나|신이 나|좋아|행복|설레|뿌듯|재미|재밌|만족|편안|흥미|호기심',
+  // 감정 (부정·중립)
+  '속상|화가|화를|화내|짜증|무서|두려|싫어|싫다|슬퍼|슬픔|놀라|당황|부끄|긴장|불안|서운|억울|샘',
+  // 표정·몸짓
+  '웃|울|미소|표정|눈물|울먹|손뼉|박수|고개|끄덕|갸웃|가리키|안기|매달|손을 들|폴짝|점프|뛰',
+  // 행동 반응
+  '시도|도전|참여|관심|보였|반복|집중|몰입|멈칫|망설|머뭇|다가|거부|떼|바라보|쳐다|살피|관찰|만지|탐색|모방|따라 하|따라하|흉내|요청|도와달라|골랐|선택|결정',
+].join('|'));
+
 function getRecordQuality(rawText, recordType) {
   const text = String(rawText || '').trim();
   const checks = [
-    { key: 'scene', label: '상황', ok: text.length >= 18 || /(놀이|시간|활동|중|때|후|전)/.test(text) },
-    { key: 'reaction', label: '아이 반응', ok: /(말|표현|보였|하였다|시도|관심|울|웃|질문|대답|참여)/.test(text) },
-    { key: 'support', label: '교사 지원', ok: /(교사|선생님|안내|지원|격려|중재|제안|도움)/.test(text) },
-    { key: 'finish', label: '마무리', ok: /(후|뒤|이후|다시|경험|참여|진정|기다|정리|완료)/.test(text) },
+    { key: 'scene', label: '상황', ok: text.length >= 18 || /(놀이|시간|활동|중|때|후|전|등원|하원|식사|간식|낮잠|화장실|바깥|산책|영역|아침|오전|오후|교실)/.test(text) },
+    { key: 'reaction', label: '아이 반응', ok: REACTION_PATTERN.test(text) },
+    { key: 'support', label: '교사 지원', ok: /(교사|선생님|안내|지원|격려|중재|제안|도움|모델링|토닥|기다려 주|시범|읽어주)/.test(text) },
+    { key: 'finish', label: '마무리', ok: /(후|뒤|이후|다시|경험|참여|진정|기다|정리|완료|마무리|마쳤|끝냈|회복|안정|이어갔|돌아가)/.test(text) },
   ];
   if (recordType === 'special') {
     checks.push({ key: 'action', label: '조치', ok: /(확인|연락|휴식|소독|투약|관찰|전달|보고)/.test(text) });
@@ -717,6 +731,98 @@ function findSimilarRecords(text, records) {
     .filter(item => item.score >= 0.35 && item.days <= 14)
     .sort((a, b) => b.score - a.score)
     .map(item => item.record);
+}
+
+/* ── 부족한 항목별 예시 문장 풀 ──────────────────────────────────────────────
+   {child} 자리에는 선택된 아이 이름이 들어간다. 탭하면 입력창에 바로 추가. */
+const CHECK_EXAMPLES = {
+  scene: [
+    '자유놀이 시간에 블록 영역에서 놀이하던 중',
+    '점심 식사 시간에 새로운 반찬을 받았을 때',
+    '바깥놀이에서 미끄럼틀을 타던 중',
+    '등원 직후 가방을 정리하는 상황에서',
+    '미술 활동에서 물감을 처음 사용해 보던 중',
+    '정리정돈 시간에 놀잇감을 제자리에 두는 과정에서',
+    '친구들과 역할놀이를 하던 중',
+    '이야기 나누기 시간에 자기 차례가 되었을 때',
+  ],
+  reaction: [
+    '신이 나서 손뼉을 치며 크게 웃었다',
+    '"나도 같이 하고 싶어"라고 말하며 다가갔다',
+    '속상한 표정으로 잠시 머뭇거리다가 교사를 바라보았다',
+    '눈을 동그랗게 뜨고 호기심 가득한 표정으로 들여다보았다',
+    '고개를 끄덕이며 친구의 이야기를 끝까지 들었다',
+    '뿌듯한 표정으로 완성한 작품을 들어 보였다',
+    '처음에는 망설였지만 곧 용기를 내어 시도해 보았다',
+    '"왜요?"라고 물으며 궁금한 점을 표현했다',
+    '울먹이며 자신의 속상한 마음을 말로 표현했다',
+    '친구를 따라 같은 동작을 반복하며 즐거워했다',
+  ],
+  support: [
+    '교사가 아이의 마음을 읽어주며 차분히 기다려 주었다',
+    '교사가 순서를 안내하자 천천히 따라 해 보았다',
+    '교사가 "어떻게 하면 좋을까?"라고 물으며 생각을 도왔다',
+    '교사가 곁에서 격려하자 다시 시도하는 모습을 보였다',
+    '교사가 시범을 보여주며 함께 연습하였다',
+    '교사가 두 아이의 이야기를 번갈아 들어주며 중재하였다',
+  ],
+  finish: [
+    '이후 다시 놀이에 즐겁게 참여하였다',
+    '스스로 정리까지 마무리하고 뿌듯해하였다',
+    '진정된 후 친구에게 먼저 다가가 화해하였다',
+    '끝까지 완성한 뒤 친구들에게 소개하였다',
+    '다음에 또 해보고 싶다고 이야기하였다',
+    '안정을 되찾고 일과에 자연스럽게 참여하였다',
+  ],
+  action: [
+    '시간과 부위를 확인하고 즉시 냉찜질을 해주었다',
+    '상태를 관찰한 뒤 부모님께 전화로 안내드렸다',
+    '보건일지에 기록하고 하원 시 직접 전달드렸다',
+    '충분히 휴식하도록 안내하고 컨디션을 살폈다',
+  ],
+};
+
+/* 자동으로 예시가 바뀌고, 탭하면 입력창에 추가되는 한 줄 추천 */
+function RotatingExample({ checkKey, label, onInsert }) {
+  const pool = CHECK_EXAMPLES[checkKey] || [];
+  const [idx, setIdx] = useState(() => Math.floor(Math.random() * Math.max(1, pool.length)));
+
+  useEffect(() => {
+    if (pool.length < 2) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % pool.length), 4000);
+    return () => clearInterval(t);
+  }, [pool.length]);
+
+  if (!pool.length) return null;
+  const text = pool[idx % pool.length];
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--white)', border: '1px dashed var(--primary)', borderRadius: 10, padding: '7px 9px' }}>
+      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 900, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '3px 8px' }}>{label}</span>
+      <button
+        onClick={() => onInsert(text)}
+        key={idx}
+        className="slide-up"
+        style={{ flex: 1, textAlign: 'left', fontSize: 12, lineHeight: 1.5, color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 600 }}
+        title="누르면 입력창에 추가됩니다"
+      >
+        “{text}”
+      </button>
+      <button
+        onClick={() => setIdx(i => (i + 1) % pool.length)}
+        style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--gray-100)', border: 'none', borderRadius: 100, padding: '4px 8px', cursor: 'pointer', fontWeight: 700 }}
+        title="다른 예시 보기"
+      >
+        ↻
+      </button>
+      <button
+        onClick={() => onInsert(text)}
+        style={{ flexShrink: 0, fontSize: 11, color: 'var(--primary)', background: 'var(--primary-light)', border: 'none', borderRadius: 100, padding: '4px 10px', cursor: 'pointer', fontWeight: 900 }}
+      >
+        + 추가
+      </button>
+    </div>
+  );
 }
 
 function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
@@ -769,6 +875,15 @@ function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
           </div>
         ))}
       </div>
+
+      {/* 부족한 항목 예시 — 4초마다 자동으로 바뀌고, 누르면 입력창에 추가 */}
+      {quality.checks.filter(c => !c.ok).length > 0 && (
+        <div style={{ display: 'grid', gap: 5, marginBottom: 8 }}>
+          {quality.checks.filter(c => !c.ok).slice(0, 3).map(c => (
+            <RotatingExample key={c.key} checkKey={c.key} label={c.label} onInsert={onInsert} />
+          ))}
+        </div>
+      )}
 
       {/* 팁 */}
       <div style={{ display: 'grid', gap: 5, marginBottom: libSugs.length ? 10 : 0 }}>
