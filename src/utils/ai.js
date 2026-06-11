@@ -385,7 +385,7 @@ Object.entries(PRACTICAL_DEV_AREA_KEYWORDS).forEach(([id, keywords]) => {
 
 // ─── 부정 표현 순화 사전 ───────────────────────────────────────────
 const SOFTEN_MAP = [
-  { pattern: /산만하다|산만해|집중을 못|집중하지 못|집중 안/g, replace: '관심이 다양한 곳으로 이동하는 모습이 있다' },
+  { pattern: /산만하다|산만해(?=[\s.,!?]|$)|집중을 못|집중하지 못|집중 안/g, replace: '관심이 다양한 곳으로 이동하는 모습이 있다' },
   { pattern: /말을 안 듣는다|말을 안 들어|말을 듣지 않|지시를 따르지 않/g, replace: '교사의 안내를 반복적으로 경험하고 있다' },
   { pattern: /친구를 때렸다|친구를 때렸|때리는 행동|손으로 쳤/g, replace: '갈등 상황에서 손으로 표현하는 모습이 있었다' },
   { pattern: /고집이 세다|고집이 강|고집을 부려|억지를 쓴/g, replace: '자신의 생각과 요구를 분명하게 표현한다' },
@@ -406,13 +406,13 @@ const SOFTEN_MAP = [
   { pattern: /이기적이다|자기 것만 챙긴다/g, replace: '자신이 원하는 것을 분명히 표현하며 소유 개념을 경험하고 있다' },
   { pattern: /겁이 많다|무서워한다/g, replace: '새로운 상황에서 신중하게 반응하며 안정적인 안내가 필요하다' },
   { pattern: /느리다|꾸물거린다/g, replace: '자신의 속도에 맞추어 천천히 시도하는 모습이 있다' },
-  { pattern: /엉망으로|마구|대충/g, replace: '자신의 방식으로 탐색하고 표현하는 모습이 있다' },
+  { pattern: /엉망으로|마구|대충/g, replace: '자신의 방식으로' },
   { pattern: /싫다고 했다|싫어했다/g, replace: '자신의 선호와 감정을 말로 표현하였다' },
   { pattern: /잘기다린다|잘 기다린다/g, replace: '차례를 기다리는 모습이 보였다' },
   { pattern: /잘한다/g, replace: '익숙하게 시도하는 모습이 보였다' },
   { pattern: /던졌다|집어던졌다|던져버렸다/g, replace: '불편한 감정을 행동으로 표현하는 모습이 있었다' },
   { pattern: /밀쳤다|밀었다|잡아당겼다/g, replace: '또래와의 거리 조절이 필요한 상황에서 몸으로 표현하는 모습이 있었다' },
-  { pattern: /울보|예민하다|예민해/g, replace: '감정과 주변 변화에 민감하게 반응하는 모습이 있다' },
+  { pattern: /울보|예민하다|예민해(?=[\s.,!?]|$)/g, replace: '감정과 주변 변화에 민감하게 반응하는 모습이 있다' },
   { pattern: /말이 많다|계속 말한다/g, replace: '자신의 생각을 적극적으로 말로 표현하는 모습이 있다' },
   { pattern: /참견한다|끼어든다/g, replace: '주변 놀이와 대화에 관심을 보이며 참여하고 싶어 하는 모습이 있다' },
   { pattern: /욕심이 많다|양보를 안 한다/g, replace: '원하는 것을 분명하게 표현하며 나누어 사용하는 경험이 필요하다' },
@@ -438,7 +438,7 @@ SOFTEN_MAP.push(
   { pattern: /기분이 오락가락했다/g, replace: '상황 변화에 따라 감정 표현이 달라지는 모습이 있었다' },
   { pattern: /밥을 흘렸다|물을 쏟았다/g, replace: '식사 도구와 물건을 조절하여 사용하는 경험이 이어지고 있다' },
   { pattern: /소변 실수|대변 실수/g, replace: '배변 신호를 알아차리고 표현하는 경험이 이어지고 있다' },
-  { pattern: /잠투정/g, replace: '휴식 전 안정되는 데 시간이 필요한 모습이 있었다' },
+  { pattern: /잠투정[을이]?\s*(?:부렸다|심했다|했다|있었다)?/g, replace: '휴식 전 안정되는 데 시간이 필요한 모습이 있었다' },
   { pattern: /뛰어다녔다/g, replace: '몸을 활발히 움직이며 에너지를 표현하는 모습이 있었다' }
 );
 
@@ -461,45 +461,33 @@ SOFTEN_MAP.push(
 );
 
 const POSITIVE_REPHRASE_MAP = [
-  { pattern: /순서를 기다렸|순서를 기다리|차례를 기다렸|차례를 기다리/g, replace: '차례를 기다리며 놀이에 참여하였다' },
-  { pattern: /친구와 캠핑놀이를 하며/g, replace: '친구와 캠핑놀이를 함께 구성하며' },
+  // 원문 의미를 바꾸지 않는 안전한 표현 정돈만 — 어간·단어 일부를 통문장으로 바꾸는 규칙 금지
+  { pattern: /순서를 기다렸다/g, replace: '차례를 기다렸다' },
   { pattern: /친구와 함께/g, replace: '또래와 함께' },
-  { pattern: /나도 할래/g, replace: '"나도 할래"라고 자신의 의사를 표현하였다' },
-  { pattern: /움직인다/g, replace: '"움직인다"라고 말하며 변화를 관찰하였다' },
-  { pattern: /스스로/g, replace: '스스로 시도하며' },
-  { pattern: /도와줬다|도와주었다/g, replace: '친구를 도와주는 모습을 보였다' },
-  { pattern: /양보했다|양보하였다/g, replace: '친구에게 양보하는 모습을 보였다' },
-  { pattern: /정리했다|정리하였다/g, replace: '놀이 후 정리에 참여하였다' },
-  { pattern: /말했다/g, replace: '말로 표현하였다' },
+  { pattern: /도와줬다|도와주었다/g, replace: '도와주는 모습을 보였다' },
+  { pattern: /양보했다|양보하였다/g, replace: '양보하는 모습을 보였다' },
 ];
 
-POSITIVE_REPHRASE_MAP.push(
-  { pattern: /같이 쓰자/g, replace: '"같이 쓰자"라고 말하며 함께 사용하는 방법을 제안하였다' },
-  { pattern: /빌려줘/g, replace: '"빌려줘"라고 말하며 자신의 요구를 표현하였다' },
-  { pattern: /고마워/g, replace: '"고마워"라고 말하며 긍정적인 상호작용을 보였다' },
-  { pattern: /미안해/g, replace: '"미안해"라고 말하며 관계 회복을 시도하였다' },
-  { pattern: /왜/g, replace: '"왜?"라고 질문하며 원인에 관심을 보였다' },
-  { pattern: /어떻게/g, replace: '"어떻게?"라고 질문하며 방법을 궁금해하였다' },
-  { pattern: /내가 할래/g, replace: '"내가 할래"라고 말하며 스스로 해보려는 의사를 표현하였다' },
-  { pattern: /혼자 할래/g, replace: '"혼자 할래"라고 말하며 자립적인 시도를 보였다' },
-  { pattern: /도와주세요/g, replace: '"도와주세요"라고 말하며 필요한 도움을 요청하였다' },
-  { pattern: /다시 해볼래/g, replace: '"다시 해볼래"라고 말하며 재시도하려는 모습을 보였다' }
-);
-
-POSITIVE_REPHRASE_MAP.push(
-  { pattern: /내가 도와줄게/g, replace: '"내가 도와줄게"라고 말하며 친구를 도우려는 모습을 보였다' },
-  { pattern: /괜찮아/g, replace: '"괜찮아"라고 말하며 친구를 안심시키는 모습을 보였다' },
-  { pattern: /싫어/g, replace: '"싫어"라고 말하며 자신의 선호를 표현하였다' },
-  { pattern: /좋아/g, replace: '"좋아"라고 말하며 긍정적인 감정을 표현하였다' },
-  { pattern: /이건 뭐야/g, replace: '"이건 뭐야?"라고 질문하며 대상에 관심을 보였다' },
-  { pattern: /누가/g, replace: '"누가?"라고 질문하며 사람과 관계에 관심을 보였다' },
-  { pattern: /어디/g, replace: '"어디?"라고 질문하며 위치와 상황을 궁금해하였다' },
-  { pattern: /몇 개/g, replace: '"몇 개?"라고 말하며 수량에 관심을 보였다' },
-  { pattern: /같다/g, replace: '같은 점을 찾아 표현하였다' },
-  { pattern: /다르다/g, replace: '다른 점을 찾아 표현하였다' },
-  { pattern: /도와줄래/g, replace: '"도와줄래?"라고 말하며 도움을 요청하였다' },
-  { pattern: /기다려/g, replace: '"기다려"라고 말하며 상황 조절을 시도하였다' }
-);
+// 아이 발화가 분명한 관용 표현만 인용 처리한다 (원칙 1: 원문에 없는 발화·행동 생성 금지).
+// 가드: 앞이 따옴표·한글이면 제외(이미 인용됐거나 단어 일부), 뒤에 한글·따옴표·'라고'가 오면 제외.
+const SPEECH_QUOTE_REPHRASES = [
+  ['나도 할래', '자신의 의사를 표현하였다'],
+  ['내가 할래', '스스로 해보려는 의사를 표현하였다'],
+  ['혼자 할래', '자립적인 시도를 보였다'],
+  ['다시 해볼래', '재시도하려는 모습을 보였다'],
+  ['같이 쓰자', '함께 사용하는 방법을 제안하였다'],
+  ['빌려줘', '자신의 요구를 표현하였다'],
+  ['도와주세요', '필요한 도움을 요청하였다'],
+  ['도와줄래', '도움을 요청하였다'],
+  ['내가 도와줄게', '친구를 도우려는 모습을 보였다'],
+  ['이건 뭐야', '대상에 관심을 보였다'],
+];
+for (const [phrase, desc] of SPEECH_QUOTE_REPHRASES) {
+  POSITIVE_REPHRASE_MAP.push({
+    pattern: new RegExp(`(^|[^"'가-힣])${phrase}(?!["'가-힣?])(?!\\s*(?:라고|이?라|보|하|했|한|할|져|졌))`, 'g'),
+    replace: `$1"${phrase}"라고 말하며 ${desc}`,
+  });
+}
 
 const DENSE_CATEGORY_KEYWORDS = {
   peer: [
@@ -658,13 +646,13 @@ const AI_LIKE_RULE_PACK = {
     { pattern: /망설였다/g, replace: '새로운 시도 앞에서 신중하게 반응하였다' },
   ],
   positive: [
-    { pattern: /도움이 필요해/g, replace: '"도움이 필요해"라고 말하며 필요한 지원을 요청하였다' },
-    { pattern: /아파요/g, replace: '"아파요"라고 말하며 몸의 불편함을 표현하였다' },
-    { pattern: /속상해요/g, replace: '"속상해요"라고 말하며 자신의 감정을 표현하였다' },
-    { pattern: /무서워요/g, replace: '"무서워요"라고 말하며 불안한 감정을 표현하였다' },
-    { pattern: /기억나요/g, replace: '"기억나요"라고 말하며 이전 경험을 회상하였다' },
-    { pattern: /고개를 끄덕/g, replace: '고개를 끄덕이며 긍정의 의사를 표현하였다' },
-    { pattern: /고개를 저/g, replace: '고개를 저으며 거절의 의사를 표현하였다' },
+    { pattern: /(^|[^"'가-힣])도움이 필요해(?!["'가-힣])(?!\s*(?:라고|보|하|했|져))/g, replace: '$1"도움이 필요해"라고 말하며 필요한 지원을 요청하였다' },
+    { pattern: /(^|[^"'가-힣])아파요(?!["'가-힣])(?!\s*라고)/g, replace: '$1"아파요"라고 말하며 몸의 불편함을 표현하였다' },
+    { pattern: /(^|[^"'가-힣])속상해요(?!["'가-힣])(?!\s*라고)/g, replace: '$1"속상해요"라고 말하며 자신의 감정을 표현하였다' },
+    { pattern: /(^|[^"'가-힣])무서워요(?!["'가-힣])(?!\s*라고)/g, replace: '$1"무서워요"라고 말하며 불안한 감정을 표현하였다' },
+    { pattern: /(^|[^"'가-힣])기억나요(?!["'가-힣])(?!\s*라고)/g, replace: '$1"기억나요"라고 말하며 이전 경험을 회상하였다' },
+    { pattern: /고개를 끄덕였다/g, replace: '고개를 끄덕이며 긍정의 의사를 표현하였다' },
+    { pattern: /고개를 저었다/g, replace: '고개를 저으며 거절의 의사를 표현하였다' },
   ],
 };
 
@@ -714,6 +702,37 @@ function subject(name) {
   return `${clean}${hasFinalConsonant(clean) ? '이가' : '가'}`;
 }
 
+// 구어체(해요체·합쇼체) 종결을 관찰기록 문어체로 변환.
+// 종결어미 뒤에 문장부호 없이 다음 절이 이어지면 마침표를 넣어 문장을 분리한다.
+const SPOKEN_TO_WRITTEN_RULES = [
+  [/힘들어\s*했어요|힘들어\s*해요|힘들어요/g, '힘들어하였다🔚'],
+  [/아파\s*해요|아파해요/g, '아파하였다🔚'],
+  [/거예요/g, '것이다'],
+  [/이에요/g, '이다'],
+  [/습니다\s+(?=[가-힣])/g, '다. '],
+  [/습니다/g, '다'],
+  [/(았|었|였|갔|났|왔|봤|줬|렸|졌|했|냈|쳤|섰|찼|탔|놨|뒀)어요\s+(?=[가-힣])/g, '$1다. '],
+  [/(았|었|였|갔|났|왔|봤|줬|렸|졌|했|냈|쳤|섰|찼|탔|놨|뒀)어요/g, '$1다'],
+  [/([가-힣])해요\s+(?=[가-힣])/g, '$1하였다. '],
+  [/([가-힣])해요(?=[\s.,!?]|$)/g, '$1하였다'],
+];
+
+// 따옴표 안 아이 발화("아파요" 등)는 원문 그대로 보존하고, 교사 서술 부분만 변환한다
+function convertSpokenEndings(text) {
+  return text
+    .split(/("[^"]*"|'[^']*')/g)
+    .map((part, i) => {
+      if (i % 2 === 1) return part;
+      let result = part;
+      for (const [pattern, replace] of SPOKEN_TO_WRITTEN_RULES) {
+        result = result.replace(pattern, replace);
+      }
+      // 🔚 = 문장 경계 후보 표시 — 뒤에 새 절이 이어지면 마침표로 분리
+      return result.replace(/🔚\s+(?=[가-힣])/g, '. ').replace(/🔚/g, '');
+    })
+    .join('');
+}
+
 const TYPO_NORMALIZATION_RULES = [
   [/또레/g, '또래'],
   [/칭구|친고|친규/g, '친구'],
@@ -726,7 +745,8 @@ const TYPO_NORMALIZATION_RULES = [
   [/기달/g, '기다'],
   [/기다렷/g, '기다렸'],
   [/기다렷다|기다렸다아/g, '기다렸다'],
-  [/기다린다|기다림/g, '기다렸다'],
+  [/기다린다(?=[\s.,!?]|$)/g, '기다렸다'],
+  [/기다림(?=[\s.,!?]|$)/g, '기다렸다'],
   [/줄\s*을\s*섯/g, '줄을 섰'],
   [/줄\s*섯/g, '줄 섰'],
   [/빌여|빌러|빌려죠|빌려조/g, '빌려'],
@@ -734,12 +754,12 @@ const TYPO_NORMALIZATION_RULES = [
   [/양보햇/g, '양보했'],
   [/가저가|가져갓|가져감/g, '가져가'],
   [/빼았|빼앗/g, '빼앗'],
-  [/울엇|울었/g, '울었다'],
+  [/(울엇|울었)(?=[\s.,!?]|$)/g, '울었다'],
   [/울면서\s*말햇/g, '울면서 말했다'],
   [/속상햇|속상해햇/g, '속상해했다'],
   [/화냇/g, '화냈'],
   [/싫어햇/g, '싫어했다'],
-  [/말햇|말헀|말했/g, '말했다'],
+  [/(말햇|말헀|말했)(?=[\s.,!?]|$)/g, '말했다'],
   [/이야기햇|얘기햇/g, '이야기했다'],
   [/대답햇/g, '대답했다'],
   [/질문햇/g, '질문했다'],
@@ -747,8 +767,11 @@ const TYPO_NORMALIZATION_RULES = [
   [/스스로햇/g, '스스로 했다'],
   [/혼자햇/g, '혼자 했다'],
   [/정리햇|치웟/g, '정리했다'],
-  [/먹엇|먹었/g, '먹었다'],
-  [/안먹|안 먹/g, '먹는 것에 어려움'],
+  [/(먹엇|먹었)(?=[\s.,!?]|$)/g, '먹었다'],
+  [/안\s*먹고/g, '먹지 않고'],
+  [/안\s*먹어/g, '먹지 않아'],
+  [/안\s*먹으려/g, '먹지 않으려'],
+  [/안\s*먹(?=[\s.,!?]|$)/g, '먹지 않았다'],
   [/낮잠\s*안\s*잠|안잠/g, '휴식에 어려움'],
   [/화장실\s*갓/g, '화장실에 갔다'],
   [/손씻|손\s*씻/g, '손 씻'],
@@ -809,6 +832,9 @@ function normalizeRecordText(text) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  // 구어체 종결 변환은 맞춤법 규칙보다 먼저 — '말했어요'가 '말했다어요'로 깨지지 않도록
+  result = convertSpokenEndings(result);
+
   for (const [pattern, replace] of TYPO_NORMALIZATION_RULES) {
     result = result.replace(pattern, replace);
   }
@@ -857,11 +883,11 @@ function smartTruncate(text, limit = 110) {
 function observationDetail(text, limit = 110) {
   const clean = cleanObservationInput(text);
   if (!clean) return '상황에 참여하며 경험을 이어가는 모습이 관찰되었다';
-  const trimmed = smartTruncate(clean, limit);
+  const trimmed = smartTruncate(clean, limit).replace(/[.。!?]+$/u, '');
   return trimmed
+    .replace(/말했다$/u, '말하는 모습이 관찰되었다')
     .replace(/했다$/u, '하는 모습이 관찰되었다')
     .replace(/하였다$/u, '하는 모습이 관찰되었다')
-    .replace(/말했다$/u, '말로 표현하였다')
     .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
 }
 
@@ -909,7 +935,13 @@ function makeSceneObservation(name, text, sceneRule) {
   const rule = sceneRule || findSceneRule(text);
   if (!rule) return null;
   const frame = SCENE_FRAMES[rule.id] || '활동 중';
-  return finishSentence(`${s} ${frame} ${observationDetail(text)}`);
+  const detail = observationDetail(text);
+  // 원문 첫머리가 프레임과 같은 맥락이면 프레임 생략 — "식사 시간에 점심시간에" 같은 중복 방지
+  const frameHead = frame.split(' ')[0].replace(/(에서|에|중)$/u, '');
+  const sentence = detail.slice(0, 14).includes(frameHead)
+    ? `${s} ${detail}`
+    : `${s} ${frame} ${detail}`;
+  return finishSentence(sentence.replace(/[가-힣]+\s?시간에\s+([가-힣]+\s?시간에)/g, '$1'));
 }
 
 function includesAny(text, words) {
@@ -925,25 +957,25 @@ const SCENE_RULES = [
   },
   {
     id: 'peerConflict',
-    keywords: ['갈등', '빼앗', '가져가', '친구 것', '빌려', '밀', '때리', '방해', '화해', '미안'],
+    keywords: ['갈등', '빼앗', '가져가', '친구 것', '빌려', '밀었', '밀쳤', '밀치', '때리', '방해', '화해', '미안'],
     parent: (s) => `${s} 또래와의 놀이 속에서 자신의 요구를 표현하고 조율하는 경험을 하고 있습니다. 아직 원하는 것이 바로 이루어지지 않을 때 도움이 필요하지만, 교사의 안내를 통해 말로 요청하고 기다리는 방법을 익혀가고 있어요.`,
     support: '놀잇감 사용 순서를 시각적으로 안내하고, “빌려줘”, “다 쓰면 알려줘”, “같이 하자”와 같은 또래 간 요청 표현을 반복적으로 연습한다.',
   },
   {
     id: 'emotion',
-    keywords: ['울', '속상', '화', '짜증', '싫어', '서운', '불안', '무서워', '겁'],
+    keywords: ['울었', '울음', '울며', '울면서', '울려고', '울먹', '눈물', '속상', '화가 나', '화를 내', '화냈', '짜증', '싫어', '서운', '불안', '무서워', '겁먹', '겁이', '겁을'],
     parent: (s) => `${s} 자신의 감정을 표현하는 모습이 나타나고 있습니다. 감정이 커지는 순간에는 울음이나 강한 표현으로 나타나기도 하지만, 교사의 도움을 받아 마음을 말로 표현하는 경험을 하고 있어요.`,
     support: '감정이 커지는 상황에서 아이의 마음을 먼저 읽어주고, “속상했구나”, “기다리고 싶지 않았구나”처럼 감정을 말로 표현하는 모델링을 제공한다.',
   },
   {
     id: 'speech',
-    keywords: ['말', '이야기', '질문', '대답', '나도', '할래', '싫어', '좋아', '요청', '거절', '라고'],
+    keywords: ['말했', '말하', '말로', '말을', '이야기', '질문', '대답', '나도', '할래', '요청', '거절', '라고'],
     parent: (s) => `${s} 자신의 생각과 요구를 말로 표현하려는 모습이 늘고 있습니다. 원에서는 아이의 말을 충분히 기다려 주며 짧은 문장으로 표현해볼 수 있도록 돕고 있습니다.`,
     support: '아이의 표현을 충분히 기다린 뒤 짧은 문장으로 확장해 들려주고, 또래와 교사에게 자신의 생각을 말해볼 기회를 자주 제공한다.',
   },
   {
     id: 'selfHelp',
-    keywords: ['스스로', '혼자', '정리', '입', '신발', '가방', '지퍼', '단추', '외투', '양말'],
+    keywords: ['스스로', '혼자', '정리', '입었', '입으려', '입고', '입기', '벗', '신발', '가방', '지퍼', '단추', '외투', '양말'],
     parent: (s) => `${s} 일상 속에서 스스로 해보려는 시도가 보이고 있습니다. 작은 성공 경험을 통해 자신감이 쌓일 수 있도록 원에서도 차근차근 지원하고 있습니다.`,
     support: '스스로 시도할 수 있는 시간을 충분히 제공하고, 과정 중 필요한 부분만 짧게 도와 자립 경험이 이어지도록 지원한다.',
   },
@@ -955,13 +987,13 @@ const SCENE_RULES = [
   },
   {
     id: 'nap',
-    keywords: ['낮잠', '잠', '이불', '휴식', '잠자리', '토닥', '졸려', '기상'],
+    keywords: ['낮잠', '잠들', '잠이 들', '잠을', '못 자', '안 자', '이불', '휴식', '잠자리', '토닥', '졸려', '기상'],
     parent: (s) => `${s} 휴식 시간에 몸과 마음을 안정시키는 경험을 하고 있습니다. 컨디션과 하루의 흐름에 따라 잠드는 데 시간이 걸리기도 하지만, 안정적인 분위기 속에서 휴식 방법을 익혀가고 있어요.`,
     support: '낮잠 전 일정한 루틴과 조용한 환경을 제공하고, 잠들기 어려운 경우 짧은 휴식부터 경험할 수 있도록 개별적으로 지원한다.',
   },
   {
     id: 'toilet',
-    keywords: ['화장실', '배변', '소변', '대변', '응가', '쉬', '기저귀', '팬티', '실수'],
+    keywords: ['화장실', '배변', '소변', '대변', '응가', '쉬했', '쉬가 마려', '오줌', '기저귀', '팬티', '배변 실수'],
     parent: (s) => `${s} 배변과 관련된 신체 신호를 알아가고 있습니다. 원에서는 화장실 이용을 편안하게 경험할 수 있도록 안내하며, 표현하는 시도를 긍정적으로 격려하고 있어요.`,
     support: '배변 신호를 보일 때 편안하게 화장실을 이용할 수 있도록 안내하고, 성공 여부보다 표현하고 시도한 과정을 격려한다.',
   },
@@ -1084,7 +1116,7 @@ SCENE_RULES.push(
   },
   {
     id: 'healthCondition',
-    keywords: ['기침', '콧물', '열감', '체온', '피곤', '식욕 저하', '잠이 부족', '피부', '가려움', '컨디션 저하'],
+    keywords: ['기침', '콧물', '열감', '열이 있', '아파', '아프', '아픈', '몸살', '체온', '피곤', '식욕 저하', '잠이 부족', '피부', '가려움', '컨디션'],
     parent: (s) => `${s} 컨디션의 변화가 있어 원에서 상태를 세심히 살피고 있습니다. 활동 참여 정도와 휴식 필요 여부를 관찰하며 편안하게 지낼 수 있도록 지원하고 있어요.`,
     support: '활동 강도를 조절하고 휴식할 수 있는 공간을 제공하며, 컨디션 변화는 가정과 즉시 공유해 연계한다.',
   }
@@ -1291,13 +1323,13 @@ SCENE_RULES.push(
   },
   {
     id: 'timeCalendar',
-    keywords: ['달력', '요일', '날짜', '시간', '시계', '어제', '오늘', '내일', '첫 번째', '마지막'],
+    keywords: ['달력', '요일', '날짜를', '시계', '몇 시', '며칠', '어제와 오늘', '내일은', '시간 개념', '순서를 말하'],
     parent: (s) => `${s} 일과와 시간의 흐름에 관심을 보이고 있습니다. 어제, 오늘, 내일이나 활동 순서를 이야기하며 시간 개념을 생활 속에서 경험하고 있어요.`,
     support: '하루 일과표와 달력을 활용해 활동 순서를 함께 확인하고, 경험한 일을 시간 순서대로 말해보도록 돕는다.',
   },
   {
     id: 'spatialConcept',
-    keywords: ['왼쪽', '오른쪽', '앞으로', '뒤로', '위로', '아래로', '안쪽', '바깥쪽', '공간을 이동', '선 안에', '선 밖에'],
+    keywords: ['왼쪽', '오른쪽', '앞으로 가', '앞으로 걷', '뒤로 가', '뒤로 걷', '위로 올', '아래로 내', '안쪽', '바깥쪽', '공간을 이동', '선 안에', '선 밖에'],
     parent: (s) => `${s} 신체 활동과 놀이 속에서 위치와 방향을 경험하고 있습니다. 움직임을 통해 앞뒤, 위아래, 안팎 같은 공간 개념을 자연스럽게 익혀가고 있어요.`,
     support: '몸을 움직이는 놀이 안에서 위치와 방향 말을 함께 들려주고, 아이가 직접 이동하며 공간 개념을 경험하도록 지원한다.',
   },
@@ -1321,7 +1353,7 @@ SCENE_RULES.push(
   },
   {
     id: 'medicationCare',
-    keywords: ['투약', '약 복용', '투약 후', '약을 먹', '열 체크', '체온', '병원', '예방접종'],
+    keywords: ['투약', '약 복용', '투약 후', '약을 먹', '약 먹', '해열제', '열 체크', '열이', '체온', '병원', '예방접종'],
     parent: (s) => `${s} 건강 상태와 투약 상황을 원에서 세심하게 살피고 있습니다. 활동 참여와 휴식 정도를 조절하며 편안하게 지낼 수 있도록 지원하고 있어요.`,
     support: '투약 시간과 컨디션 변화를 기록하고, 활동 강도와 휴식 시간을 조절하며 가정과 긴밀히 공유한다.',
   },
@@ -1333,7 +1365,7 @@ SCENE_RULES.push(
   },
   {
     id: 'familyConnection',
-    keywords: ['가정연계', '부모상담', '부모 요청', '알림', '가정에서', '엄마가', '아빠가', '할머니', '형', '누나', '동생'],
+    keywords: ['가정연계', '부모상담', '부모 요청', '알림장', '가정에서', '엄마가', '아빠가', '할머니', '형이', '형아', '형과', '형하고', '누나', '동생'],
     parent: (s) => `${s} 가정에서의 경험을 원 생활과 연결해 표현하고 있습니다. 가족과 관련된 이야기를 나누며 자신의 생활 경험을 말로 정리하는 모습이 나타나고 있어요.`,
     support: '가정에서 있었던 일을 편안하게 이야기할 수 있도록 묻고, 원의 놀이와 연결해 아이의 경험이 확장되도록 지원한다.',
   }
@@ -1342,15 +1374,22 @@ SCENE_RULES.push(
 function findSceneRule(text) {
   const normalizedText = normalizeRecordText(text);
   const scored = SCENE_RULES
-    .map(rule => ({
-      rule,
-      score: rule.keywords.reduce((sum, keyword) => {
-        if (!normalizedText.includes(keyword)) return sum;
-        return sum + (keyword.length >= 4 ? 3 : 1);
-      }, 0),
-    }))
+    .map(rule => {
+      let score = 0;
+      let matched = 0;
+      let longest = 0;
+      for (const keyword of rule.keywords) {
+        if (!normalizedText.includes(keyword)) continue;
+        matched += 1;
+        longest = Math.max(longest, keyword.length);
+        score += keyword.length >= 4 ? 3 : keyword.length >= 2 ? 2 : 1;
+      }
+      // 서로 다른 키워드가 2개 이상 일치하면 해당 장면일 확신이 높다
+      if (matched >= 2) score += matched;
+      return { rule, score, matched, longest };
+    })
     .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.score - a.score || b.longest - a.longest || b.matched - a.matched);
   return scored[0]?.rule || null;
 }
 
@@ -1362,13 +1401,13 @@ function makeParentMessage(name, category, text, sceneRule) {
   if (includesAny(normalizedText, ['순서', '차례', '기다'])) {
     return `${s} 또래와 함께 놀이하며 차례를 기다리는 경험을 하고 있습니다. 원하는 놀이를 바로 하기 어려운 순간에도 교사의 안내를 받아 기다려보는 모습이 나타나고 있어요.`;
   }
-  if (includesAny(normalizedText, ['울', '속상', '화', '짜증', '싫어'])) {
+  if (includesAny(normalizedText, ['울었', '울음', '눈물', '속상', '화가 나', '화냈', '짜증', '싫어'])) {
     return `${s} 자신의 감정을 표현하는 모습이 나타나고 있습니다. 아직 감정이 커질 때는 울음이나 강한 표현으로 나타나기도 하지만, 교사의 도움을 받아 감정을 말로 표현하는 경험을 하고 있어요.`;
   }
-  if (includesAny(normalizedText, ['말', '이야기', '질문', '대답', '나도', '할래'])) {
+  if (includesAny(normalizedText, ['말했', '말하', '이야기', '질문', '대답', '나도', '할래'])) {
     return `${s} 자신의 생각과 요구를 말로 표현하려는 모습이 늘고 있습니다. 원에서는 아이의 말을 충분히 기다려 주며 짧은 문장으로 표현해볼 수 있도록 돕고 있습니다.`;
   }
-  if (includesAny(normalizedText, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
+  if (includesAny(normalizedText, ['스스로', '혼자', '정리', '입었', '입으려', '신발', '가방'])) {
     return `${s} 일상 속에서 스스로 해보려는 시도가 보이고 있습니다. 작은 성공 경험을 통해 자신감이 쌓일 수 있도록 원에서도 차근차근 지원하고 있습니다.`;
   }
   if (includesAny(normalizedText, ['곤충', '애벌레', '장수풍뎅이', '관찰', '돋보기', '왜', '궁금'])) {
@@ -1388,16 +1427,16 @@ function makeSupportPlan(category, text, sceneRule) {
   if (includesAny(normalizedText, ['순서', '차례', '기다'])) {
     return '또래와의 놀이에서 차례를 기다리는 경험을 반복적으로 제공하고, 기다리는 동안 할 수 있는 말과 행동을 교사가 구체적으로 모델링한다.';
   }
-  if (includesAny(normalizedText, ['울', '속상', '화', '짜증', '싫어'])) {
+  if (includesAny(normalizedText, ['울었', '울음', '눈물', '속상', '화가 나', '화냈', '짜증', '싫어'])) {
     return '감정이 커지는 상황에서 아이의 마음을 먼저 읽어주고, “속상했구나”, “기다리고 싶지 않았구나”처럼 감정을 말로 표현하는 모델링을 제공한다.';
   }
   if (includesAny(normalizedText, ['빼앗', '가져가', '친구 것', '빌려'])) {
     return '놀잇감 사용 순서를 시각적으로 안내하고, “빌려줘”, “다 쓰면 알려줘”와 같은 또래 간 요청 표현을 반복적으로 연습한다.';
   }
-  if (includesAny(normalizedText, ['스스로', '혼자', '정리', '입', '신발', '가방'])) {
+  if (includesAny(normalizedText, ['스스로', '혼자', '정리', '입었', '입으려', '신발', '가방'])) {
     return '스스로 시도할 수 있는 시간을 충분히 제공하고, 과정 중 필요한 부분만 짧게 도와 자립 경험이 이어지도록 지원한다.';
   }
-  if (includesAny(normalizedText, ['말', '질문', '대답', '표현', '나도', '할래'])) {
+  if (includesAny(normalizedText, ['말했', '말하', '질문', '대답', '표현', '나도', '할래'])) {
     return '아이의 표현을 충분히 기다린 뒤 짧은 문장으로 확장해 들려주고, 또래와 교사에게 자신의 생각을 말해볼 기회를 자주 제공한다.';
   }
   if (includesAny(normalizedText, ['곤충', '애벌레', '관찰', '돋보기', '궁금', '왜'])) {
@@ -1484,6 +1523,7 @@ function extractTags(text, categoryId, sceneRule) {
     { re: /라고 말|라고 이야기|라고 표현/, tag: '언어표현' },
     { re: /갈등|빼앗았|때렸|밀었/, tag: '또래갈등' },
     { re: /울었|울며|눈물/, tag: '감정표현' },
+    { re: /아파|아프|열이 나|열이 내|투약|체온|기침|콧물/, tag: '건강상태' },
   ];
   for (const { re, tag } of CONTENT_CHECKS) {
     if (tags.length >= 5) break;
