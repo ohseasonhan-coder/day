@@ -22,8 +22,9 @@ import EventsPage     from './pages/EventsPage';
 import ConsultPage    from './pages/ConsultPage';
 import ChecklistPage  from './pages/ChecklistPage';
 import OnboardingModal from './components/OnboardingModal';
+import SearchModal from './components/SearchModal';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search } from 'lucide-react';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
@@ -82,6 +83,7 @@ export default function App() {
   const [docsContext, setDocsContext]         = useState(null);
   const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -123,6 +125,17 @@ export default function App() {
     const ids      = new Set(recs.map(r => r.childId));
     setUnrecordedCount(children.filter(c => !ids.has(c.id)).length);
   }, [page, user]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        if (user) setShowSearch(s => !s);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -197,7 +210,7 @@ export default function App() {
             </div>
             {DESKTOP_NAV.map(({ id, label, icon: Icon }) => {
               const active = page === id;
-              const badge  = (id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
+              const badge  = (id === 'today' || id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
               return (
                 <button
                   key={id}
@@ -263,12 +276,21 @@ export default function App() {
                 </span>
               )}
             </div>
-            <button
-              onClick={() => handleNavigate('record')}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--primary)', color: 'white', padding: '9px 18px', borderRadius: 12, fontSize: 13, fontWeight: 800, boxShadow: '0 4px 14px rgba(79,127,255,0.3)' }}
-            >
-              <PenLine size={15} /> 기록하기
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={() => setShowSearch(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--gray-100)', color: 'var(--text-secondary)', padding: '9px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700 }}
+                title="전체 검색 (Ctrl+K)"
+              >
+                <Search size={15} /> 검색
+              </button>
+              <button
+                onClick={() => handleNavigate('record')}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--primary)', color: 'white', padding: '9px 18px', borderRadius: 12, fontSize: 13, fontWeight: 800, boxShadow: '0 4px 14px rgba(79,127,255,0.3)' }}
+              >
+                <PenLine size={15} /> 기록하기
+              </button>
+            </div>
           </header>
           <main className="page-enter" style={{ flex: 1 }}>
             <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -291,6 +313,7 @@ export default function App() {
             <button onClick={() => setShowInstallBanner(false)} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1 }}>×</button>
           </div>
         )}
+      <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
       </div>
     );
   }
@@ -307,12 +330,20 @@ export default function App() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--primary)', letterSpacing: '-0.5px' }}>쌤워크</span>
-        <button
-          onClick={() => setShowSettings(true)}
-          style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-600)' }}
-        >
-          <Settings size={18} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setShowSearch(true)}
+            style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-600)' }}
+          >
+            <Search size={18} />
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-600)' }}
+          >
+            <Settings size={18} />
+          </button>
+        </div>
       </header>
 
       <main className="page-enter" style={{ flex: 1, paddingBottom: 'calc(var(--bottom-nav) + 16px)' }}>
@@ -362,6 +393,7 @@ export default function App() {
           <button onClick={() => setShowInstallBanner(false)} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
       )}
+      <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
     </div>
   );
 }
