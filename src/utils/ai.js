@@ -854,34 +854,6 @@ function smartTruncate(text, limit = 110) {
   return (lastSpace >= 30 ? slice.slice(0, lastSpace) : slice).trim();
 }
 
-function splitSentences(text) {
-  const out = [];
-  let buf = '';
-  for (const ch of text) {
-    buf += ch;
-    if (ch === '.' || ch === '!' || ch === '?') { out.push(buf.trim()); buf = ''; }
-  }
-  if (buf.trim()) out.push(buf.trim());
-  return out;
-}
-
-/* 종결형(~다)을 연결형(~으며/~하며)으로 변환. 변환 불가 시 null */
-function toConnective(fragment) {
-  const t = fragment.replace(/[.。!?]+$/g, '').trim();
-  const m = t.match(/^([\s\S]*?)([가-힣])다$/);
-  if (!m) return null;
-  const ch = m[2];
-  const code = ch.charCodeAt(0);
-  if (code < 0xac00 || code > 0xd7a3) return null;
-  const jong = (code - 0xac00) % 28;
-  if (jong === 20) return `${m[1]}${ch}으며`; // ㅆ받침(과거형: 했/었/았/갔/냈…) → ~으며
-  if (ch === '하') return `${m[1]}하며`;       // ~하다 → ~하며
-  if (ch === '이') return `${m[1]}이며`;       // ~이다 → ~이며
-  if (jong === 0) return `${m[1]}${ch}며`;     // 받침 없음(보이다 등) → ~며
-  return null;
-}
-
-
 function observationDetail(text, limit = 110) {
   const clean = cleanObservationInput(text);
   if (!clean) return '상황에 참여하며 경험을 이어가는 모습이 관찰되었다';
