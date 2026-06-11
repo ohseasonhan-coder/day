@@ -153,7 +153,10 @@ const AREA_COLORS = {
 };
 
 const STORAGE_KEY = (uid, childId, ym) => `sw_${uid}_checklist_${childId}_${ym}`;
-function getUid() { try { return JSON.parse(localStorage.getItem('sw_user') || '{}').uid || 'demo'; } catch { return 'demo'; } }
+// storage.js와 동일한 키/필드 사용 (sw_session.userId)
+function getUid() {
+  try { return JSON.parse(localStorage.getItem('sw_session') || '{}').userId || 'default'; } catch { return 'default'; }
+}
 function loadChecks(childId, ym) {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY(getUid(), childId, ym)) || '{}'); } catch { return {}; }
 }
@@ -188,10 +191,12 @@ export default function ChecklistPage() {
 
   const toggle = useCallback((itemId) => {
     if (!selectedChild) return;
-    const next = { ...checks, [itemId]: !checks[itemId] };
-    setChecks(next);
-    saveChecks(selectedChild.id, ym, next);
-  }, [checks, selectedChild, ym]);
+    setChecks(prev => {
+      const next = { ...prev, [itemId]: !prev[itemId] };
+      saveChecks(selectedChild.id, ym, next);
+      return next;
+    });
+  }, [selectedChild, ym]);
 
   const child = selectedChild;
   const age   = child ? (child.age || 4) : 4;

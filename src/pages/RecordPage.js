@@ -726,17 +726,21 @@ function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
   const [showLib, setShowLib] = useState(false);
 
   // 라이브러리 문장 추천 — 텍스트 300ms 디바운스
+  // selectedChild 객체 대신 id/age/name 원시값을 의존성으로 사용해 참조 불안정 방지
+  const childId   = selectedChild?.id;
+  const childAge  = selectedChild?.age;
+  const childName = selectedChild?.name;
   useEffect(() => {
     if (!rawText || rawText.length < 8) { setLibSugs([]); return; }
     const t = setTimeout(() => {
       const { category, situation } = detectCategoryFromText(rawText);
-      const age = selectedChild?.age ? parseInt(selectedChild.age, 10) : 4;
+      const age = childAge ? parseInt(childAge, 10) : 4;
       const season = getCurrentSeason();
-      const sugs = generateSentences({ category, situation, age, childName: selectedChild?.name || '아동', count: 4, season });
+      const sugs = generateSentences({ category, situation, age, childName: childName || '아동', count: 4, season });
       setLibSugs(sugs);
     }, 300);
     return () => clearTimeout(t);
-  }, [rawText, selectedChild]);
+  }, [rawText, childId, childAge, childName]);
 
   // 품질 시각 레이블
   const qLabel = quality.score >= 75 ? '✨ 훌륭해요' : quality.score >= 50 ? '👍 좋아요' : quality.score >= 25 ? '⚠️ 조금 더' : '❌ 너무 짧아요';
@@ -804,9 +808,9 @@ function WritingCoach({ rawText, selectedChild, recordType, onInsert }) {
               <button
                 onClick={() => {
                   const { category, situation } = detectCategoryFromText(rawText);
-                  const age = selectedChild?.age ? parseInt(selectedChild.age, 10) : 4;
+                  const age = childAge ? parseInt(childAge, 10) : 4;
                   const season = getCurrentSeason();
-                  const sugs = generateSentences({ category, situation, age, childName: selectedChild?.name || '아동', count: 4, season });
+                  const sugs = generateSentences({ category, situation, age, childName: childName || '아동', count: 4, season });
                   setLibSugs(sugs);
                 }}
                 style={{ fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--gray-100)', border: 'none', borderRadius: 100, padding: '5px 12px', cursor: 'pointer', fontWeight: 700 }}

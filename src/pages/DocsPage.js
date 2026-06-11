@@ -1445,27 +1445,41 @@ function RecordPreview({ records, onNavigate }) {
 
 function DocumentSection({ title, text, accent, onUpdate }) {
   const { showToast } = useToast();
-  const [editing, setEditing]   = useState(false);
-  const [editVal, setEditVal]   = useState(text || '');
-  const [history, setHistory]   = useState([]);
-  const [showHist, setShowHist] = useState(false);
+  const [editing, setEditing]     = useState(false);
+  const [editVal, setEditVal]     = useState(text || '');
+  const [baseline, setBaseline]   = useState(text || ''); // 편집 시작 시점의 text
+  const [history, setHistory]     = useState([]);
+  const [showHist, setShowHist]   = useState(false);
 
-  useEffect(() => { setEditVal(text || ''); }, [text]);
+  // 편집 중이 아닐 때만 외부 text 변경을 반영 (편집 중 외부 재생성이 편집값을 덮어쓰지 않도록)
+  useEffect(() => {
+    if (!editing) {
+      setEditVal(text || '');
+      setBaseline(text || '');
+    }
+  }, [text, editing]);
+
+  const startEdit = useCallback(() => {
+    setBaseline(text || ''); // 편집 시작 시점 스냅샷
+    setEditVal(text || '');
+    setEditing(true);
+  }, [text]);
 
   const saveEdit = useCallback(() => {
-    if (editVal !== text) {
-      setHistory(prev => [text, ...prev].slice(0, 10));
+    if (editVal !== baseline) {
+      setHistory(prev => [baseline, ...prev].slice(0, 10));
       onUpdate?.(editVal);
     }
     setEditing(false);
-  }, [editVal, text, onUpdate]);
+  }, [editVal, baseline, onUpdate]);
 
   const restore = useCallback((old) => {
-    setHistory(prev => [editVal, ...prev.filter(h => h !== old)].slice(0, 10));
+    setHistory(prev => [text, ...prev.filter(h => h !== old)].slice(0, 10));
     onUpdate?.(old);
     setShowHist(false);
+    setEditing(false); // 편집 모드 닫기
     showToast('이전 버전으로 복원했어요', 'success');
-  }, [editVal, onUpdate, showToast]);
+  }, [text, onUpdate, showToast]);
 
   if (!text) return null;
   return (
@@ -1487,7 +1501,7 @@ function DocumentSection({ title, text, accent, onUpdate }) {
             </button>
           )}
           <button
-            onClick={() => { setEditing(p => !p); setEditVal(text); }}
+            onClick={() => { editing ? setEditing(false) : startEdit(); }}
             style={{ minHeight: 34, padding: '7px 10px', borderRadius: 10, background: editing ? 'var(--primary)' : 'var(--gray-100)', fontSize: 11, color: editing ? 'white' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
           >
             ✏️ {editing ? '취소' : '수정'}
