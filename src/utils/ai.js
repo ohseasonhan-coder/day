@@ -881,19 +881,6 @@ function toConnective(fragment) {
   return null;
 }
 
-/* 장면 템플릿의 문장 '중간'에 들어가는 연결형 detail.
-   마지막 서술어를 ~으며 형태로 바꿔 뒤 문장과 자연스럽게 이어지게 하고,
-   변환이 안 되는 형태는 문장을 끝맺은 뒤 '이 과정에서'로 이어붙인다. */
-function observationDetailConnective(text, limit = 110) {
-  const clean = cleanObservationInput(text);
-  if (!clean) return '상황에 참여하며';
-  const trimmed = smartTruncate(clean, limit);
-  const sentences = splitSentences(trimmed);
-  const last = sentences.pop() || '';
-  const connective = toConnective(last);
-  if (connective) return [...sentences, connective].join(' ');
-  return `${finishSentence(trimmed)} 이 과정에서`;
-}
 
 function observationDetail(text, limit = 110) {
   const clean = cleanObservationInput(text);
@@ -906,84 +893,51 @@ function observationDetail(text, limit = 110) {
     .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
 }
 
-function makeSceneObservation(name, text) {
+// 각 장면 규칙의 중립적 맥락 프레임 — 원문에 없는 결론·해석 추가 금지
+const SCENE_FRAMES = {
+  peerWait: '또래와의 놀이 중', peerConflict: '또래와의 놀이 중',
+  emotion: '놀이 상황에서', speech: '의사소통 상황에서',
+  selfHelp: '일상생활 중', meal: '식사 시간에', nap: '휴식 시간에',
+  toilet: '화장실 이용 상황에서', natureExplore: '자연탐구 상황에서',
+  artExpression: '예술 활동에서', grossMotor: '신체 활동 중',
+  fineMotor: '소근육 활동에서', rolePlay: '역할놀이에서',
+  constructPlay: '구성놀이에서', safety: '안전 관련 상황에서',
+  arrival: '등원 상황에서', cooperativePlan: '또래와 함께하는 놀이에서',
+  empathyComfort: '또래와의 관계에서', ruleGame: '규칙 있는 놀이에서',
+  bookLiteracy: '책과 글자 관련 상황에서', mathPattern: '수·모양 탐색 상황에서',
+  scienceExperiment: '탐색·실험 상황에서', sensoryExplore: '감각 탐색 상황에서',
+  creativeMake: '만들기·미술 활동에서', musicMovement: '음악·움직임 활동에서',
+  transitionRoutine: '활동 전이 상황에서', fieldTripEvent: '행사·특별활동 상황에서',
+  healthCondition: '컨디션 변화 상황에서', leadership: '또래와의 놀이에서',
+  withdrawal: '또래 관계 상황에서', problemSolving: '활동 중',
+  listeningTurn: '대화 상황에서', pronunciationVocabulary: '언어 표현 과정에서',
+  hygiene: '위생 관련 일상에서', personalBelongings: '개인 물건 관리 상황에서',
+  timeCalendar: '일과 상황에서', spatialConcept: '신체 활동과 놀이 중',
+  eventBirthday: '생일·축하 상황에서', trafficSafety: '교통안전 상황에서',
+  emergencyDrill: '안전교육 상황에서', medicationCare: '건강관리 상황에서',
+  sensorySensitivity: '감각 자극 상황에서', familyConnection: '가정 경험을 이야기하며',
+  sharingOwnership: '놀잇감 사용 상황에서', repairApology: '또래와의 상호작용 후',
+  attentionSeeking: '상호작용 상황에서', truthRetell: '상황을 설명하는 과정에서',
+  initiativeChoice: '선택 상황에서', persistenceRetry: '활동 과정에서',
+  foodUtensil: '식사 중', dressing: '옷 입고 벗기 상황에서',
+  cleanupResponsibility: '정리 상황에서', weatherSeason: '날씨·계절을 살피며',
+  measurementCompare: '자료를 탐색하며', pretendStory: '상상놀이에서',
+  observationToParticipation: '또래 놀이를 관찰하며', fatigueRest: '컨디션이 저하된 상황에서',
+  minorInjuryCare: '몸의 불편함이 있는 상황에서', nonverbalExpression: '의사소통 상황에서',
+  waitingLine: '줄서기·대기 상황에서', choiceHesitation: '선택이 필요한 상황에서',
+  teacherHelpRequest: '도움이 필요한 상황에서', noiseCrowdSensitivity: '환경 자극 상황에서',
+  textureMessyPlay: '촉감 탐색 상황에서', memoryRecall: '이전 경험을 회상하는 상황에서',
+  teacherHelping: '교실 생활 중', boundaryRule: '공간·약속 상황에서',
+  roleVoiceDrama: '극놀이 상황에서',
+};
+
+// 장면 프레임(맥락) + 교사가 입력한 사실만 — 원문에 없는 결론·해석 추가 금지
+function makeSceneObservation(name, text, sceneRule) {
   const s = subject(name);
-  const detail = observationDetailConnective(text);
-  const sceneRule = findSceneRule(text);
-  if (!sceneRule) return null;
-
-  const sceneObservations = {
-    peerWait: `${s} 또래와의 놀이에서 ${detail} 차례와 순서를 경험하는 모습이 관찰되었다.`,
-    peerConflict: `${s} 또래와의 갈등 상황에서 ${detail} 자신의 요구를 표현하고 조율하는 경험을 하였다.`,
-    emotion: `${s} 감정이 커지는 상황에서 ${detail} 자신의 마음을 표현하는 모습이 관찰되었다.`,
-    speech: `${s} 의사소통 상황에서 ${detail} 자신의 생각과 요구를 말로 표현하는 경험을 하였다.`,
-    selfHelp: `${s} 일상생활 중 ${detail} 스스로 해보려는 시도를 이어갔다.`,
-    meal: `${s} 식사 시간에 ${detail} 다양한 음식과 식사 습관을 경험하였다.`,
-    nap: `${s} 휴식 시간에 ${detail} 몸과 마음을 안정시키는 경험을 하였다.`,
-    toilet: `${s} 배변과 화장실 이용 상황에서 ${detail} 신체 신호를 표현하고 조절하는 경험을 하였다.`,
-    natureExplore: `${s} 자연탐구 상황에서 ${detail} 주변의 변화와 특성에 관심을 보였다.`,
-    artExpression: `${s} 예술 활동에서 ${detail} 자신의 생각과 느낌을 표현하였다.`,
-    grossMotor: `${s} 신체 활동 중 ${detail} 몸을 조절하며 움직이는 경험을 하였다.`,
-    fineMotor: `${s} 소근육 활동에서 ${detail} 손과 도구를 조절하여 사용하는 경험을 하였다.`,
-    rolePlay: `${s} 역할놀이에서 ${detail} 경험과 상상을 놀이로 표현하였다.`,
-    constructPlay: `${s} 구성놀이에서 ${detail} 자료를 조합하고 구조를 만들어보는 경험을 하였다.`,
-    safety: `${s} 안전 관련 상황에서 ${detail} 안전한 행동 방법을 익혀가는 모습이 관찰되었다.`,
-    arrival: `${s} 등원과 전이 상황에서 ${detail} 원 생활에 안정적으로 적응해가는 모습이 관찰되었다.`,
-    cooperativePlan: `${s} 또래와 함께하는 놀이에서 ${detail} 계획과 역할을 조율하는 경험을 하였다.`,
-    empathyComfort: `${s} 또래와의 관계에서 ${detail} 친구의 마음을 살피고 반응하는 모습이 관찰되었다.`,
-    ruleGame: `${s} 규칙이 있는 놀이에서 ${detail} 약속과 순서를 지키며 참여하였다.`,
-    bookLiteracy: `${s} 책과 글자에 관심을 보이며 ${detail} 문해 경험을 확장하였다.`,
-    mathPattern: `${s} 수·모양·규칙성 탐색 상황에서 ${detail} 비교하고 분류하는 경험을 하였다.`,
-    scienceExperiment: `${s} 실험과 탐색 과정에서 ${detail} 예상하고 확인하는 경험을 하였다.`,
-    sensoryExplore: `${s} 감각 탐색 상황에서 ${detail} 다양한 느낌과 자극을 경험하였다.`,
-    creativeMake: `${s} 만들기와 미술 활동에서 ${detail} 재료를 활용해 창의적으로 표현하였다.`,
-    musicMovement: `${s} 음악과 움직임 활동에서 ${detail} 리듬과 동작으로 표현하였다.`,
-    transitionRoutine: `${s} 활동 전이 상황에서 ${detail} 일과의 흐름과 다음 활동을 준비하는 경험을 하였다.`,
-    fieldTripEvent: `${s} 행사와 특별활동 상황에서 ${detail} 새로운 경험에 참여하였다.`,
-    healthCondition: `${s} 컨디션 변화가 있는 상황에서 ${detail} 자신의 상태를 표현하고 돌봄을 받는 경험을 하였다.`,
-    leadership: `${s} 또래 놀이에서 ${detail} 자신의 생각을 제안하고 놀이를 이끌어가려는 모습이 관찰되었다.`,
-    withdrawal: `${s} 또래 관계 상황에서 ${detail} 자신에게 편안한 거리와 참여 방식을 찾아가는 모습이 관찰되었다.`,
-    problemSolving: `${s} 문제 상황에서 ${detail} 해결 방법을 찾아보며 다시 시도하는 경험을 하였다.`,
-    listeningTurn: `${s} 대화 상황에서 ${detail} 말하는 차례와 듣는 차례를 경험하였다.`,
-    pronunciationVocabulary: `${s} 언어 표현 과정에서 ${detail} 말소리와 어휘를 확장해가는 모습이 관찰되었다.`,
-    hygiene: `${s} 위생 관련 일상에서 ${detail} 건강한 생활습관을 익혀가는 모습이 관찰되었다.`,
-    personalBelongings: `${s} 개인 물건을 챙기는 과정에서 ${detail} 자신의 물건을 알고 관리하는 경험을 하였다.`,
-    timeCalendar: `${s} 일과와 시간의 흐름에 관심을 보이며 ${detail} 시간 개념을 생활 속에서 경험하였다.`,
-    spatialConcept: `${s} 신체 활동과 놀이 속에서 ${detail} 위치와 방향을 경험하였다.`,
-    eventBirthday: `${s} 축하와 생일 상황에서 ${detail} 특별한 날의 의미와 관계 경험을 하였다.`,
-    trafficSafety: `${s} 교통안전 상황에서 ${detail} 안전하게 이동하는 방법을 익혀가는 모습이 관찰되었다.`,
-    emergencyDrill: `${s} 안전교육과 대피훈련 상황에서 ${detail} 비상 상황의 약속을 경험하였다.`,
-    medicationCare: `${s} 건강관리 상황에서 ${detail} 투약과 컨디션 조절을 위한 돌봄을 경험하였다.`,
-    sensorySensitivity: `${s} 감각 자극 상황에서 ${detail} 자신의 선호와 불편함을 표현하는 모습이 관찰되었다.`,
-    familyConnection: `${s} 가정 경험을 이야기하며 ${detail} 원 생활과 가족 경험을 연결해 표현하였다.`,
-    sharingOwnership: `${s} 놀잇감 사용 상황에서 ${detail} 또래와 함께 사용하는 방법을 경험하였다.`,
-    repairApology: `${s} 또래와의 상호작용 이후 ${detail} 관계를 회복하는 표현을 경험하였다.`,
-    attentionSeeking: `${s} 교사와 또래의 반응을 기대하며 ${detail} 관심을 적절히 요청하는 경험이 필요하였다.`,
-    truthRetell: `${s} 일어난 상황을 설명하는 과정에서 ${detail} 사실과 감정을 차분히 정리해보는 경험이 이루어졌다.`,
-    initiativeChoice: `${s} 활동 중 ${detail} 자신의 선택과 의사를 표현하며 주도적으로 참여하였다.`,
-    persistenceRetry: `${s} 활동 과정에서 ${detail} 다시 시도하며 문제를 해결해보는 경험을 하였다.`,
-    foodUtensil: `${s} 식사 시간에 ${detail} 식사 도구를 조절하여 사용하는 경험을 이어갔다.`,
-    dressing: `${s} 옷 입고 벗기 과정에서 ${detail} 생활 속 자립 기술을 익혀가는 모습이 관찰되었다.`,
-    cleanupResponsibility: `${s} 정리 상황에서 ${detail} 사용한 물건과 공간을 마무리하는 경험을 하였다.`,
-    weatherSeason: `${s} 날씨와 계절 변화에 관심을 보이며 ${detail} 주변 환경을 관찰하였다.`,
-    measurementCompare: `${s} 놀이 자료를 탐색하며 ${detail} 크기, 길이, 양 등을 비교하는 경험을 하였다.`,
-    pretendStory: `${s} 상상놀이에서 ${detail} 역할과 상황을 구성하며 놀이를 확장하였다.`,
-    observationToParticipation: `${s} 또래의 놀이를 관찰한 뒤 ${detail} 모방과 참여를 통해 놀이 방법을 익혀갔다.`,
-    fatigueRest: `${s} 컨디션 변화가 있는 상황에서 ${detail} 휴식과 활동을 조절하는 경험이 필요하였다.`,
-    minorInjuryCare: `${s} 몸의 불편함이나 작은 상처 상황에서 ${detail} 도움을 받고 상태를 표현하는 경험을 하였다.`,
-    nonverbalExpression: `${s} 의사소통 상황에서 ${detail} 말뿐 아니라 표정, 몸짓, 끄덕임 등 비언어적 방식으로 자신의 생각과 감정을 표현하는 모습이 관찰되었다.`,
-    waitingLine: `${s} 줄을 서거나 차례를 기다리는 상황에서 ${detail} 공동생활의 약속과 순서를 경험하는 모습이 관찰되었다.`,
-    choiceHesitation: `${s} 선택이 필요한 상황에서 ${detail} 교사의 안내를 통해 자신의 선호와 의사를 천천히 표현해보는 경험을 하였다.`,
-    teacherHelpRequest: `${s} 도움이 필요한 상황에서 ${detail} 교사에게 도움을 요청하거나 필요한 지원을 받아 문제를 해결해보는 경험을 하였다.`,
-    noiseCrowdSensitivity: `${s} 소리나 사람이 많은 환경에서 ${detail} 자신의 불편함과 감각적 반응을 표현하는 모습이 관찰되었다.`,
-    textureMessyPlay: `${s} 촉감놀이와 감각 탐색 상황에서 ${detail} 다양한 재료의 질감과 변화에 관심을 보이며 탐색하는 모습이 관찰되었다.`,
-    memoryRecall: `${s} 이전 경험을 떠올리는 상황에서 ${detail} 기억한 내용을 말이나 행동으로 연결하여 표현하는 모습이 관찰되었다.`,
-    teacherHelping: `${s} 교실 생활 중 ${detail} 교사를 돕거나 역할을 맡아 참여하며 공동체 안에서 책임감을 경험하는 모습이 관찰되었다.`,
-    boundaryRule: `${s} 놀이 공간과 약속을 조율하는 상황에서 ${detail} 안전한 경계와 사용 방법을 익혀가는 모습이 관찰되었다.`,
-    roleVoiceDrama: `${s} 극놀이 상황에서 ${detail} 목소리, 말투, 역할 행동을 활용하여 상상한 장면을 표현하는 모습이 관찰되었다.`,
-  };
-
-  return sceneObservations[sceneRule.id] ? finishSentence(sceneObservations[sceneRule.id]) : null;
+  const rule = sceneRule || findSceneRule(text);
+  if (!rule) return null;
+  const frame = SCENE_FRAMES[rule.id] || '활동 중';
+  return finishSentence(`${s} ${frame} ${observationDetail(text)}`);
 }
 
 function includesAny(text, words) {
@@ -1428,11 +1382,11 @@ function findSceneRule(text) {
   return scored[0]?.rule || null;
 }
 
-function makeParentMessage(name, category, text) {
+function makeParentMessage(name, category, text, sceneRule) {
   const s = subject(name);
   const normalizedText = normalizeRecordText(text);
-  const sceneRule = findSceneRule(normalizedText);
-  if (sceneRule) return sceneRule.parent(s);
+  const rule = sceneRule || findSceneRule(normalizedText);
+  if (rule) return rule.parent(s);
   if (includesAny(normalizedText, ['순서', '차례', '기다'])) {
     return `${s} 또래와 함께 놀이하며 차례를 기다리는 경험을 하고 있습니다. 원하는 놀이를 바로 하기 어려운 순간에도 교사의 안내를 받아 기다려보는 모습이 나타나고 있어요.`;
   }
@@ -1455,10 +1409,10 @@ function makeParentMessage(name, category, text) {
   return PARENT_TEMPLATES[category]?.(name) || PARENT_TEMPLATES.play(name);
 }
 
-function makeSupportPlan(category, text) {
+function makeSupportPlan(category, text, sceneRule) {
   const normalizedText = normalizeRecordText(text);
-  const sceneRule = findSceneRule(normalizedText);
-  if (sceneRule) return sceneRule.support;
+  const rule = sceneRule || findSceneRule(normalizedText);
+  if (rule) return rule.support;
   if (includesAny(normalizedText, ['순서', '차례', '기다'])) {
     return '또래와의 놀이에서 차례를 기다리는 경험을 반복적으로 제공하고, 기다리는 동안 할 수 있는 말과 행동을 교사가 구체적으로 모델링한다.';
   }
@@ -1506,120 +1460,77 @@ function detectDevAreas(text) {
   return matched.slice(0, 3).map(a => a.id);
 }
 
-function extractTags(text, categoryId) {
+// 태그 기준: ① 장면별 핵심 태그 → ② 카테고리 태그 → ③ 원문에 실제 등장한 행동 태그 순으로 3~5개
+function extractTags(text, categoryId, sceneRule) {
   const normalizedText = normalizeRecordText(text);
-  const TAG_POOL = {
-    peer: ['또래관계', '갈등상황', '차례기다리기', '감정표현', '협력', '양보', '친구와 놀이'],
-    habit: ['생활습관', '식습관', '수면', '배변', '위생', '자립', '정리정돈'],
-    comm: ['의사소통', '언어표현', '질문하기', '대화', '감정표현', '발표'],
-    nature: ['자연탐구', '곤충관찰', '식물관찰', '날씨', '비교', '호기심'],
-    art: ['예술표현', '미술활동', '음악활동', '창의표현', '역할놀이'],
-    body: ['신체활동', '대근육', '소근육', '바깥놀이', '운동발달'],
-    play: ['놀이활동', '구성놀이', '탐색활동', '창의놀이', '집중력'],
-    special: ['특이사항', '건강', '안전', '정서지원', '적응'],
-  };
+  const tags = [];
 
-  const base = TAG_POOL[categoryId] || TAG_POOL.play;
-  const extra = [];
-  if (normalizedText.includes('울') || normalizedText.includes('속상')) extra.push('감정조절');
-  if (normalizedText.includes('스스로') || normalizedText.includes('혼자')) extra.push('자립심');
-  if (normalizedText.includes('왜') || normalizedText.includes('어떻게') || normalizedText.includes('궁금')) extra.push('호기심');
-  if (normalizedText.includes('도와') || normalizedText.includes('배려')) extra.push('배려심');
-  if (normalizedText.includes('순서') || normalizedText.includes('차례') || normalizedText.includes('기다')) extra.push('기다리기');
-  if (normalizedText.includes('빌려') || normalizedText.includes('나눠') || normalizedText.includes('양보')) extra.push('나눔경험');
-  if (normalizedText.includes('캠핑') || normalizedText.includes('역할') || normalizedText.includes('상상')) extra.push('상상놀이');
-  if (normalizedText.includes('관찰') || normalizedText.includes('돋보기')) extra.push('관찰하기');
-  if (normalizedText.includes('정리') || normalizedText.includes('치우')) extra.push('정리습관');
-  if (normalizedText.includes('말') || normalizedText.includes('표현') || normalizedText.includes('나도')) extra.push('언어표현');
-  const sceneRule = findSceneRule(normalizedText);
-  if (sceneRule?.id === 'meal') extra.push('식사경험');
-  if (sceneRule?.id === 'nap') extra.push('휴식습관');
-  if (sceneRule?.id === 'toilet') extra.push('배변표현');
-  if (sceneRule?.id === 'peerConflict') extra.push('갈등조절');
-  if (sceneRule?.id === 'grossMotor') extra.push('대근육활동');
-  if (sceneRule?.id === 'fineMotor') extra.push('소근육조작');
-  if (sceneRule?.id === 'rolePlay') extra.push('역할놀이');
-  if (sceneRule?.id === 'constructPlay') extra.push('구성놀이');
-  if (sceneRule?.id === 'safety') extra.push('안전지도');
-  if (sceneRule?.id === 'arrival') extra.push('등원적응');
-  if (sceneRule?.id === 'cooperativePlan') extra.push('협동계획');
-  if (sceneRule?.id === 'empathyComfort') extra.push('공감표현');
-  if (sceneRule?.id === 'ruleGame') extra.push('규칙놀이');
-  if (sceneRule?.id === 'bookLiteracy') extra.push('문해경험');
-  if (sceneRule?.id === 'mathPattern') extra.push('수개념');
-  if (sceneRule?.id === 'scienceExperiment') extra.push('실험탐색');
-  if (sceneRule?.id === 'sensoryExplore') extra.push('감각탐색');
-  if (sceneRule?.id === 'creativeMake') extra.push('창의표현');
-  if (sceneRule?.id === 'musicMovement') extra.push('음악표현');
-  if (sceneRule?.id === 'transitionRoutine') extra.push('전이적응');
-  if (sceneRule?.id === 'fieldTripEvent') extra.push('행사참여');
-  if (sceneRule?.id === 'healthCondition') extra.push('건강관찰');
-  if (sceneRule?.id === 'leadership') extra.push('주도성');
-  if (sceneRule?.id === 'withdrawal') extra.push('관계거리조절');
-  if (sceneRule?.id === 'problemSolving') extra.push('문제해결');
-  if (sceneRule?.id === 'listeningTurn') extra.push('듣기태도');
-  if (sceneRule?.id === 'pronunciationVocabulary') extra.push('어휘확장');
-  if (sceneRule?.id === 'hygiene') extra.push('위생습관');
-  if (sceneRule?.id === 'personalBelongings') extra.push('소지품관리');
-  if (sceneRule?.id === 'timeCalendar') extra.push('시간개념');
-  if (sceneRule?.id === 'spatialConcept') extra.push('공간개념');
-  if (sceneRule?.id === 'eventBirthday') extra.push('축하경험');
-  if (sceneRule?.id === 'trafficSafety') extra.push('교통안전');
-  if (sceneRule?.id === 'emergencyDrill') extra.push('대피훈련');
-  if (sceneRule?.id === 'medicationCare') extra.push('투약관리');
-  if (sceneRule?.id === 'sensorySensitivity') extra.push('감각조절');
-  if (sceneRule?.id === 'familyConnection') extra.push('가정연계');
-  const SCENE_TAGS = {
-    sharingOwnership: '공유경험',
-    repairApology: '관계회복',
-    attentionSeeking: '관심요청',
-    truthRetell: '상황회상',
-    initiativeChoice: '선택표현',
-    persistenceRetry: '재시도',
-    foodUtensil: '식기도구',
-    dressing: '옷입기',
-    cleanupResponsibility: '책임감',
-    weatherSeason: '날씨관찰',
-    measurementCompare: '비교탐색',
-    pretendStory: '상상표현',
-    observationToParticipation: '관찰참여',
-    fatigueRest: '휴식지원',
-    minorInjuryCare: '상처돌봄',
-    nonverbalExpression: '비언어표현',
-    waitingLine: '대기경험',
-    choiceHesitation: '선택지원',
-    teacherHelpRequest: '도움요청',
-    noiseCrowdSensitivity: '환경민감도',
-    textureMessyPlay: '촉감탐색',
-    memoryRecall: '경험회상',
-    teacherHelping: '도우미역할',
-    boundaryRule: '공간약속',
+  // ① 장면 특화 태그 — 해당 장면이 감지된 경우만
+  const SCENE_TAG_MAP = {
+    peerWait: '차례기다리기', peerConflict: '또래갈등', emotion: '감정표현',
+    speech: '언어표현', selfHelp: '자립시도', meal: '식사경험', nap: '휴식습관',
+    toilet: '배변표현', natureExplore: '자연탐구', artExpression: '예술표현',
+    grossMotor: '대근육활동', fineMotor: '소근육조작', rolePlay: '역할놀이',
+    constructPlay: '구성놀이', safety: '안전지도', arrival: '등원적응',
+    cooperativePlan: '협동계획', empathyComfort: '공감표현', ruleGame: '규칙놀이',
+    bookLiteracy: '문해경험', mathPattern: '수개념탐색', scienceExperiment: '실험탐색',
+    sensoryExplore: '감각탐색', creativeMake: '창의표현', musicMovement: '음악표현',
+    transitionRoutine: '전이적응', fieldTripEvent: '행사참여', healthCondition: '건강관찰',
+    leadership: '주도성', withdrawal: '관계거리조절', problemSolving: '문제해결',
+    listeningTurn: '듣기경험', pronunciationVocabulary: '어휘확장', hygiene: '위생습관',
+    personalBelongings: '소지품관리', timeCalendar: '시간개념', spatialConcept: '공간개념',
+    eventBirthday: '축하경험', trafficSafety: '교통안전', emergencyDrill: '대피훈련',
+    medicationCare: '투약관리', sensorySensitivity: '감각조절', familyConnection: '가정연계',
+    sharingOwnership: '공유경험', repairApology: '관계회복', attentionSeeking: '관심요청',
+    truthRetell: '상황회상', initiativeChoice: '선택표현', persistenceRetry: '재시도경험',
+    foodUtensil: '식기사용', dressing: '옷입기', cleanupResponsibility: '정리책임',
+    weatherSeason: '날씨관찰', measurementCompare: '비교탐색', pretendStory: '상상놀이',
+    observationToParticipation: '관찰참여', fatigueRest: '휴식지원', minorInjuryCare: '상처돌봄',
+    nonverbalExpression: '비언어표현', waitingLine: '대기경험', choiceHesitation: '선택지원',
+    teacherHelpRequest: '도움요청', noiseCrowdSensitivity: '환경민감도', textureMessyPlay: '촉감탐색',
+    memoryRecall: '경험회상', teacherHelping: '도우미역할', boundaryRule: '공간약속',
     roleVoiceDrama: '극놀이표현',
   };
-  if (sceneRule?.id && SCENE_TAGS[sceneRule.id]) extra.push(SCENE_TAGS[sceneRule.id]);
+  const rule = sceneRule || findSceneRule(normalizedText);
+  if (rule?.id && SCENE_TAG_MAP[rule.id]) tags.push(SCENE_TAG_MAP[rule.id]);
 
-  return [...new Set([...base.slice(0, 3), ...extra])].slice(0, 5);
+  // ② 카테고리 태그
+  const CAT_TAG = { peer: '또래관계', habit: '생활습관', comm: '의사소통', nature: '자연탐구', art: '예술표현', body: '신체활동', play: '놀이활동', special: '특이사항' };
+  const catTag = CAT_TAG[categoryId];
+  if (catTag && !tags.includes(catTag)) tags.push(catTag);
+
+  // ③ 원문에 실제로 등장한 행동·감정 태그 (3자 이상 패턴 엄격 매칭)
+  const CONTENT_CHECKS = [
+    { re: /속상해|화가 나|짜증냈|무서워했|두려워|불안해/, tag: '감정조절' },
+    { re: /스스로 해|혼자 해보/, tag: '자립시도' },
+    { re: /궁금하|관찰하|탐색하/, tag: '탐구호기심' },
+    { re: /도와줬|도와줌|배려해/, tag: '배려심' },
+    { re: /차례를 기다|순서를 기다/, tag: '차례기다리기' },
+    { re: /빌려줌|나눠줌|양보하/, tag: '나눔경험' },
+    { re: /역할놀이|상상놀이|캠핑놀이/, tag: '역할상상놀이' },
+    { re: /정리했|정리하/, tag: '정리정돈' },
+    { re: /라고 말|라고 이야기|라고 표현/, tag: '언어표현' },
+    { re: /갈등|빼앗았|때렸|밀었/, tag: '또래갈등' },
+    { re: /울었|울며|눈물/, tag: '감정표현' },
+  ];
+  for (const { re, tag } of CONTENT_CHECKS) {
+    if (tags.length >= 5) break;
+    if (!tags.includes(tag) && re.test(normalizedText)) tags.push(tag);
+  }
+
+  // 최소 3개 보장 — 카테고리 보조 태그로 채우기
+  if (tags.length < 3) {
+    const PAD = { peer: ['또래상호작용', '사회경험'], habit: ['일상생활', '자립경험'], comm: ['말하기경험', '표현하기'], nature: ['관찰경험', '탐구활동'], art: ['창의표현', '예술활동'], body: ['신체경험', '운동발달'], play: ['놀이경험', '탐색활동'], special: ['개별지원', '관찰기록'] };
+    for (const t of (PAD[categoryId] || [])) {
+      if (tags.length >= 3) break;
+      if (!tags.includes(t)) tags.push(t);
+    }
+  }
+
+  return tags.slice(0, 5);
 }
 
 // ─── 문장 생성 템플릿 ─────────────────────────────────────────────
-const OBSERVATION_TEMPLATES = {
-  peer: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 또래와의 놀이에서 ${observationDetail(text)}`),
-  habit: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 일상생활 중 ${observationDetail(text)}`),
-  comm: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} ${observationDetail(text)}`),
-  nature: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 자연물에 관심을 보이며 ${observationDetail(text)}`),
-  art: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 예술 활동에 참여하며 ${observationDetail(text)}`),
-  body: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 신체 활동 중 ${observationDetail(text)}`),
-  play: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} 놀이 활동에 참여하며 ${observationDetail(text)}`),
-  special: (name, text) =>
-    makeSceneObservation(name, text) || finishSentence(`${subject(name)} ${observationDetail(text)} 교사가 세심히 살피며 지원하였다`),
-};
 
 const PARENT_TEMPLATES = {
   peer: (name) =>
@@ -1728,7 +1639,11 @@ export async function processRecord({ childName, rawText, classAge, recordType }
   const normalizedText = normalizeRecordText(rawText);
   const category = detectCategory(normalizedText);
   const devAreas = detectDevAreas(normalizedText);
-  const tags = extractTags(normalizedText, category);
+
+  // 핵심 장면 한 번 추출 → 관찰일지·부모상담·지원계획 세 곳이 동일 장면을 바라봄
+  const sceneRule = findSceneRule(normalizedText);
+
+  const tags = extractTags(normalizedText, category, sceneRule);
   const softened = softenText(normalizedText);
   const documentMeta = buildDocumentMeta({
     rawText,
@@ -1740,7 +1655,7 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     classAge,
   });
 
-  const observeFn = OBSERVATION_TEMPLATES[category] || OBSERVATION_TEMPLATES.play;
+  const CAT_FRAME = { peer: '또래와의 놀이 중', habit: '일상생활 중', comm: '의사소통 상황에서', nature: '자연탐구 상황에서', art: '예술 활동에서', body: '신체 활동 중', play: '놀이 중', special: '활동 중' };
   const parentFn = PARENT_TEMPLATES[category] || PARENT_TEMPLATES.play;
 
   // 문장 라이브러리 조합 제안 (100만+ 조합에서 추출)
@@ -1754,6 +1669,10 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     count: 5,
   });
 
+  const observation =
+    makeSceneObservation(name, normalizedText, sceneRule) ||
+    finishSentence(`${subject(name)} ${CAT_FRAME[category] || '활동 중'} ${observationDetail(normalizedText)}`);
+
   return {
     category,
     devAreas,
@@ -1762,9 +1681,9 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     normalizedText,
     documentMeta,
     documentReadyText: makeDocumentReadyText(documentMeta),
-    observation: observeFn(name, normalizedText),
-    parent: makeParentMessage(name, category, normalizedText) || parentFn(name),
-    support: makeSupportPlan(category, normalizedText),
+    observation,
+    parent: makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name),
+    support: makeSupportPlan(category, normalizedText, sceneRule),
     title: makeTitle(normalizedText, category),
     libSuggestions,
   };
