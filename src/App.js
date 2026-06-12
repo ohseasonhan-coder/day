@@ -88,6 +88,19 @@ export default function App() {
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  // iOS는 자동 설치 배너(beforeinstallprompt)가 없어 직접 안내 — 홈 화면 추가 후에는 표시 안 함
+  const [showIosGuide, setShowIosGuide] = useState(() => {
+    try {
+      const ua = navigator.userAgent;
+      const isIos = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      return isIos && !standalone && localStorage.getItem('sw_ios_install_dismissed') !== '1';
+    } catch { return false; }
+  });
+  const dismissIosGuide = () => {
+    try { localStorage.setItem('sw_ios_install_dismissed', '1'); } catch {}
+    setShowIosGuide(false);
+  };
   const [showOnboarding, setShowOnboarding] = useState(() => user ? !isOnboardingDone() : false);
   const isDesktop = useIsDesktop();
 
@@ -355,6 +368,24 @@ export default function App() {
             <button onClick={() => setShowInstallBanner(false)} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1 }}>×</button>
           </div>
         )}
+        {showIosGuide && !showInstallBanner && (
+          <div style={{
+            position: 'fixed', bottom: 20,
+            left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--gray-800)', color: 'white',
+            borderRadius: 14, padding: '13px 16px',
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            boxShadow: 'var(--shadow-lg)', zIndex: 9999,
+            fontSize: 13, fontWeight: 600, maxWidth: 460,
+          }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>📲</span>
+            <span style={{ flex: 1, lineHeight: 1.6 }}>
+              아이패드·아이폰에서도 앱처럼 설치할 수 있어요!<br />
+              <b>Safari 공유 버튼</b> <span style={{ display: 'inline-block', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 4, padding: '0 5px', fontSize: 11 }}>⬆</span> → <b>"홈 화면에 추가"</b>를 누르세요
+            </span>
+            <button onClick={dismissIosGuide} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+          </div>
+        )}
       <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
       </div>
     );
@@ -433,6 +464,25 @@ export default function App() {
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>📲 홈 화면에 추가하면 앱처럼 사용할 수 있어요</span>
           <button onClick={handleInstall} style={{ background: 'var(--primary)', color: 'white', borderRadius: 8, padding: '6px 14px', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>설치</button>
           <button onClick={() => setShowInstallBanner(false)} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+      )}
+      {showIosGuide && !showInstallBanner && (
+        <div style={{
+          position: 'fixed', bottom: 'calc(var(--bottom-nav) + 8px)',
+          left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--gray-800)', color: 'white',
+          borderRadius: 14, padding: '13px 16px',
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          boxShadow: 'var(--shadow-lg)', zIndex: 9999,
+          fontSize: 13, fontWeight: 600,
+          maxWidth: 440, width: 'calc(100% - 32px)',
+        }}>
+          <span style={{ fontSize: 18, flexShrink: 0 }}>📲</span>
+          <span style={{ flex: 1, lineHeight: 1.6 }}>
+            아이폰에서도 앱처럼 설치할 수 있어요!<br />
+            <b>Safari 하단 공유 버튼</b> <span style={{ display: 'inline-block', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 4, padding: '0 5px', fontSize: 11 }}>⬆</span> → <b>"홈 화면에 추가"</b>를 누르세요
+          </span>
+          <button onClick={dismissIosGuide} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
       )}
       <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
