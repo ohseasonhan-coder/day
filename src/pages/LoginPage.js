@@ -160,19 +160,19 @@ export default function LoginPage({ onLogin }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0 14px' }}>
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           <button onClick={() => { setShowAdminLogin(v => !v); setError(''); }} style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <ShieldCheck size={12} /> 관리자 로그인
+            <ShieldCheck size={12} /> 기존 회원 로그인
           </button>
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
         {showAdminLogin && (
           <form onSubmit={handleAdminSubmit}>
-            <Field label="관리자 아이디">
+            <Field label="아이디">
               <input
                 type="text"
                 value={adminId}
                 onChange={e => setAdminId(e.target.value.toLowerCase().trim())}
-                placeholder="master"
+                placeholder="기존 아이디 또는 master"
                 maxLength={30}
                 style={inputStyle}
                 autoCapitalize="none"
@@ -211,8 +211,12 @@ export default function LoginPage({ onLogin }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              <LogIn size={15} /> 관리자로 로그인
+              <LogIn size={15} /> 로그인
             </button>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 10, lineHeight: 1.7, textAlign: 'center' }}>
+              기존 아이디로 로그인한 뒤 <b>설정 → 계정 → 구글 계정 연동</b>을 해두면<br />
+              다음부터 구글 버튼으로 바로 들어올 수 있어요.
+            </div>
           </form>
         )}
 
