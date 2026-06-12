@@ -37,6 +37,35 @@ function loadGsi() {
   });
 }
 
+// ── 구글 로그인 버튼 ─────────────────────────────────────────────────────────
+// ID 토큰(JWT)의 페이로드를 브라우저 안에서만 해석 — 외부로 보내지 않음
+function decodeJwtPayload(token) {
+  const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+  const json = decodeURIComponent(
+    atob(part).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+  );
+  return JSON.parse(json);
+}
+
+// 공식 "구글로 계속하기" 버튼을 container에 렌더링
+export async function renderGoogleSignInButton(clientId, container, onProfile, onError) {
+  await loadGsi();
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    callback: (resp) => {
+      try {
+        const p = decodeJwtPayload(resp.credential);
+        onProfile({ sub: p.sub, email: p.email, name: p.name });
+      } catch (e) {
+        if (onError) onError(e);
+      }
+    },
+  });
+  window.google.accounts.id.renderButton(container, {
+    theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 300, locale: 'ko',
+  });
+}
+
 // 액세스 토큰 발급 — silent=true면 동의창 없이 조용히 시도 (자동 백업용)
 export async function requestDriveToken(clientId, { silent = false } = {}) {
   if (!clientId) throw new Error('구글 클라이언트 ID가 설정되지 않았어요.');

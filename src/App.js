@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord } from './utils/storage';
+import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId } from './utils/storage';
 import { backupToDrive, getDriveMeta } from './utils/driveBackup';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
@@ -157,7 +157,7 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const settings = getSettings();
-    const clientId = (settings.driveClientId || '').trim();
+    const clientId = (getGoogleClientId() || settings.driveClientId || '').trim();
     if (!settings.driveAutoBackup || !clientId) return;
     if (getRecords().length === 0) return;
     const last = getDriveMeta().lastBackupAt;

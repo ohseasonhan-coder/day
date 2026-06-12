@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { login, register } from '../utils/auth';
+import React, { useState, useEffect, useRef } from 'react';
+import { login, register, loginWithGoogle } from '../utils/auth';
+import { renderGoogleSignInButton } from '../utils/driveBackup';
+import { getGoogleClientId, setGoogleClientId } from '../utils/storage';
 import { Zap, Eye, EyeOff, UserPlus, LogIn, ChevronRight } from 'lucide-react';
 
 export default function LoginPage({ onLogin }) {
@@ -11,6 +13,44 @@ export default function LoginPage({ onLogin }) {
   const [showPw, setShowPw]       = useState(false);
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
+  // 구글 로그인
+  const [googleClientId, setGoogleClientIdState] = useState(() => getGoogleClientId());
+  const [showGoogleSetup, setShowGoogleSetup] = useState(false);
+  const [clientIdDraft, setClientIdDraft] = useState('');
+  const [googleBtnError, setGoogleBtnError] = useState('');
+  const googleBtnRef = useRef(null);
+
+  useEffect(() => {
+    if (!googleClientId || !googleBtnRef.current) return;
+    let cancelled = false;
+    setGoogleBtnError('');
+    renderGoogleSignInButton(
+      googleClientId,
+      googleBtnRef.current,
+      (profile) => {
+        if (cancelled) return;
+        const res = loginWithGoogle(profile);
+        if (!res.ok) { setError(res.error); return; }
+        onLogin(res.user);
+      },
+      () => { if (!cancelled) setError('구글 로그인에 실패했어요. 다시 시도해 주세요.'); }
+    ).catch(() => {
+      if (!cancelled) setGoogleBtnError('구글 로그인 버튼을 불러오지 못했어요. 인터넷 연결과 클라이언트 ID를 확인해 주세요.');
+    });
+    return () => { cancelled = true; };
+  }, [googleClientId, onLogin]);
+
+  const handleSaveClientId = () => {
+    const v = clientIdDraft.trim();
+    if (!v.endsWith('.apps.googleusercontent.com')) {
+      setGoogleBtnError('클라이언트 ID 형식이 아니에요. (…apps.googleusercontent.com 으로 끝나야 해요)');
+      return;
+    }
+    setGoogleClientId(v);
+    setGoogleClientIdState(v);
+    setShowGoogleSetup(false);
+    setGoogleBtnError('');
+  };
 
   const reset = () => {
     setError('');
@@ -192,6 +232,59 @@ export default function LoginPage({ onLogin }) {
             {!loading && <ChevronRight size={16} />}
           </button>
         </form>
+
+        {/* ── 구글로 시작하기 ───────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 16px' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 700 }}>또는</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        {googleClientId ? (
+          <div>
+            <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>
+              구글은 로그인에만 사용돼요. 기록 데이터는 여전히 이 기기에만 저장됩니다.
+            </div>
+          </div>
+        ) : showGoogleSetup ? (
+          <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 14px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>구글 클라이언트 ID (최초 1회)</div>
+            <input
+              value={clientIdDraft}
+              onChange={e => setClientIdDraft(e.target.value)}
+              placeholder="예: 1234567890-xxxx.apps.googleusercontent.com"
+              style={{ ...inputStyle, fontSize: 13, marginBottom: 8 }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleSaveClientId} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 800 }}>
+                저장하고 구글 버튼 켜기
+              </button>
+              <button onClick={() => { setShowGoogleSetup(false); setGoogleBtnError(''); }} style={{ padding: '11px 14px', borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 }}>
+                취소
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.7 }}>
+              console.cloud.google.com → OAuth 클라이언트 ID(웹 애플리케이션) 발급 후 붙여넣으세요.
+              자세한 단계는 로그인 후 설정 → 백업/복구의 "최초 설정 방법"에 있어요.
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setShowGoogleSetup(true)} style={{
+            width: '100%', padding: '13px', borderRadius: 14,
+            background: 'var(--white)', border: '1.5px solid var(--border)',
+            color: 'var(--text-primary)', fontSize: 14, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <span style={{ fontWeight: 900, color: '#4285F4' }}>G</span> 구글로 시작하기 (최초 1회 설정 필요)
+          </button>
+        )}
+
+        {googleBtnError && (
+          <div style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 600, marginTop: 10, lineHeight: 1.6 }}>
+            ⚠️ {googleBtnError}
+          </div>
+        )}
 
         {/* 하단 안내 */}
         <div style={{ marginTop: 20, padding: '16px', background: 'var(--gray-50)', borderRadius: 12 }}>

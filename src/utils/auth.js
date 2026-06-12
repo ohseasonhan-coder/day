@@ -107,6 +107,32 @@ export function login(userId, password) {
   return { ok: true, user: account };
 }
 
+// ── 구글 계정으로 로그인/가입 ────────────────────────────────────────────────
+// 구글 ID 토큰에서 얻은 프로필(sub/email/name)로 로컬 계정을 찾거나 새로 만듭니다.
+// 인증만 구글을 쓰고, 데이터 저장은 기존과 동일하게 이 기기(localStorage)에만 됩니다.
+export function loginWithGoogle(profile) {
+  const sub = String(profile?.sub || '').trim();
+  if (!sub) return { ok: false, error: '구글 인증 정보가 올바르지 않아요.' };
+
+  const accounts = getAccounts();
+  let account = accounts.find(a => a.googleSub === sub);
+  if (!account) {
+    const displayName = (profile.name || profile.email?.split('@')[0] || '선생님').trim();
+    account = {
+      userId: `g_${sub}`,
+      googleSub: sub,
+      email: profile.email || '',
+      provider: 'google',
+      displayName,
+      plan: PLANS.FREE,
+      createdAt: new Date().toISOString(),
+    };
+    saveAccountsInternal([...accounts, account]);
+  }
+  setSession(account);
+  return { ok: true, user: account };
+}
+
 // ── 로그아웃 ──────────────────────────────────────────────────────────────────
 export function logout() {
   localStorage.removeItem(SESSION_KEY);
@@ -128,7 +154,10 @@ export function changePassword(userId, oldPw, newPw) {
 // ── 계정 삭제 ─────────────────────────────────────────────────────────────────
 export function deleteAccount(userId, password) {
   const accounts = getAccounts();
-  const idx = accounts.findIndex(a => a.userId === userId && a.password === password);
+  // 구글 계정은 비밀번호가 없으므로 userId 일치만 확인 (UI에서 확인창을 거침)
+  const idx = accounts.findIndex(a =>
+    a.userId === userId && (a.provider === 'google' || a.password === password)
+  );
   if (idx === -1) return { ok: false, error: '비밀번호가 올바르지 않아요.' };
   saveAccountsInternal(accounts.filter((_, i) => i !== idx));
   logout();

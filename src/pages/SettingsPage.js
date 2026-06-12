@@ -3,7 +3,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
-  getFeedback, addFeedback, deleteFeedback, getBackupJson } from '../utils/storage';
+  getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta } from '../utils/driveBackup';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
@@ -95,6 +95,19 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [driveBusy, setDriveBusy] = useState(false);
   const [driveMsg, setDriveMsg] = useState(null);
   const [showDriveGuide, setShowDriveGuide] = useState(false);
+  // 클라이언트 ID는 로그인 화면과 공유하는 전역 값 (이전 버전의 settings.driveClientId에서 자동 이관)
+  const [googleClientId, setGoogleClientIdState] = useState(() => {
+    const global = getGoogleClientId();
+    if (global) return global;
+    const legacy = (getSettings().driveClientId || '').trim();
+    if (legacy) setGoogleClientId(legacy);
+    return legacy;
+  });
+
+  const handleClientIdChange = (value) => {
+    setGoogleClientIdState(value);
+    setGoogleClientId(value);
+  };
 
   const saveDriveSetting = (patch) => {
     const next = { ...settings, ...patch };
@@ -103,7 +116,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   };
 
   const handleDriveBackupNow = async () => {
-    const clientId = (settings.driveClientId || '').trim();
+    const clientId = googleClientId.trim();
     if (!clientId) { setDriveMsg({ ok: false, text: '먼저 구글 클라이언트 ID를 입력해 주세요. (아래 "최초 설정 방법" 참고)' }); return; }
     setDriveBusy(true); setDriveMsg(null);
     try {
@@ -118,7 +131,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   };
 
   const handleDriveRestore = async () => {
-    const clientId = (settings.driveClientId || '').trim();
+    const clientId = googleClientId.trim();
     if (!clientId) { setDriveMsg({ ok: false, text: '먼저 구글 클라이언트 ID를 입력해 주세요.' }); return; }
     setDriveBusy(true); setDriveMsg(null);
     try {
@@ -744,10 +757,10 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 </div>
               )}
 
-              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>구글 클라이언트 ID</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>구글 클라이언트 ID <span style={{ fontWeight: 600, color: 'var(--text-tertiary)' }}>(구글 로그인과 공유)</span></div>
               <input
-                value={settings.driveClientId || ''}
-                onChange={e => saveDriveSetting({ driveClientId: e.target.value })}
+                value={googleClientId}
+                onChange={e => handleClientIdChange(e.target.value)}
                 placeholder="예: 1234567890-xxxx.apps.googleusercontent.com"
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
               />
@@ -945,7 +958,15 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               </button>
             </SettingCard>
 
-            {/* 비밀번호 변경 */}
+            {/* 비밀번호 변경 — 구글 계정은 비밀번호가 없음 */}
+            {currentUser.provider === 'google' ? (
+              <SettingCard title="비밀번호">
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                  이 계정은 <b>구글 로그인</b>으로 만들어져 별도의 비밀번호가 없어요.
+                  비밀번호 관리는 구글 계정 설정(myaccount.google.com)에서 하시면 됩니다.
+                </div>
+              </SettingCard>
+            ) : (
             <SettingCard title="비밀번호 변경">
               {pwMsg && (
                 <div style={{
@@ -968,8 +989,9 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 <Key size={15} /> 비밀번호 변경
               </button>
             </SettingCard>
+            )}
 
-            {/* 계정 삭제 */}
+            {/* 계정 삭제 — 구글 계정은 비밀번호 확인 대신 문구 입력 확인 */}
             <SettingCard title="계정 삭제">
               <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 12, lineHeight: 1.6 }}>
                 ⚠️ 계정을 삭제하면 이 계정의 모든 데이터가 영구히 삭제됩니다.
@@ -979,7 +1001,9 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   {deleteMsg}
                 </div>
               )}
-              <PwInput label="비밀번호 확인" value={deletePw} onChange={setDeletePw} />
+              {currentUser.provider !== 'google' && (
+                <PwInput label="비밀번호 확인" value={deletePw} onChange={setDeletePw} />
+              )}
               <button onClick={handleDeleteAccount} style={{
                 width: '100%', padding: '12px', borderRadius: 12,
                 background: 'var(--accent-light)', border: '1.5px solid var(--accent)',

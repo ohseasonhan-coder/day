@@ -34,6 +34,15 @@ const KEYS = {
   get COPY_HISTORY()    { return `sw_${_getUid()}_copy_history`; },
 };
 
+// 구글 OAuth 클라이언트 ID — 로그인 전에도 필요하므로 계정 구분 없이 전역 저장
+// (비밀키가 아니라 "이 앱 주소에서만 구글 인증을 쓸 수 있다"는 공개 식별자)
+export const getGoogleClientId = () => {
+  try { return localStorage.getItem('sw_google_client_id') || ''; } catch { return ''; }
+};
+export const setGoogleClientId = (id) => {
+  try { localStorage.setItem('sw_google_client_id', String(id || '').trim()); } catch {}
+};
+
 // Generic storage helpers
 export const storage = {
   get: (key) => {
