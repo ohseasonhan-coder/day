@@ -7,7 +7,8 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getTrash, restoreFromTrash, purgeTrashItem, emptyTrash, formatDate, hashPin,
   promoteToNewYear, getArchivedChildren, restoreArchivedChild } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
-import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount } from '../utils/auth';
+import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
+  isMaster, adminUpdateAccount, adminDeleteAccount, getAccountDataStats } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -164,6 +165,36 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     restoreArchivedChild(id);
     setChildren(getChildren());
     setArchivedChildren(getArchivedChildren());
+  };
+
+  // 관리자(마스터) 패널 — 같은 기기에 있는 회원 관리
+  const [adminAccounts, setAdminAccounts] = useState(() => getAccounts());
+  const [adminMsg, setAdminMsg] = useState(null);
+  const refreshAdminAccounts = () => setAdminAccounts(getAccounts());
+
+  const handleAdminRename = (account) => {
+    const name = window.prompt(`${account.displayName}의 새 이름을 입력하세요.`, account.displayName);
+    if (!name || !name.trim()) return;
+    adminUpdateAccount(account.userId, { displayName: name.trim() });
+    refreshAdminAccounts();
+  };
+
+  const handleAdminPlan = (account, plan) => {
+    adminUpdateAccount(account.userId, { plan });
+    refreshAdminAccounts();
+  };
+
+  const handleAdminDelete = (account) => {
+    const stats = getAccountDataStats(account.userId);
+    if (!window.confirm(
+      `${account.displayName}(@${account.userId}) 계정을 삭제할까요?\n` +
+      `이 기기에 있는 해당 계정의 데이터(기록 ${stats.records}건 · 아이 ${stats.children}명 · 문서 ${stats.documents}건)도 함께 삭제됩니다.\n되돌릴 수 없어요.`
+    )) return;
+    const res = adminDeleteAccount(account.userId, { wipeData: true });
+    if (!res.ok) { setAdminMsg({ ok: false, text: res.error }); return; }
+    refreshAdminAccounts();
+    setAdminMsg({ ok: true, text: '계정과 데이터를 삭제했어요.' });
+    setTimeout(() => setAdminMsg(null), 4000);
   };
 
   // 휴지통
@@ -464,6 +495,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     ['children', '👶 아이 관리'],
     ['backup',   '💾 백업/복구'],
     ['account',  '👤 계정'],
+    ...(isMaster(currentUser) ? [['admin', '👑 관리자']] : []),
     ['api',      '🤖 AI'],
     ['feedback', '💬 피드백'],
     ['about',    'ℹ️ 정보'],
@@ -1420,6 +1452,80 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               }}>
                 <UserX size={15} /> 계정 영구 삭제
               </button>
+            </SettingCard>
+          </div>
+        )}
+
+        {/* ── 관리자 탭 (마스터 전용) ───────────────────────── */}
+        {activeTab === 'admin' && isMaster(currentUser) && (
+          <div>
+            {adminMsg && (
+              <div style={{
+                background: adminMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',
+                color: adminMsg.ok ? 'var(--cat-play)' : 'var(--accent)',
+                borderRadius: 12, padding: '12px 14px', fontSize: 13, fontWeight: 700, marginBottom: 16,
+              }}>
+                {adminMsg.text}
+              </div>
+            )}
+
+            <SettingCard title="👑 회원 관리">
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 14, background: 'var(--gray-50)', borderRadius: 10, padding: '10px 12px' }}>
+                ℹ️ 이 앱은 서버가 없어서 <b>이 기기(브라우저)에서 로그인한 적 있는 계정만</b> 보여요.
+                다른 기기에서만 쓰는 회원은 여기 나타나지 않습니다.
+              </div>
+              {adminAccounts.filter(a => a.userId !== 'master').length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-tertiary)', fontSize: 13 }}>
+                  이 기기에 등록된 회원이 없어요
+                </div>
+              ) : (
+                adminAccounts.filter(a => a.userId !== 'master').map(account => {
+                  const stats = getAccountDataStats(account.userId);
+                  return (
+                    <div key={account.userId} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '13px 14px', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 900 }}>
+                            {account.displayName}
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', marginLeft: 7 }}>
+                              {account.provider === 'google' ? `🅖 ${account.email || '구글'}` : `@${account.userId}`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                            기록 {stats.records}건 · 아이 {stats.children}명 · 문서 {stats.documents}건
+                            {account.createdAt && ` · 가입 ${account.createdAt.slice(0, 10)}`}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {[[PLANS.FREE, '무료'], [PLANS.PREMIUM, '프리미엄'], [PLANS.VIP, 'VIP']].map(([plan, label]) => (
+                          <button key={plan} onClick={() => handleAdminPlan(account, plan)} style={{
+                            padding: '6px 12px', borderRadius: 100, fontSize: 11, fontWeight: 800,
+                            background: account.plan === plan ? 'var(--primary)' : 'var(--gray-100)',
+                            color: account.plan === plan ? 'white' : 'var(--text-secondary)',
+                          }}>
+                            {label}
+                          </button>
+                        ))}
+                        <div style={{ flex: 1 }} />
+                        <button onClick={() => handleAdminRename(account)} style={{ padding: '6px 12px', borderRadius: 8, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 11, fontWeight: 800 }}>
+                          이름 수정
+                        </button>
+                        <button onClick={() => handleAdminDelete(account)} style={{ padding: '6px 12px', borderRadius: 8, background: 'var(--accent-light)', color: 'var(--accent)', fontSize: 11, fontWeight: 800 }}>
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </SettingCard>
+
+            <SettingCard title="🔑 마스터 계정 관리">
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                · 마스터 비밀번호는 <b>계정 탭 → 비밀번호 변경</b>에서 바꿀 수 있어요. 초기 비밀번호는 꼭 변경하세요.<br />
+                · 회원의 기록 내용 수정이 필요하면, 해당 회원이 백업 파일을 보내주면 마스터 계정에서 가져오기 → 수정 → 다시 내보내기로 도와줄 수 있어요.
+              </div>
             </SettingCard>
           </div>
         )}

@@ -1,6 +1,7 @@
 // ─── 인증 유틸리티 ────────────────────────────────────────────────────────────
 // 백엔드 없이 localStorage 기반 멀티 계정 관리
 // 계정 목록: 'sw_accounts' / 현재 세션: 'sw_session'
+import { getSettings, saveSettings } from './storage';
 
 const ACCOUNTS_KEY = 'sw_accounts';
 const SESSION_KEY  = 'sw_session';
@@ -74,16 +75,15 @@ export function register(userId, password, displayName, plan = PLANS.FREE) {
 
 // ── 시드 계정 (앱 초기화 시 자동 생성) ──────────────────────────────────────
 // 이미 존재하는 계정은 건드리지 않음 (idempotent)
+// 마스터(관리자) 계정 — 이 기기에 있는 회원·데이터를 관리할 수 있다.
+// 일반 사용자는 구글 로그인만 사용한다.
 const SEED_ACCOUNTS = [
-  // ① 테스트 계정
-  { userId: 'saemtest',  password: 'test1234',  displayName: '테스트계정',  plan: PLANS.VIP },
-  // ② VIP 계정 × 5 — 유료화 이후에도 영구 무료
-  { userId: 'ssam01',    password: 'Saem@2025', displayName: '쌤워크VIP01', plan: PLANS.VIP },
-  { userId: 'ssam02',    password: 'Saem@2025', displayName: '쌤워크VIP02', plan: PLANS.VIP },
-  { userId: 'ssam03',    password: 'Saem@2025', displayName: '쌤워크VIP03', plan: PLANS.VIP },
-  { userId: 'ssam04',    password: 'Saem@2025', displayName: '쌤워크VIP04', plan: PLANS.VIP },
-  { userId: 'ssam05',    password: 'Saem@2025', displayName: '쌤워크VIP05', plan: PLANS.VIP },
+  { userId: 'master', password: 'saem2026!', displayName: '관리자', plan: PLANS.VIP, role: 'master' },
 ];
+
+export function isMaster(user) {
+  return user?.role === 'master' || user?.userId === 'master';
+}
 
 export function seedSpecialAccounts() {
   const accounts = getAccounts();
@@ -116,6 +116,7 @@ export function loginWithGoogle(profile) {
 
   const accounts = getAccounts();
   let account = accounts.find(a => a.googleSub === sub);
+  const isNew = !account;
   if (!account) {
     const displayName = (profile.name || profile.email?.split('@')[0] || '선생님').trim();
     account = {
@@ -130,7 +131,50 @@ export function loginWithGoogle(profile) {
     saveAccountsInternal([...accounts, account]);
   }
   setSession(account);
+  // 구글 계정은 본인 드라이브 자동 백업을 기본으로 켠다 (첫 백업 시 1회 동의 필요)
+  if (isNew) {
+    try { saveSettings({ ...getSettings(), driveAutoBackup: true }); } catch {}
+  }
   return { ok: true, user: account };
+}
+
+// ── 관리자(마스터) 전용 — 같은 기기에 있는 계정 관리 ─────────────────────────
+export function adminUpdateAccount(userId, updates) {
+  const accounts = getAccounts();
+  const idx = accounts.findIndex(a => a.userId === userId);
+  if (idx === -1) return { ok: false, error: '계정을 찾을 수 없어요.' };
+  // userId·role은 관리자 패널에서 바꿀 수 없음
+  const { userId: _id, role: _role, ...safe } = updates; // eslint-disable-line no-unused-vars
+  accounts[idx] = { ...accounts[idx], ...safe };
+  saveAccountsInternal(accounts);
+  return { ok: true, user: accounts[idx] };
+}
+
+export function adminDeleteAccount(userId, { wipeData = true } = {}) {
+  if (userId === 'master') return { ok: false, error: '마스터 계정은 삭제할 수 없어요.' };
+  const accounts = getAccounts();
+  if (!accounts.find(a => a.userId === userId)) return { ok: false, error: '계정을 찾을 수 없어요.' };
+  saveAccountsInternal(accounts.filter(a => a.userId !== userId));
+  if (wipeData) {
+    try {
+      const prefix = `sw_${userId}_`;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+    } catch {}
+  }
+  return { ok: true };
+}
+
+// 계정별 데이터 현황 (관리자 패널 표시용)
+export function getAccountDataStats(userId) {
+  const read = (suffix) => {
+    try { return (JSON.parse(localStorage.getItem(`sw_${userId}_${suffix}`)) || []).length; } catch { return 0; }
+  };
+  return { records: read('records'), children: read('children'), documents: read('documents') };
 }
 
 // ── 기존 계정에 구글 연동 ────────────────────────────────────────────────────

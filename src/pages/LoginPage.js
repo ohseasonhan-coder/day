@@ -1,27 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { login, register, loginWithGoogle } from '../utils/auth';
+import { login, loginWithGoogle } from '../utils/auth';
 import { renderGoogleSignInButton, isElectron } from '../utils/driveBackup';
 import { getGoogleClientId, setGoogleClientId } from '../utils/storage';
-import { Zap, Eye, EyeOff, UserPlus, LogIn, ChevronRight } from 'lucide-react';
+import { Zap, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
 
+// 로그인은 구글 계정 전용. 관리자(마스터)만 아이디/비밀번호로 로그인한다.
 export default function LoginPage({ onLogin }) {
-  const [mode, setMode]           = useState('login'); // 'login' | 'signup'
-  const [userId, setUserId]       = useState('');
-  const [password, setPassword]   = useState('');
-  const [password2, setPassword2] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [showPw, setShowPw]       = useState(false);
-  const [error, setError]         = useState('');
-  const [loading, setLoading]     = useState(false);
+  const [error, setError] = useState('');
   // 구글 로그인
   const [googleClientId, setGoogleClientIdState] = useState(() => getGoogleClientId());
   const [showGoogleSetup, setShowGoogleSetup] = useState(false);
   const [clientIdDraft, setClientIdDraft] = useState('');
   const [googleBtnError, setGoogleBtnError] = useState('');
   const googleBtnRef = useRef(null);
+  // 관리자 로그인
+  const [showAdminLogin, setShowAdminLogin] = useState(() => isElectron());
+  const [adminId, setAdminId] = useState('');
+  const [adminPw, setAdminPw] = useState('');
+  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
-    if (!googleClientId || !googleBtnRef.current) return;
+    if (!googleClientId || !googleBtnRef.current || isElectron()) return;
     let cancelled = false;
     setGoogleBtnError('');
     renderGoogleSignInButton(
@@ -52,35 +51,12 @@ export default function LoginPage({ onLogin }) {
     setGoogleBtnError('');
   };
 
-  const reset = () => {
-    setError('');
-    setPassword('');
-    setPassword2('');
-  };
-
-  const switchMode = (m) => {
-    setMode(m);
-    reset();
-  };
-
-  const handleSubmit = async (e) => {
+  const handleAdminSubmit = (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-
-    if (mode === 'login') {
-      const res = login(userId, password);
-      if (!res.ok) { setError(res.error); setLoading(false); return; }
-      onLogin(res.user);
-    } else {
-      if (password !== password2) {
-        setError('비밀번호가 일치하지 않아요.'); setLoading(false); return;
-      }
-      const res = register(userId, password, displayName);
-      if (!res.ok) { setError(res.error); setLoading(false); return; }
-      onLogin(res.user);
-    }
-    setLoading(false);
+    const res = login(adminId, adminPw);
+    if (!res.ok) { setError(res.error); return; }
+    onLogin(res.user);
   };
 
   return (
@@ -115,148 +91,29 @@ export default function LoginPage({ onLogin }) {
         boxShadow: '0 20px 60px rgba(79,127,255,0.14)',
       }}>
 
-        {/* 모드 탭 */}
-        <div style={{ display: 'flex', background: 'var(--gray-100)', borderRadius: 12, padding: 4, marginBottom: 28 }}>
-          {[['login', '로그인', <LogIn size={14} />], ['signup', '회원가입', <UserPlus size={14} />]].map(([m, label, icon]) => (
-            <button key={m} onClick={() => switchMode(m)} style={{
-              flex: 1, padding: '9px 12px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-              background: mode === m ? 'white' : 'transparent',
-              color: mode === m ? 'var(--primary)' : 'var(--text-tertiary)',
-              boxShadow: mode === m ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              transition: 'all 0.15s',
-            }}>
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={handleSubmit}>
-
-          {/* 이름 (회원가입만) */}
-          {mode === 'signup' && (
-            <Field label="선생님 이름" required>
-              <input
-                type="text"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                placeholder="홍길동"
-                maxLength={20}
-                style={inputStyle}
-                autoFocus
-              />
-            </Field>
-          )}
-
-          {/* 아이디 */}
-          <Field label="아이디" hint={mode === 'signup' ? '영문 소문자·숫자·밑줄, 3자 이상' : undefined}>
-            <input
-              type="text"
-              value={userId}
-              onChange={e => setUserId(e.target.value.toLowerCase().trim())}
-              placeholder="teacher01"
-              maxLength={30}
-              style={inputStyle}
-              autoFocus={mode === 'login'}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </Field>
-
-          {/* 비밀번호 */}
-          <Field label="비밀번호" hint={mode === 'signup' ? '4자 이상' : undefined}>
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showPw ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{ ...inputStyle, paddingRight: 44 }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw(v => !v)}
-                style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }}
-              >
-                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </Field>
-
-          {/* 비밀번호 확인 (회원가입만) */}
-          {mode === 'signup' && (
-            <Field label="비밀번호 확인">
-              <input
-                type={showPw ? 'text' : 'password'}
-                value={password2}
-                onChange={e => setPassword2(e.target.value)}
-                placeholder="••••••••"
-                style={{
-                  ...inputStyle,
-                  borderColor: password2 && password !== password2 ? 'var(--accent)' : undefined,
-                }}
-              />
-            </Field>
-          )}
-
-          {/* 에러 */}
-          {error && (
-            <div style={{
-              background: 'var(--accent-light)', color: 'var(--accent)',
-              borderRadius: 10, padding: '11px 14px', fontSize: 13, fontWeight: 600,
-              marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
-            }}>
-              ⚠️ {error}
-            </div>
-          )}
-
-          {/* 제출 버튼 */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%', padding: '15px', borderRadius: 14, border: 'none',
-              background: loading ? 'var(--gray-300)' : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-              color: 'white', fontSize: 15, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              boxShadow: loading ? 'none' : '0 8px 24px rgba(79,127,255,0.35)',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              marginTop: 4,
-            }}
-          >
-            {mode === 'login'
-              ? <><LogIn size={17} /> 로그인</>
-              : <><UserPlus size={17} /> 계정 만들기</>
-            }
-            {!loading && <ChevronRight size={16} />}
-          </button>
-        </form>
-
-        {/* ── 구글로 시작하기 ───────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 16px' }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 700 }}>또는</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--text-primary)' }}>구글 계정으로 시작하기</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.7 }}>
+            별도 회원가입 없이 구글 계정 하나로 로그인하고,<br />
+            기록은 자동으로 <b>본인 구글 드라이브</b>에 백업돼요.
+          </div>
         </div>
 
         {isElectron() ? (
-          <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, textAlign: 'center' }}>
+          <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, textAlign: 'center', marginBottom: 16 }}>
             🖥️ 데스크탑 앱에서는 구글 로그인이 지원되지 않아요.<br />
-            구글 로그인·드라이브 백업은 <b>크롬·엣지 브라우저</b>에서 사용해 주세요.<br />
-            여기서는 위의 아이디/비밀번호 계정으로 이용할 수 있어요.
+            <b>크롬·엣지 브라우저</b>에서 사용해 주세요.
           </div>
         ) : googleClientId ? (
-          <div>
+          <div style={{ marginBottom: 8 }}>
             <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>
-              구글은 로그인에만 사용돼요. 기록 데이터는 여전히 이 기기에만 저장됩니다.<br />
-              이미 아이디 계정이 있다면, 아이디로 로그인한 뒤 <b>설정 → 계정 → 구글 계정 연동</b>을 해두세요.
-              그러면 이 버튼으로 기존 계정에 바로 들어올 수 있어요.
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 10, lineHeight: 1.6 }}>
+              🔒 구글은 로그인과 본인 드라이브 백업에만 사용돼요.<br />
+              아이 기록이 외부 서버로 전송되지 않습니다.
             </div>
           </div>
         ) : showGoogleSetup ? (
-          <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 14px' }}>
+          <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 14px', marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>구글 클라이언트 ID (최초 1회)</div>
             <input
               value={clientIdDraft}
@@ -274,41 +131,97 @@ export default function LoginPage({ onLogin }) {
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.7 }}>
               console.cloud.google.com → OAuth 클라이언트 ID(웹 애플리케이션) 발급 후 붙여넣으세요.
-              자세한 단계는 로그인 후 설정 → 백업/복구의 "최초 설정 방법"에 있어요.
             </div>
           </div>
         ) : (
           <button onClick={() => setShowGoogleSetup(true)} style={{
-            width: '100%', padding: '13px', borderRadius: 14,
+            width: '100%', padding: '14px', borderRadius: 14,
             background: 'var(--white)', border: '1.5px solid var(--border)',
             color: 'var(--text-primary)', fontSize: 14, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            marginBottom: 8,
           }}>
             <span style={{ fontWeight: 900, color: '#4285F4' }}>G</span> 구글로 시작하기 (최초 1회 설정 필요)
           </button>
         )}
 
         {googleBtnError && (
-          <div style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 600, marginTop: 10, lineHeight: 1.6 }}>
+          <div style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 600, marginTop: 8, lineHeight: 1.6 }}>
             ⚠️ {googleBtnError}
           </div>
         )}
+        {error && !showAdminLogin && (
+          <div style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 600, marginTop: 8 }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* ── 관리자 로그인 ─────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0 14px' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <button onClick={() => { setShowAdminLogin(v => !v); setError(''); }} style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <ShieldCheck size={12} /> 관리자 로그인
+          </button>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        {showAdminLogin && (
+          <form onSubmit={handleAdminSubmit}>
+            <Field label="관리자 아이디">
+              <input
+                type="text"
+                value={adminId}
+                onChange={e => setAdminId(e.target.value.toLowerCase().trim())}
+                placeholder="master"
+                maxLength={30}
+                style={inputStyle}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </Field>
+            <Field label="비밀번호">
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={adminPw}
+                  onChange={e => setAdminPw(e.target.value)}
+                  placeholder="••••••••"
+                  style={{ ...inputStyle, paddingRight: 44 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(v => !v)}
+                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }}
+                >
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </Field>
+            {error && (
+              <div style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 10, padding: '11px 14px', fontSize: 13, fontWeight: 600, marginBottom: 14 }}>
+                ⚠️ {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              style={{
+                width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                background: 'var(--gray-800)', color: 'white', fontSize: 14, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <LogIn size={15} /> 관리자로 로그인
+            </button>
+          </form>
+        )}
 
         {/* 하단 안내 */}
-        <div style={{ marginTop: 20, padding: '16px', background: 'var(--gray-50)', borderRadius: 12 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.8, textAlign: 'center' }}>
-            {mode === 'login' ? (
-              <>계정이 없으신가요? <button onClick={() => switchMode('signup')} style={{ color: 'var(--primary)', fontWeight: 800, fontSize: 12 }}>회원가입</button></>
-            ) : (
-              <>이미 계정이 있으신가요? <button onClick={() => switchMode('login')} style={{ color: 'var(--primary)', fontWeight: 800, fontSize: 12 }}>로그인</button></>
-            )}
+        <div style={{ marginTop: 18, padding: '14px 16px', background: 'var(--gray-50)', borderRadius: 12 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', lineHeight: 1.8 }}>
+            🔒 모든 기록은 이 기기와 본인 구글 드라이브에만 저장됩니다.<br />
+            개발자 서버로 전송되지 않아요.
           </div>
-          {mode === 'login' && (
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, textAlign: 'center', lineHeight: 1.7 }}>
-              🔒 모든 데이터는 이 기기에만 저장됩니다.<br />
-              외부 서버로 전송되지 않아요.
-            </div>
-          )}
         </div>
       </div>
     </div>
