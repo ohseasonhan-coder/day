@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import {
   getRecords, getClasses, getChildren,
   today, formatDateKo, formatDate, CATEGORIES, addDocumentDraft,
-  getDocumentHistory, getFormTemplates, updateDocumentDraft, deleteDocumentDraft, getAutomationState,
+  getDocumentHistory, getFormTemplates, updateDocumentDraft, deleteDocumentDraftToTrash, getAutomationState,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
 import { exportDocx } from '../utils/docxExport';
@@ -617,9 +617,8 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
 
   const handleDeleteHistoryDoc = () => {
     if (!historyPreview) return;
-    const typed = window.prompt('이 문서를 삭제하려면 "삭제"를 입력하세요. 원본 기록은 유지됩니다.');
-    if (typed !== '삭제') return;
-    deleteDocumentDraft(historyPreview.id);
+    if (!window.confirm('이 문서를 휴지통으로 보낼까요? 설정 > 백업/복구 > 휴지통에서 30일 안에 복원할 수 있어요.')) return;
+    deleteDocumentDraftToTrash(historyPreview.id);
     setHistoryDocs(getDocumentHistory());
     setHistoryPreview(null);
     setHistoryDraft(null);

@@ -1542,6 +1542,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
   const [editObs, setEditObs]       = useState(record.observation || '');
   const [editParent, setEditParent] = useState(record.parent || '');
   const [editSupport, setEditSupport] = useState(record.support || '');
+  const [editDate, setEditDate]     = useState(record.date || today());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expanded, setExpanded]     = useState({});
   const [regenBanner, setRegenBanner] = useState(false);
@@ -1550,7 +1551,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
   const cat = record.category ? CATEGORIES[record.category] : null;
 
   const handleSave = () => {
-    onUpdate(record.id, { rawText: editRaw, observation: editObs, parent: editParent, support: editSupport });
+    onUpdate(record.id, { rawText: editRaw, observation: editObs, parent: editParent, support: editSupport, date: editDate || record.date });
     setEditMode(false);
     // Show regen banner if record had AI result
     if (record.observation || record.parent || record.support) {
@@ -1651,6 +1652,16 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
           {editMode ? (
             /* ── 수정 모드 ─────── */
             <div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>📅 기록 날짜</div>
+                <input
+                  type="date"
+                  value={editDate}
+                  max={today()}
+                  onChange={e => setEditDate(e.target.value || record.date)}
+                  style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', background: 'var(--white)', color: 'var(--text-primary)' }}
+                />
+              </div>
               <EditField label="원본 입력" value={editRaw}     onChange={setEditRaw}     rows={3} />
               <EditField label="관찰일지 문장" value={editObs}  onChange={setEditObs}     rows={4} accent />
               <EditField label="알림장 문장"  value={editParent} onChange={setEditParent}  rows={3} />
@@ -1681,7 +1692,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
                   </button>
                 ) : (
                   <div style={{ background: 'var(--accent-light)', borderRadius: 12, padding: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', marginBottom: 10 }}>정말 삭제할까요? 복구할 수 없어요.</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', marginBottom: 10 }}>휴지통으로 보낼까요? 30일 안에 설정 &gt; 휴지통에서 복원할 수 있어요.</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <button onClick={() => setConfirmDelete(false)} style={{ padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 13, fontWeight: 700 }}>취소</button>
                       <button onClick={() => onDelete(record.id)} style={{ padding: '10px', borderRadius: 10, background: 'var(--accent)', color: 'white', fontSize: 13, fontWeight: 800 }}>삭제</button>

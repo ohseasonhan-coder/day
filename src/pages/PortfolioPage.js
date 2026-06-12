@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getRecordsByChild, CATEGORIES, formatDate, addCopyHistory } from '../utils/storage';
+import { getRecordsByChild, CATEGORIES, formatDate, addCopyHistory, getClasses } from '../utils/storage';
+import { NURI, AREA_COLORS, loadChecks } from './ChecklistPage';
 import { ArrowLeft, BarChart3, FileText, Copy, Check } from 'lucide-react';
 
 const AVATAR_COLORS = ['#4F7FFF', '#6C63FF', '#FF8C42', '#00B4D8', '#4CAF50', '#E91E9A', '#FF5722', '#607D8B'];
@@ -145,6 +146,31 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
     setTimeout(() => setReportCopied(false), 1600);
   };
 
+  // 발달 체크리스트 현황 — 최근 6개월 중 체크 데이터가 있는 가장 최근 달
+  const checklistSummary = useMemo(() => {
+    const age = parseInt(getClasses()[0]?.age || '4', 10);
+    const areas = NURI[age] || NURI[4];
+    const now = new Date();
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const checks = loadChecks(childId, ym);
+      if (Object.keys(checks).length === 0) continue;
+      const byArea = Object.entries(areas).map(([name, items]) => ({
+        name,
+        done: items.filter(it => checks[it.id]).length,
+        total: items.length,
+      }));
+      return {
+        ym,
+        byArea,
+        done: byArea.reduce((s, a) => s + a.done, 0),
+        total: byArea.reduce((s, a) => s + a.total, 0),
+      };
+    }
+    return null;
+  }, [childId]);
+
   // 전체 기록 타임라인 (월별 그룹, 최신순)
   const timeline = useMemo(() => {
     const sorted = [...records].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -241,6 +267,42 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
                 📋 특이사항 {specialCount}건은 영역 분포에서 제외돼요.
               </div>
             )}
+          </>
+        )}
+      </SectionCard>
+
+      <SectionCard title="✅ 발달 체크리스트 현황">
+        {!checklistSummary ? (
+          <div style={{ textAlign: 'center', padding: '14px 0', color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.7 }}>
+            아직 체크한 항목이 없어요.<br />발달 체크 메뉴에서 체크하면 여기에 요약돼요.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-tertiary)' }}>
+                {parseInt(checklistSummary.ym.split('-')[1], 10)}월 기준
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--primary)' }}>
+                {checklistSummary.done}/{checklistSummary.total} 달성
+              </span>
+            </div>
+            {checklistSummary.byArea.map(area => {
+              const colorInfo = AREA_COLORS[area.name] || { color: 'var(--primary)' };
+              const pct = area.total > 0 ? Math.round((area.done / area.total) * 100) : 0;
+              return (
+                <div key={area.name} style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: colorInfo.color }}>
+                      {colorInfo.emoji} {area.name}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: colorInfo.color }}>{area.done}/{area.total}</span>
+                  </div>
+                  <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 100, overflow: 'hidden' }}>
+                    <div style={{ height: 8, background: colorInfo.color, borderRadius: 100, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+                  </div>
+                </div>
+              );
+            })}
           </>
         )}
       </SectionCard>

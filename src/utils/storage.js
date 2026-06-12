@@ -34,7 +34,53 @@ const KEYS = {
   get AUTOMATION_LOG()  { return `sw_${_getUid()}_automation_log`; },
   get FEEDBACK()        { return `sw_${_getUid()}_feedback`; },
   get COPY_HISTORY()    { return `sw_${_getUid()}_copy_history`; },
+  get TRASH()           { return `sw_${_getUid()}_trash`; },
+  get ARCHIVED_CHILDREN() { return `sw_${_getUid()}_archived_children`; },
 };
+
+// ── 신학기 진급 / 졸업 아동 보관 ──────────────────────────────────────────────
+// 졸업한 아이는 명단에서 빠지지만 기록은 그대로 남는다 (기록의 childName으로 식별 가능)
+export const getArchivedChildren = () => storage.get(KEYS.ARCHIVED_CHILDREN) || [];
+
+export function promoteToNewYear({ classUpdates, graduateIds }) {
+  const classes = getClasses();
+  const children = getChildren();
+
+  const nextClasses = classes.map((c, i) => i === 0 ? { ...c, ...classUpdates } : c);
+  saveClasses(nextClasses);
+
+  const graduates = children.filter(c => graduateIds.includes(c.id));
+  const remaining = children.filter(c => !graduateIds.includes(c.id));
+  if (graduates.length > 0) {
+    const archived = getArchivedChildren();
+    storage.set(KEYS.ARCHIVED_CHILDREN, [
+      ...graduates.map(c => ({ ...c, graduatedAt: new Date().toISOString(), lastClassName: classes[0]?.name || '' })),
+      ...archived,
+    ]);
+  }
+  saveChildren(remaining);
+  rebuildAutomationState(getRecords(), remaining, nextClasses);
+  return { promoted: remaining.length, graduated: graduates.length };
+}
+
+export function restoreArchivedChild(id) {
+  const archived = getArchivedChildren();
+  const child = archived.find(c => c.id === id);
+  if (!child) return { ok: false };
+  const { graduatedAt, lastClassName, ...rest } = child; // eslint-disable-line no-unused-vars
+  saveChildren([...getChildren(), rest]);
+  storage.set(KEYS.ARCHIVED_CHILDREN, archived.filter(c => c.id !== id));
+  return { ok: true };
+}
+
+// ── PIN 잠금 ─────────────────────────────────────────────────────────────────
+// 화면 잠금용 4자리 PIN 해시 (가벼운 열람 방지용 — 암호학적 보안 아님)
+export function hashPin(pin) {
+  let h = 5381;
+  const s = `sw-pin-${pin}`;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+}
 
 // 구글 OAuth 클라이언트 ID — 로그인 전에도 필요하므로 계정 구분 없이 전역 저장
 // (비밀키가 아니라 "이 앱 주소에서만 구글 인증을 쓸 수 있다"는 공개 식별자)
@@ -664,9 +710,59 @@ export const deleteRecord = (id) => {
   const deletedRecord = records.find(r => r.id === id);
   const nextRecords = records.filter(r => r.id !== id);
   saveRecords(nextRecords);
+  if (deletedRecord) moveToTrash('record', deletedRecord);
   const state = rebuildAutomationState(nextRecords);
   return makeAutomationLogEvent('delete', deletedRecord, state);
 };
+
+// ── 휴지통 (삭제 복구) ────────────────────────────────────────────────────────
+// 기록·문서는 삭제 시 즉시 지우지 않고 휴지통에 30일 보관 후 자동 정리
+const TRASH_RETENTION_DAYS = 30;
+
+export const getTrash = () => {
+  const items = storage.get(KEYS.TRASH) || [];
+  const cutoff = Date.now() - TRASH_RETENTION_DAYS * 86400000;
+  const valid = items.filter(t => new Date(t.deletedAt).getTime() > cutoff);
+  if (valid.length !== items.length) storage.set(KEYS.TRASH, valid);
+  return valid;
+};
+
+function moveToTrash(type, item) {
+  const trash = getTrash();
+  storage.set(KEYS.TRASH, [
+    { trashId: genId(), type, item, deletedAt: new Date().toISOString() },
+    ...trash,
+  ].slice(0, 200)); // 휴지통 최대 200개
+}
+
+export const restoreFromTrash = (trashId) => {
+  const trash = getTrash();
+  const entry = trash.find(t => t.trashId === trashId);
+  if (!entry) return { ok: false, error: '휴지통에서 항목을 찾을 수 없어요.' };
+
+  if (entry.type === 'record') {
+    const records = getRecords();
+    if (!records.find(r => r.id === entry.item.id)) {
+      const next = [entry.item, ...records];
+      next.sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+      saveRecords(next);
+      rebuildAutomationState(next);
+    }
+  } else if (entry.type === 'document') {
+    const documents = getDocuments();
+    if (!documents.find(d => d.id === entry.item.id)) {
+      saveDocuments([entry.item, ...documents]);
+    }
+  }
+  storage.set(KEYS.TRASH, trash.filter(t => t.trashId !== trashId));
+  return { ok: true, type: entry.type };
+};
+
+export const purgeTrashItem = (trashId) => {
+  storage.set(KEYS.TRASH, getTrash().filter(t => t.trashId !== trashId));
+};
+
+export const emptyTrash = () => storage.set(KEYS.TRASH, []);
 
 // ── 기록 임시저장 (자동저장) ──────────────────────────────────────────────────
 export const getDraft     = () => storage.get(KEYS.DRAFT);
@@ -740,6 +836,13 @@ export const addDocumentDraft = (document) => {
 export const updateDocumentDraft = (id, updates) => {
   const documents = getDocuments();
   saveDocuments(documents.map(d => d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d));
+};
+
+export const deleteDocumentDraftToTrash = (id) => {
+  const documents = getDocuments();
+  const deleted = documents.find(d => d.id === id);
+  saveDocuments(documents.filter(d => d.id !== id));
+  if (deleted) moveToTrash('document', deleted);
 };
 
 export const deleteDocumentDraft = (id) => {

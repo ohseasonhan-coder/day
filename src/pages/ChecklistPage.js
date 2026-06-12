@@ -4,7 +4,8 @@ import { getChildren, getClasses, today } from '../utils/storage';
 import { generateSentences } from '../utils/sentenceLibrary';
 
 // ── 누리과정 5개 영역 체크리스트 (연령별) ─────────────────────────────────────
-const NURI = {
+// PortfolioPage에서도 체크 현황 요약에 사용
+export const NURI = {
   2: {
     신체운동건강: [
       { id: 'b2_1', text: '걷기·달리기·뛰기 등 기본 운동 참여', devArea: '신체', category: 'body' },
@@ -144,7 +145,7 @@ const NURI = {
   },
 };
 
-const AREA_COLORS = {
+export const AREA_COLORS = {
   신체운동건강: { bg: '#e8f5e9', color: '#2e7d32', emoji: '🏃' },
   의사소통:     { bg: '#e3f2fd', color: '#1565c0', emoji: '💬' },
   사회관계:     { bg: '#fce4ec', color: '#c62828', emoji: '🤝' },
@@ -157,7 +158,7 @@ const STORAGE_KEY = (uid, childId, ym) => `sw_${uid}_checklist_${childId}_${ym}`
 function getUid() {
   try { return JSON.parse(localStorage.getItem('sw_session') || '{}').userId || 'default'; } catch { return 'default'; }
 }
-function loadChecks(childId, ym) {
+export function loadChecks(childId, ym) {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY(getUid(), childId, ym)) || '{}'); } catch { return {}; }
 }
 function saveChecks(childId, ym, data) {

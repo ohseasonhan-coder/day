@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { getRecords, getChildren, CATEGORIES, today, formatDateKo } from '../utils/storage';
-import { BarChart3, TrendingUp, AlertCircle, Star, Users, PenLine, CalendarDays, Zap, Download } from 'lucide-react';
+import PrintPreviewModal from '../components/PrintPreviewModal';
+import { BarChart3, TrendingUp, AlertCircle, Star, Users, PenLine, CalendarDays, Zap, Download, Printer } from 'lucide-react';
 
 function downloadCSV(filename, rows) {
   const bom = '﻿';
@@ -23,6 +24,7 @@ const MONTH_KO   = (m) => `${m+1}월`;
 
 export default function StatsPage({ onNavigate, isDesktop }) {
   const [tab, setTab] = useState('overview'); // 'overview' | 'children' | 'categories' | 'trend' | 'heatmap'
+  const [showPrint, setShowPrint] = useState(false);
 
   const records  = useMemo(() => getRecords(), []);
   const children = useMemo(() => getChildren(), []);
@@ -132,6 +134,48 @@ export default function StatsPage({ onNavigate, isDesktop }) {
     return { weeks, maxCount };
   }, [records]);
 
+  // ── 인쇄용 리포트 (평가제·보고용 A4) ──────────────────────────────────
+  const buildPrintSections = () => {
+    const catLabel = (c) => CATEGORIES[c]?.label || c || '미분류';
+    const sections = [
+      {
+        title: '전체 현황',
+        content:
+          `누적 기록 ${records.length}건 · 기록한 날 ${recordedDays}일 · 아이 ${children.length}명\n` +
+          `이번 달 기록 ${thisMonthRecs.length}건 (${recordedThisMonth}일) · 최근 7일 ${thisWeekRecs.length}건 · 즐겨찾기 ${starredRecs.length}건`,
+      },
+      {
+        title: '아이별 기록 현황',
+        content: childData.length === 0 ? '등록된 아이가 없습니다.'
+          : childData.map(c => `· ${c.name}: 누적 ${c.total}건 / 이번 달 ${c.thisMonth}건${c.last?.date ? ` / 최근 기록 ${c.last.date}` : ' / 기록 없음'}`).join('\n'),
+      },
+      {
+        title: '발달 영역 분포 (누리과정 6개 영역)',
+        content: TREND_AREAS.map(a => {
+          const count = records.filter(r => a.cats.includes(r.category)).length;
+          const pct = records.length > 0 ? Math.round((count / records.length) * 100) : 0;
+          return `· ${a.label}: ${count}건 (${pct}%)`;
+        }).join('\n'),
+      },
+      {
+        title: '카테고리별 기록',
+        content: catData.length === 0 ? '기록이 없습니다.'
+          : catData.map(([cat, count]) => `· ${catLabel(cat)}: ${count}건 (${Math.round((count / totalCatCount) * 100)}%)`).join('\n'),
+      },
+      {
+        title: '월별 기록 추이 (최근 6개월)',
+        content: monthlyData.map(m => `· ${m.year}년 ${m.label}: ${m.count}건`).join('\n'),
+      },
+    ];
+    if (needAttention.length > 0) {
+      sections.push({
+        title: '이번 달 기록이 없는 아이',
+        content: needAttention.map(c => `· ${c.name}`).join('\n'),
+      });
+    }
+    return sections;
+  };
+
   // ── CSV 내보내기 ──────────────────────────────────────────────────────
   const handleExportCSV = () => {
     const header = ['이름','날짜','카테고리','입력내용','관찰일지문장','부모상담문장','지원계획','태그'];
@@ -177,10 +221,22 @@ export default function StatsPage({ onNavigate, isDesktop }) {
             {v}
           </button>
         ))}
-        <button onClick={handleExportCSV} style={{ marginLeft:'auto', flexShrink:0, display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:100, fontSize:12, fontWeight:800, background:'var(--cat-play-light)', color:'var(--cat-play)', border:'1.5px solid var(--cat-play)', whiteSpace:'nowrap' }}>
+        <button onClick={() => setShowPrint(true)} style={{ marginLeft:'auto', flexShrink:0, display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:100, fontSize:12, fontWeight:800, background:'var(--primary-light)', color:'var(--primary)', border:'1.5px solid var(--primary)', whiteSpace:'nowrap' }}>
+          <Printer size={13} /> 인쇄
+        </button>
+        <button onClick={handleExportCSV} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:100, fontSize:12, fontWeight:800, background:'var(--cat-play-light)', color:'var(--cat-play)', border:'1.5px solid var(--cat-play)', whiteSpace:'nowrap' }}>
           <Download size={13} /> CSV 내보내기
         </button>
       </div>
+
+      {showPrint && (
+        <PrintPreviewModal
+          title={`기록 통계 리포트 (${formatDateKo(todayStr)})`}
+          sections={buildPrintSections()}
+          meta={{ date: todayStr, className: '' }}
+          onClose={() => setShowPrint(false)}
+        />
+      )}
 
       {/* ── 개요 탭 ──────────────────────────────────────── */}
       {tab === 'overview' && (

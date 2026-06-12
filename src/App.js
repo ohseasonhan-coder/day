@@ -24,6 +24,7 @@ import ConsultPage    from './pages/ConsultPage';
 import ChecklistPage  from './pages/ChecklistPage';
 import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
+import LockScreen from './components/LockScreen';
 
 import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search } from 'lucide-react';
 
@@ -102,7 +103,28 @@ export default function App() {
     setShowIosGuide(false);
   };
   const [showOnboarding, setShowOnboarding] = useState(() => user ? !isOnboardingDone() : false);
+  // PIN 잠금 — 설정돼 있으면 앱을 열 때 잠금
+  const [locked, setLocked] = useState(() => {
+    try { return !!(user && getSettings().pinHash); } catch { return false; }
+  });
   const isDesktop = useIsDesktop();
+
+  // 방치 시 자동 잠금 (설정한 시간 동안 입력이 없으면)
+  useEffect(() => {
+    if (!user) return;
+    const settings = getSettings();
+    if (!settings.pinHash) return;
+    const minutes = Number(settings.pinLockMinutes ?? 5);
+    if (!minutes) return; // 0 = 앱을 열 때만 잠금
+    let last = Date.now();
+    const bump = () => { last = Date.now(); };
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(ev => window.addEventListener(ev, bump, { passive: true }));
+    const timer = setInterval(() => {
+      if (Date.now() - last > minutes * 60000) setLocked(true);
+    }, 15000);
+    return () => { events.forEach(ev => window.removeEventListener(ev, bump)); clearInterval(timer); };
+  }, [user, showSettings]);
 
   const handleSetActiveClass = (id) => {
     setActiveClassId(id);
@@ -199,7 +221,17 @@ export default function App() {
     setIsSetup(false);
   };
 
-  if (!user)        return <LoginPage    onLogin={(u) => { setUser(u); setPage('today'); setShowOnboarding(!isOnboardingDone()); }} />;
+  if (!user)        return <LoginPage    onLogin={(u) => { setUser(u); setPage('today'); setLocked(false); setShowOnboarding(!isOnboardingDone()); }} />;
+  if (locked && getSettings().pinHash) {
+    return (
+      <LockScreen
+        pinHash={getSettings().pinHash}
+        displayName={user.displayName}
+        onUnlock={() => setLocked(false)}
+        onLogout={() => { setLocked(false); handleLogout(); }}
+      />
+    );
+  }
   if (isSetup)      return <SetupPage    onComplete={() => setIsSetup(false)} />;
   if (showSettings) return <SettingsPage onBack={() => setShowSettings(false)} currentUser={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} activeClassId={activeClassId} onSetActiveClass={handleSetActiveClass} />;
 

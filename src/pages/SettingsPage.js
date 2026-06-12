@@ -3,7 +3,9 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
-  getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId } from '../utils/storage';
+  getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId,
+  getTrash, restoreFromTrash, purgeTrashItem, emptyTrash, formatDate, hashPin,
+  promoteToNewYear, getArchivedChildren, restoreArchivedChild } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
@@ -91,6 +93,104 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [deleteMsg, setDeleteMsg] = useState('');
 
   const [pendingImport, setPendingImport] = useState(null); // { json, summary, fileName }
+  // 화면 잠금 (PIN)
+  const [lockPin1, setLockPin1] = useState('');
+  const [lockPin2, setLockPin2] = useState('');
+  const [lockCurrentPin, setLockCurrentPin] = useState('');
+  const [lockMsg, setLockMsg] = useState(null);
+
+  const handleSetPin = () => {
+    if (!/^\d{4}$/.test(lockPin1)) { setLockMsg({ ok: false, text: 'PIN은 숫자 4자리여야 해요.' }); return; }
+    if (lockPin1 !== lockPin2) { setLockMsg({ ok: false, text: '두 PIN이 서로 달라요.' }); return; }
+    const next = { ...settings, pinHash: hashPin(lockPin1), pinLockMinutes: settings.pinLockMinutes ?? 5 };
+    setSettings(next);
+    saveSettings(next); // 잠금 설정은 즉시 저장
+    setLockPin1(''); setLockPin2('');
+    setLockMsg({ ok: true, text: '화면 잠금이 켜졌어요. 다음에 앱을 열 때부터 PIN을 물어봐요.' });
+  };
+
+  const handleRemovePin = () => {
+    if (hashPin(lockCurrentPin) !== settings.pinHash) { setLockMsg({ ok: false, text: '현재 PIN이 일치하지 않아요.' }); return; }
+    const { pinHash, ...rest } = settings; // eslint-disable-line no-unused-vars
+    setSettings(rest);
+    saveSettings(rest);
+    setLockCurrentPin('');
+    setLockMsg({ ok: true, text: '화면 잠금을 해제했어요.' });
+  };
+
+  // 신학기 진급 도우미
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [promoteYear, setPromoteYear] = useState('');
+  const [promoteName, setPromoteName] = useState('');
+  const [promoteAge, setPromoteAge] = useState('');
+  const [promoteSel, setPromoteSel] = useState({}); // childId → 'promote' | 'graduate'
+  const [promoteMsg, setPromoteMsg] = useState(null);
+  const [archivedChildren, setArchivedChildren] = useState(() => getArchivedChildren());
+
+  const openPromoteWizard = () => {
+    const cl0 = getClasses()[0];
+    if (!cl0) { setPromoteMsg({ ok: false, text: '먼저 반을 등록해 주세요.' }); return; }
+    setPromoteYear(String(Number(cl0.year || new Date().getFullYear()) + 1));
+    setPromoteName(cl0.name || '');
+    setPromoteAge(String(Math.min(5, Number(cl0.age || 3) + 1)));
+    const sel = {};
+    getChildren().forEach(c => { sel[c.id] = 'promote'; });
+    setPromoteSel(sel);
+    setPromoteMsg(null);
+    setPromoteOpen(true);
+  };
+
+  const handlePromoteApply = () => {
+    const graduateIds = Object.entries(promoteSel).filter(([, v]) => v === 'graduate').map(([k]) => k);
+    const promoteCount = Object.keys(promoteSel).length - graduateIds.length;
+    if (!window.confirm(
+      `${promoteYear}학년도 · ${promoteName} · ${promoteAge}세반으로 변경하고\n` +
+      `진급 ${promoteCount}명 유지 · 졸업 ${graduateIds.length}명 보관 처리할까요?\n\n` +
+      `졸업한 아이의 기록은 삭제되지 않고 그대로 남아요.`
+    )) return;
+    const res = promoteToNewYear({
+      classUpdates: { year: promoteYear, name: promoteName.trim() || '새 반', age: promoteAge },
+      graduateIds,
+    });
+    setClasses(getClasses());
+    setChildren(getChildren());
+    setArchivedChildren(getArchivedChildren());
+    setPromoteOpen(false);
+    setPromoteMsg({ ok: true, text: `신학기 준비 완료! 진급 ${res.promoted}명 · 졸업 보관 ${res.graduated}명` });
+    setTimeout(() => setPromoteMsg(null), 6000);
+  };
+
+  const handleRestoreArchived = (id) => {
+    restoreArchivedChild(id);
+    setChildren(getChildren());
+    setArchivedChildren(getArchivedChildren());
+  };
+
+  // 휴지통
+  const [trashItems, setTrashItems] = useState(() => getTrash());
+  const refreshTrash = () => setTrashItems(getTrash());
+
+  const handleRestoreTrash = (trashId) => {
+    const res = restoreFromTrash(trashId);
+    refreshTrash();
+    if (res.ok) {
+      setChildren(getChildren());
+      setBackupMsg({ ok: true, text: res.type === 'record' ? '기록을 복원했어요.' : '문서를 복원했어요.' });
+      setTimeout(() => setBackupMsg(null), 3000);
+    }
+  };
+
+  const handlePurgeTrash = (trashId) => {
+    if (!window.confirm('이 항목을 영구 삭제할까요? 되돌릴 수 없어요.')) return;
+    purgeTrashItem(trashId);
+    refreshTrash();
+  };
+
+  const handleEmptyTrash = () => {
+    if (!window.confirm(`휴지통의 ${trashItems.length}개 항목을 모두 영구 삭제할까요? 되돌릴 수 없어요.`)) return;
+    emptyTrash();
+    refreshTrash();
+  };
   // 구글 계정 연동 (계정 탭)
   const [googleLink, setGoogleLink] = useState(() => {
     const acc = getAccounts().find(a => a.userId === currentUser?.userId);
@@ -516,6 +616,78 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               )}
             </SettingCard>
 
+            <SettingCard title="🔒 화면 잠금 (PIN)">
+              {lockMsg && (
+                <div style={{
+                  background: lockMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',
+                  color: lockMsg.ok ? 'var(--cat-play)' : 'var(--accent)',
+                  borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 700, marginBottom: 12,
+                }}>
+                  {lockMsg.text}
+                </div>
+              )}
+              {settings.pinHash ? (
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+                    ✅ 화면 잠금이 켜져 있어요. 앱을 열 때 PIN을 물어봐요.
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>자리 비움 자동 잠금</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                    {[[0, '안 함'], [1, '1분'], [5, '5분'], [15, '15분']].map(([min, label]) => (
+                      <button key={min} onClick={() => saveDriveSetting({ pinLockMinutes: min })} style={{
+                        padding: '7px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700,
+                        background: (settings.pinLockMinutes ?? 5) === min ? 'var(--primary)' : 'var(--gray-100)',
+                        color: (settings.pinLockMinutes ?? 5) === min ? 'white' : 'var(--text-secondary)',
+                      }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>잠금 해제하기</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="password" inputMode="numeric" maxLength={4}
+                      value={lockCurrentPin}
+                      onChange={e => setLockCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="현재 PIN"
+                      style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    <button onClick={handleRemovePin} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                      잠금 끄기
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+                    자리를 비울 때 다른 사람이 아이 기록을 보지 못하도록 PIN 4자리로 화면을 잠가요.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                    <input
+                      type="password" inputMode="numeric" maxLength={4}
+                      value={lockPin1}
+                      onChange={e => setLockPin1(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="PIN 4자리"
+                      style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      type="password" inputMode="numeric" maxLength={4}
+                      value={lockPin2}
+                      onChange={e => setLockPin2(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="한 번 더"
+                      style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <button onClick={handleSetPin} style={{
+                    width: '100%', padding: '12px', borderRadius: 12,
+                    background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800,
+                  }}>
+                    화면 잠금 켜기
+                  </button>
+                </div>
+              )}
+            </SettingCard>
+
             <button onClick={handleSave} style={{
               width: '100%', padding: '14px', borderRadius: 14,
               background: saved ? 'var(--cat-play)' : 'var(--primary)',
@@ -686,6 +858,100 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                     </div>
                   );
                 })
+              )}
+            </SettingCard>
+
+            {/* 신학기 진급 도우미 */}
+            <SettingCard title="🎓 신학기 진급 도우미">
+              {promoteMsg && (
+                <div style={{
+                  background: promoteMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',
+                  color: promoteMsg.ok ? 'var(--cat-play)' : 'var(--accent)',
+                  borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 700, marginBottom: 12,
+                }}>
+                  {promoteMsg.text}
+                </div>
+              )}
+              {!promoteOpen ? (
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 12 }}>
+                    새 학년도가 시작될 때 반 정보(연도·이름·연령)를 한 번에 올리고,
+                    졸업하는 아이는 명단에서 보관 처리해요. <b>기록은 모두 그대로 남습니다.</b>
+                  </div>
+                  <button onClick={openPromoteWizard} style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800 }}>
+                    신학기 진급 시작하기
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>새 학년도</div>
+                      <input value={promoteYear} onChange={e => setPromoteYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>새 반 이름</div>
+                      <input value={promoteName} onChange={e => setPromoteName(e.target.value)}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14, boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>새 연령</div>
+                    <div style={{ display: 'flex', gap: 7 }}>
+                      {['1', '2', '3', '4', '5'].map(a => (
+                        <button key={a} onClick={() => setPromoteAge(a)} style={{ width: 40, height: 40, borderRadius: 10, fontWeight: 800, fontSize: 14, background: promoteAge === a ? 'var(--primary)' : 'var(--gray-100)', color: promoteAge === a ? 'white' : 'var(--text-secondary)' }}>{a}세</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    아이별 처리 ({Object.values(promoteSel).filter(v => v === 'promote').length}명 진급 · {Object.values(promoteSel).filter(v => v === 'graduate').length}명 졸업)
+                  </div>
+                  <div style={{ maxHeight: 260, overflowY: 'auto', marginBottom: 14 }}>
+                    {children.map(c => (
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: 14, fontWeight: 700 }}>{c.name}</span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {[['promote', '진급'], ['graduate', '졸업']].map(([k, label]) => (
+                            <button key={k} onClick={() => setPromoteSel(s => ({ ...s, [c.id]: k }))} style={{
+                              padding: '6px 14px', borderRadius: 100, fontSize: 12, fontWeight: 800,
+                              background: promoteSel[c.id] === k ? (k === 'graduate' ? '#FF8C42' : 'var(--primary)') : 'var(--gray-100)',
+                              color: promoteSel[c.id] === k ? 'white' : 'var(--text-secondary)',
+                            }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <button onClick={() => setPromoteOpen(false)} style={{ padding: '12px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 800 }}>
+                      취소
+                    </button>
+                    <button onClick={handlePromoteApply} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800 }}>
+                      적용하기
+                    </button>
+                  </div>
+                </div>
+              )}
+              {archivedChildren.length > 0 && !promoteOpen && (
+                <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>🎓 졸업 보관 ({archivedChildren.length}명)</div>
+                  {archivedChildren.map(c => (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{c.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 8 }}>
+                          {c.lastClassName} · {c.graduatedAt?.slice(0, 10)} 졸업
+                        </span>
+                      </div>
+                      <button onClick={() => handleRestoreArchived(c.id)} style={{ padding: '5px 11px', borderRadius: 8, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 12, fontWeight: 800 }}>
+                        명단 복귀
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </SettingCard>
 
@@ -929,6 +1195,48 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   샘플 삭제
                 </button>
               </div>
+            </SettingCard>
+
+            <SettingCard title={`🗑️ 휴지통 (${trashItems.length})`}>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+                삭제한 기록·문서가 30일 동안 보관돼요. 30일이 지나면 자동으로 정리됩니다.
+              </div>
+              {trashItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-tertiary)', fontSize: 13 }}>휴지통이 비어 있어요</div>
+              ) : (
+                <>
+                  {trashItems.slice(0, 30).map(t => {
+                    const isRecord = t.type === 'record';
+                    const title = isRecord
+                      ? `${t.item.childName || '아동'} · ${t.item.date ? formatDate(t.item.date) : '기록'}`
+                      : (t.item.title || '문서');
+                    const preview = isRecord
+                      ? (t.item.rawText || t.item.observation || '').slice(0, 50)
+                      : (t.item.sections?.[0]?.text || '').slice(0, 50);
+                    const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86400000));
+                    return (
+                      <div key={t.trashId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: 16, flexShrink: 0 }}>{isRecord ? '📝' : '📄'}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {preview} · {daysLeft}일 후 자동 삭제
+                          </div>
+                        </div>
+                        <button onClick={() => handleRestoreTrash(t.trashId)} style={{ padding: '7px 11px', borderRadius: 8, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 12, fontWeight: 900, flexShrink: 0 }}>
+                          복원
+                        </button>
+                        <button onClick={() => handlePurgeTrash(t.trashId)} style={{ padding: '7px 9px', borderRadius: 8, background: 'var(--gray-100)', color: 'var(--text-tertiary)', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <button onClick={handleEmptyTrash} style={{ width: '100%', marginTop: 12, padding: '11px', borderRadius: 10, background: 'var(--accent-light)', color: 'var(--accent)', fontSize: 13, fontWeight: 800 }}>
+                    휴지통 비우기
+                  </button>
+                </>
+              )}
             </SettingCard>
 
             <SettingCard title="데이터 삭제 / 초기화">
