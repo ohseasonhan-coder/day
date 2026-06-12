@@ -113,6 +113,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [records, setRecords]               = useState([]);
   const [selectedChild, setSelectedChild]   = useState(null);
   const [recordType, setRecordType]         = useState('observe');
+  const [recordDate, setRecordDate]         = useState(() => today());
   const [rawText, setRawText]               = useState('');
   const [loading, setLoading]               = useState(false);
   const [result, setResult]                 = useState(null);
@@ -244,7 +245,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
 
   const handleSave = () => {
     if (!result || !selectedChild || saved) return;
-    const newRecord = addRecord({ childId: selectedChild.id, childName: selectedChild.name, date: today(), rawText, recordType, ...result });
+    const newRecord = addRecord({ childId: selectedChild.id, childName: selectedChild.name, date: recordDate || today(), rawText, recordType, ...result });
     setRecords(prev => [newRecord, ...prev]);
     setSaved(true);
     clearDraft(); setDraftBanner(false);
@@ -520,6 +521,34 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
 
           {/* STEP 3: 내용 입력 */}
           <StepSection step={3} label="무슨 일이 있었나요?">
+            {/* 기록 날짜 — 늦게 기록할 때 과거 날짜로 저장 가능 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)' }}>📅 기록 날짜</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="date"
+                  value={recordDate}
+                  max={today()}
+                  onChange={e => setRecordDate(e.target.value || today())}
+                  style={{
+                    padding: '7px 10px', borderRadius: 10, border: `1.5px solid ${recordDate !== today() ? 'var(--primary)' : 'var(--border)'}`,
+                    fontSize: 13, fontWeight: 700, fontFamily: 'inherit', outline: 'none',
+                    color: recordDate !== today() ? 'var(--primary)' : 'var(--text-primary)',
+                    background: 'var(--white)',
+                  }}
+                />
+                {recordDate !== today() && (
+                  <button onClick={() => setRecordDate(today())} style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--gray-100)', borderRadius: 100, padding: '7px 12px' }}>
+                    오늘로
+                  </button>
+                )}
+              </div>
+            </div>
+            {recordDate !== today() && (
+              <div style={{ marginBottom: 10, background: 'var(--primary-light)', borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
+                📌 {formatDate(recordDate)} 날짜로 저장돼요
+              </div>
+            )}
             {isListening && (
               <div style={{ marginBottom: 8, background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.3)', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                 🎤 말씀하시면 자동으로 입력됩니다 (한국어)
