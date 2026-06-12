@@ -71,6 +71,38 @@ export async function renderGoogleSignInButton(clientId, container, onProfile, o
   });
 }
 
+// 계정 선택 창을 강제로 띄워 다른 구글 계정으로 로그인 (버튼이 한 계정에 고정됐을 때)
+export async function googleSignInWithAccountChooser(clientId) {
+  await loadGsi();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn, value) => { if (!settled) { settled = true; fn(value); } };
+    try {
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'openid email profile',
+        callback: async (resp) => {
+          if (resp.error) return done(reject, new Error(resp.error_description || resp.error));
+          try {
+            const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${resp.access_token}` },
+            });
+            if (!r.ok) throw new Error('프로필 조회에 실패했어요.');
+            const p = await r.json();
+            done(resolve, { sub: p.sub, email: p.email, name: p.name });
+          } catch (e) {
+            done(reject, e);
+          }
+        },
+        error_callback: (err) => done(reject, new Error(err?.message || err?.type || '구글 인증에 실패했어요.')),
+      });
+      client.requestAccessToken({ prompt: 'select_account' });
+    } catch (e) {
+      done(reject, e);
+    }
+  });
+}
+
 // 액세스 토큰 발급 — silent=true면 동의창 없이 조용히 시도 (자동 백업용)
 export async function requestDriveToken(clientId, { silent = false } = {}) {
   if (!clientId) throw new Error('구글 클라이언트 ID가 설정되지 않았어요.');

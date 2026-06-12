@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { login, loginWithGoogle } from '../utils/auth';
-import { renderGoogleSignInButton, isElectron } from '../utils/driveBackup';
+import { renderGoogleSignInButton, googleSignInWithAccountChooser, isElectron } from '../utils/driveBackup';
 import { getGoogleClientId, setGoogleClientId } from '../utils/storage';
 import { Zap, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
 
@@ -49,6 +49,20 @@ export default function LoginPage({ onLogin }) {
     setGoogleClientIdState(v);
     setShowGoogleSetup(false);
     setGoogleBtnError('');
+  };
+
+  // 버튼이 마지막 사용 계정에 고정됐을 때 — 계정 선택 창을 직접 띄움
+  const handleOtherAccount = async () => {
+    setError('');
+    try {
+      const profile = await googleSignInWithAccountChooser(googleClientId);
+      const res = loginWithGoogle(profile);
+      if (!res.ok) { setError(res.error); return; }
+      onLogin(res.user);
+    } catch (e) {
+      const msg = String(e.message || '');
+      if (!/popup_closed|access_denied/i.test(msg)) setError(msg || '구글 로그인에 실패했어요.');
+    }
   };
 
   const handleAdminSubmit = (e) => {
@@ -107,6 +121,13 @@ export default function LoginPage({ onLogin }) {
         ) : googleClientId ? (
           <div style={{ marginBottom: 8 }}>
             <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
+            <button onClick={handleOtherAccount} style={{
+              width: '100%', marginTop: 10, padding: '11px', borderRadius: 12,
+              background: 'var(--gray-50)', border: '1.5px solid var(--border)',
+              color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700,
+            }}>
+              👥 다른 구글 계정으로 로그인
+            </button>
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 10, lineHeight: 1.6 }}>
               🔒 구글은 로그인과 본인 드라이브 백업에만 사용돼요.<br />
               아이 기록이 외부 서버로 전송되지 않습니다.
