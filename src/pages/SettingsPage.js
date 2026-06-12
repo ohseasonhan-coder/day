@@ -4,7 +4,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
   getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId } from '../utils/storage';
-import { backupToDrive, restoreFromDrive, getDriveMeta } from '../utils/driveBackup';
+import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron } from '../utils/driveBackup';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
@@ -741,6 +741,12 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             </SettingCard>
 
             <SettingCard title="☁️ 구글 드라이브 자동 백업">
+              {isElectron() && (
+                <div style={{ background: 'var(--accent-light)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--accent)', fontWeight: 700, marginBottom: 12, lineHeight: 1.6 }}>
+                  🖥️ 데스크탑 앱에서는 구글 인증이 차단되어 드라이브 백업을 사용할 수 없어요.
+                  크롬·엣지 브라우저에서 사용해 주세요. (위의 백업 파일 다운로드는 여기서도 됩니다)
+                </div>
+              )}
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 12 }}>
                 <b>본인 구글 계정의 드라이브</b>에 백업 파일을 자동 보관합니다. 데이터는 개발자 서버를 거치지 않고
                 이 브라우저에서 내 드라이브로 바로 전송되며, 앱은 자신이 만든 백업 파일 1개에만 접근할 수 있어요.

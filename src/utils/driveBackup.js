@@ -3,6 +3,11 @@
 // 개발자 서버를 거치지 않고 "브라우저 ↔ 내 구글 드라이브" 직접 통신만 사용합니다.
 // drive.file 권한: 이 앱이 만든 파일만 접근 가능 (드라이브의 다른 파일은 볼 수 없음)
 
+// 데스크탑(Electron) 앱 여부 — 구글이 앱 내장 창에서의 OAuth 로그인을 차단하므로
+// Electron에서는 구글 로그인·드라이브 백업 대신 안내를 표시한다
+export const isElectron = () =>
+  typeof navigator !== 'undefined' && /electron/i.test(navigator.userAgent);
+
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const DRIVE_FILE_NAME = 'saemwork_backup.json';
@@ -142,6 +147,7 @@ let backupTimer = null;
 let latestGetJson = null;
 
 export function scheduleDriveBackup(getJson, { delayMs = 30000 } = {}) {
+  if (isElectron()) return; // 데스크탑 앱에서는 구글 인증이 차단됨
   latestGetJson = getJson;
   if (backupTimer) clearTimeout(backupTimer);
   backupTimer = setTimeout(async () => {

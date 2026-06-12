@@ -8,6 +8,7 @@ import {
   getDocumentHistory, getFormTemplates, updateDocumentDraft, deleteDocumentDraft, getAutomationState,
 } from '../utils/storage';
 import { generateDailyJournal } from '../utils/ai';
+import { exportDocx } from '../utils/docxExport';
 import { FileText, Sparkles, Copy, Check, ChevronLeft, ChevronRight, Printer, Users, Share2, X, LayoutTemplate, Star, Download, History, RotateCcw } from 'lucide-react';
 
 const DOC_TYPES = [
@@ -475,6 +476,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
             {/* 공유 / 인쇄 버튼 — 이미지 양식 적용 중이면 인쇄 버튼 숨김 (ImageOverlayView 내부 버튼 사용) */}
             <div style={{ display:'flex', gap:7, flexShrink:0 }}>
               <ShareButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
+              <WordButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
               <DownloadButton doc={formApplied && matchedForm ? applyFormToDoc(doc, matchedForm, { selChild, cl, period }) : doc} />
               {!(formApplied && matchedForm?.imageData) && (
                 <button
@@ -727,6 +729,7 @@ export default function DocsPage({ onNavigate, isDesktop, context }) {
               )}
               <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 <ShareButton doc={historyPreview} />
+                <WordButton doc={historyPreview} />
                 <DownloadButton doc={historyPreview} />
                 <button onClick={() => setEditingHistory(v => !v)} style={{ padding:'8px 10px', borderRadius:8, background:'var(--primary-light)', color:'var(--primary)', fontSize:12, fontWeight:900 }}>
                   {editingHistory ? '취소' : '수정'}
@@ -1609,7 +1612,32 @@ function DownloadButton({ doc }) {
       display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
       background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 900,
     }}>
-      <Download size={14}/> 다운로드
+      <Download size={14}/> TXT
+    </button>
+  );
+}
+
+function WordButton({ doc }) {
+  const showToast = useToast();
+  const [busy, setBusy] = useState(false);
+  if (!doc) return null;
+  const handleExport = async () => {
+    setBusy(true);
+    try {
+      await exportDocx(doc);
+      showToast('Word(.docx) 파일로 저장했어요. 한글에서도 열려요!', 'success');
+    } catch {
+      showToast('Word 파일 생성 중 오류가 발생했어요.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button onClick={handleExport} disabled={busy} className="no-print" style={{
+      display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+      background: '#2B579A', color: 'white', fontSize: 13, fontWeight: 900, opacity: busy ? 0.6 : 1,
+    }}>
+      <FileText size={14}/> {busy ? '생성 중…' : 'Word'}
     </button>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { login, register, loginWithGoogle } from '../utils/auth';
-import { renderGoogleSignInButton } from '../utils/driveBackup';
+import { renderGoogleSignInButton, isElectron } from '../utils/driveBackup';
 import { getGoogleClientId, setGoogleClientId } from '../utils/storage';
 import { Zap, Eye, EyeOff, UserPlus, LogIn, ChevronRight } from 'lucide-react';
 
@@ -240,7 +240,13 @@ export default function LoginPage({ onLogin }) {
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        {googleClientId ? (
+        {isElectron() ? (
+          <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, textAlign: 'center' }}>
+            🖥️ 데스크탑 앱에서는 구글 로그인이 지원되지 않아요.<br />
+            구글 로그인·드라이브 백업은 <b>크롬·엣지 브라우저</b>에서 사용해 주세요.<br />
+            여기서는 위의 아이디/비밀번호 계정으로 이용할 수 있어요.
+          </div>
+        ) : googleClientId ? (
           <div>
             <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>
