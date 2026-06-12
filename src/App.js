@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage } from './utils/storage';
+import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord } from './utils/storage';
+import { backupToDrive, getDriveMeta } from './utils/driveBackup';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
@@ -150,6 +151,21 @@ export default function App() {
       });
       storage.set('sw_notify_last', todayStr);
     } catch {}
+  }, [user]);
+
+  // 구글 드라이브 자동 백업 — 켜져 있으면 앱 열 때 하루 1회 조용히 업로드
+  useEffect(() => {
+    if (!user) return;
+    const settings = getSettings();
+    const clientId = (settings.driveClientId || '').trim();
+    if (!settings.driveAutoBackup || !clientId) return;
+    if (getRecords().length === 0) return;
+    const last = getDriveMeta().lastBackupAt;
+    if (last && Date.now() - new Date(last).getTime() < 20 * 3600 * 1000) return;
+
+    backupToDrive(clientId, getBackupJson(), { silent: true })
+      .then(() => addBackupRecord())
+      .catch(() => {}); // 조용히 실패 — 설정 > 백업/복구에서 수동 백업 가능
   }, [user]);
 
   useEffect(() => {

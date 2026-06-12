@@ -3,7 +3,8 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
-  getFeedback, addFeedback, deleteFeedback } from '../utils/storage';
+  getFeedback, addFeedback, deleteFeedback, getBackupJson } from '../utils/storage';
+import { backupToDrive, restoreFromDrive, getDriveMeta } from '../utils/driveBackup';
 import { changePassword, deleteAccount, PLANS } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
@@ -90,6 +91,53 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [deleteMsg, setDeleteMsg] = useState('');
 
   const [pendingImport, setPendingImport] = useState(null); // { json, summary, fileName }
+  // 구글 드라이브 백업
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveMsg, setDriveMsg] = useState(null);
+  const [showDriveGuide, setShowDriveGuide] = useState(false);
+
+  const saveDriveSetting = (patch) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    saveSettings(next); // 드라이브 설정은 즉시 저장
+  };
+
+  const handleDriveBackupNow = async () => {
+    const clientId = (settings.driveClientId || '').trim();
+    if (!clientId) { setDriveMsg({ ok: false, text: '먼저 구글 클라이언트 ID를 입력해 주세요. (아래 "최초 설정 방법" 참고)' }); return; }
+    setDriveBusy(true); setDriveMsg(null);
+    try {
+      await backupToDrive(clientId, getBackupJson());
+      addBackupRecord();
+      setDriveMsg({ ok: true, text: '구글 드라이브에 백업했어요. (saemwork_backup.json)' });
+    } catch (e) {
+      setDriveMsg({ ok: false, text: `백업 실패: ${e.message}` });
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const handleDriveRestore = async () => {
+    const clientId = (settings.driveClientId || '').trim();
+    if (!clientId) { setDriveMsg({ ok: false, text: '먼저 구글 클라이언트 ID를 입력해 주세요.' }); return; }
+    setDriveBusy(true); setDriveMsg(null);
+    try {
+      const { json, modifiedTime } = await restoreFromDrive(clientId);
+      const res = parseBackup(json);
+      if (!res.ok) { setDriveMsg({ ok: false, text: res.error }); return; }
+      setPendingImport({
+        json,
+        summary: res.summary,
+        fileName: `구글 드라이브 백업 (${new Date(modifiedTime).toLocaleString('ko-KR')})`,
+      });
+      setDriveMsg({ ok: true, text: '드라이브에서 백업을 불러왔어요. 아래 "데이터 가져오기"에서 병합 또는 덮어쓰기를 선택하세요.' });
+    } catch (e) {
+      setDriveMsg({ ok: false, text: `가져오기 실패: ${e.message}` });
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
   // 백업/복구
   const [backupMsg, setBackupMsg] = useState(null); // { ok, text }
   const fileRef = useRef(null);
@@ -677,6 +725,94 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               }}>
                 <Download size={18} /> 백업 파일 다운로드
               </button>
+            </SettingCard>
+
+            <SettingCard title="☁️ 구글 드라이브 자동 백업">
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 12 }}>
+                <b>본인 구글 계정의 드라이브</b>에 백업 파일을 자동 보관합니다. 데이터는 개발자 서버를 거치지 않고
+                이 브라우저에서 내 드라이브로 바로 전송되며, 앱은 자신이 만든 백업 파일 1개에만 접근할 수 있어요.
+              </div>
+
+              {driveMsg && (
+                <div style={{
+                  background: driveMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',
+                  color: driveMsg.ok ? 'var(--cat-play)' : 'var(--accent)',
+                  borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 700,
+                  marginBottom: 12, lineHeight: 1.6,
+                }}>
+                  {driveMsg.text}
+                </div>
+              )}
+
+              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>구글 클라이언트 ID</div>
+              <input
+                value={settings.driveClientId || ''}
+                onChange={e => saveDriveSetting({ driveClientId: e.target.value })}
+                placeholder="예: 1234567890-xxxx.apps.googleusercontent.com"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+              />
+
+              <button onClick={() => setShowDriveGuide(v => !v)} style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '7px 14px', marginBottom: 12 }}>
+                {showDriveGuide ? '▲ 설정 방법 닫기' : '▼ 최초 설정 방법 보기 (1회만, 약 5분)'}
+              </button>
+
+              {showDriveGuide && (
+                <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.9, marginBottom: 14 }}>
+                  {[
+                    ['1', 'console.cloud.google.com 접속 → 상단에서 "새 프로젝트" 만들기 (이름 자유, 예: 쌤워크백업)'],
+                    ['2', '왼쪽 메뉴 "API 및 서비스 → 라이브러리"에서 Google Drive API 검색 후 "사용" 클릭'],
+                    ['3', '"OAuth 동의 화면" → 외부 선택 → 앱 이름·이메일 입력 → 저장. "테스트 사용자"에 본인 Gmail 주소 추가'],
+                    ['4', '"사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID" → 유형: 웹 애플리케이션'],
+                    ['5', '"승인된 자바스크립트 원본"에 이 앱 주소 2개 추가: 배포 주소(https://…vercel.app)와 http://localhost:3000'],
+                    ['6', '만들어진 클라이언트 ID(…apps.googleusercontent.com)를 복사해 위 칸에 붙여넣기 → "지금 드라이브에 백업" 클릭'],
+                  ].map(([n, t]) => (
+                    <div key={n} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 900, color: 'var(--primary)', flexShrink: 0 }}>{n}.</span>
+                      <span>{t}</span>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--text-tertiary)' }}>
+                    💡 클라이언트 ID는 비밀번호가 아니라 "이 앱 주소에서만 내 구글 로그인을 쓸 수 있다"는 공개 식별자예요.
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                <button onClick={handleDriveBackupNow} disabled={driveBusy} style={{
+                  padding: '13px', borderRadius: 12, background: 'var(--primary)', color: 'white',
+                  fontSize: 13, fontWeight: 900, opacity: driveBusy ? 0.6 : 1,
+                }}>
+                  {driveBusy ? '처리 중…' : '지금 드라이브에 백업'}
+                </button>
+                <button onClick={handleDriveRestore} disabled={driveBusy} style={{
+                  padding: '13px', borderRadius: 12, background: 'var(--white)', border: '2px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 13, fontWeight: 900, opacity: driveBusy ? 0.6 : 1,
+                }}>
+                  드라이브에서 가져오기
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800 }}>자동 백업 (하루 1회)</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>앱을 열 때 자동으로 드라이브에 백업해요</div>
+                </div>
+                <button onClick={() => saveDriveSetting({ driveAutoBackup: !settings.driveAutoBackup })} style={{
+                  width: 44, height: 24, borderRadius: 12,
+                  background: settings.driveAutoBackup ? 'var(--primary)' : 'var(--gray-300)',
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 18, height: 18, background: 'var(--white)', borderRadius: '50%',
+                    position: 'absolute', top: 3, left: settings.driveAutoBackup ? 23 : 3, transition: 'left 0.2s',
+                  }} />
+                </button>
+              </div>
+              {getDriveMeta().lastBackupAt && (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  마지막 드라이브 백업: {new Date(getDriveMeta().lastBackupAt).toLocaleString('ko-KR')}
+                </div>
+              )}
             </SettingCard>
 
             <SettingCard title="데이터 가져오기 (복구·기기 이동)">

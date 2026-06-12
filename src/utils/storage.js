@@ -890,12 +890,11 @@ export const deleteFormTemplate = (id) => {
 };
 
 // ── 백업 / 복구 ──────────────────────────────────────────────────────────────
-export function exportBackup() {
-  const uid = _getUid();
-  const payload = {
+function buildBackupPayload() {
+  return {
     version: 2,
     appName: '쌤워크',
-    userId: uid,
+    userId: _getUid(),
     exportedAt: new Date().toISOString(),
     classes: getClasses(),
     children: getChildren(),
@@ -909,6 +908,16 @@ export function exportBackup() {
     copyHistory: getCopyHistory(),
     feedback: getFeedback(),
   };
+}
+
+// 백업 내용을 JSON 문자열로 반환 (구글 드라이브 업로드 등에 사용)
+export function getBackupJson() {
+  return JSON.stringify(buildBackupPayload(), null, 2);
+}
+
+export function exportBackup() {
+  const uid = _getUid();
+  const payload = buildBackupPayload();
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
