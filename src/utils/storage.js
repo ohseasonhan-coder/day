@@ -83,9 +83,12 @@ export function hashPin(pin) {
 }
 
 // 구글 OAuth 클라이언트 ID — 로그인 전에도 필요하므로 계정 구분 없이 전역 저장
-// (비밀키가 아니라 "이 앱 주소에서만 구글 인증을 쓸 수 있다"는 공개 식별자)
+// 비밀키가 아니라 "승인된 앱 주소에서만 구글 인증을 쓸 수 있다"는 공개 식별자라서
+// 앱에 기본값으로 내장한다. 관리자 탭에서 다른 값으로 덮어쓸 수 있다.
+const DEFAULT_GOOGLE_CLIENT_ID = '613797069993-4h916l8qmn3bkoueuht5hhg7mp8t8kao.apps.googleusercontent.com';
+
 export const getGoogleClientId = () => {
-  try { return localStorage.getItem('sw_google_client_id') || ''; } catch { return ''; }
+  try { return localStorage.getItem('sw_google_client_id') || DEFAULT_GOOGLE_CLIENT_ID; } catch { return DEFAULT_GOOGLE_CLIENT_ID; }
 };
 export const setGoogleClientId = (id) => {
   try { localStorage.setItem('sw_google_client_id', String(id || '').trim()); } catch {}
