@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone } from './utils/storage';
+import { getClasses, getChildren, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage } from './utils/storage';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
@@ -125,6 +125,32 @@ export default function App() {
     const ids      = new Set(recs.map(r => r.childId));
     setUnrecordedCount(children.filter(c => !ids.has(c.id)).length);
   }, [page, user]);
+
+  // 미기록 아이 알림 — 설정에서 켠 경우, 하루 1회만
+  useEffect(() => {
+    if (!user) return;
+    const settings = getSettings();
+    if (!settings.notifyUnrecorded) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const todayStr = today();
+    if (storage.get('sw_notify_last') === todayStr) return;
+
+    const children = getChildren();
+    if (children.length === 0) return;
+    const ids = new Set(getRecordsByDate(todayStr).map(r => r.childId));
+    const missing = children.filter(c => !ids.has(c.id));
+    if (missing.length === 0) return;
+
+    const names = missing.slice(0, 3).map(c => c.name).join(', ');
+    const extra = missing.length > 3 ? ` 외 ${missing.length - 3}명` : '';
+    try {
+      new Notification('쌤워크 — 오늘 미기록 아이가 있어요', {
+        body: `${names}${extra} (${missing.length}명) 아직 기록이 없어요.`,
+        tag: 'sw-unrecorded',
+      });
+      storage.set('sw_notify_last', todayStr);
+    } catch {}
+  }, [user]);
 
   useEffect(() => {
     const handler = (e) => {

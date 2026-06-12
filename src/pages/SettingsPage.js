@@ -47,6 +47,30 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [newClassYear, setNewClassYear] = useState(String(new Date().getFullYear()));
   const [newClassAge,  setNewClassAge]  = useState('3');
   const [saved, setSaved]         = useState(false);
+  const [notifyPermission, setNotifyPermission] = useState(() =>
+    ('Notification' in window) ? Notification.permission : 'unsupported'
+  );
+
+  const handleToggleNotify = async () => {
+    if (settings.notifyUnrecorded) {
+      const next = { ...settings, notifyUnrecorded: false };
+      setSettings(next);
+      saveSettings(next); // 알림은 토글 즉시 반영
+      return;
+    }
+    if (!('Notification' in window)) {
+      setNotifyPermission('unsupported');
+      return;
+    }
+    let perm = Notification.permission;
+    if (perm === 'default') perm = await Notification.requestPermission();
+    setNotifyPermission(perm);
+    if (perm === 'granted') {
+      const next = { ...settings, notifyUnrecorded: true };
+      setSettings(next);
+      saveSettings(next);
+    }
+  };
   // 반복일정 상태
   const [routines, setRoutines]     = useState(() => getRoutines());
   const [newRoutineTitle, setNewRoutineTitle] = useState('');
@@ -333,6 +357,37 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   </button>
                 </div>
               ))}
+            </SettingCard>
+
+            <SettingCard title="알림">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                <div style={{ flex: 1, paddingRight: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>미기록 아이 알림</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3, lineHeight: 1.6 }}>
+                    앱을 열었을 때 오늘 기록하지 않은 아이가 있으면 하루 1회 알려드려요
+                  </div>
+                </div>
+                <button onClick={handleToggleNotify} style={{
+                  width: 44, height: 24, borderRadius: 12,
+                  background: settings.notifyUnrecorded ? 'var(--primary)' : 'var(--gray-300)',
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 18, height: 18, background: 'var(--white)', borderRadius: '50%',
+                    position: 'absolute', top: 3, left: settings.notifyUnrecorded ? 23 : 3, transition: 'left 0.2s',
+                  }} />
+                </button>
+              </div>
+              {notifyPermission === 'denied' && (
+                <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 8, lineHeight: 1.6 }}>
+                  ⚠️ 브라우저에서 알림이 차단되어 있어요. 주소창 왼쪽 자물쇠 아이콘 → 알림 허용 후 다시 켜주세요.
+                </div>
+              )}
+              {notifyPermission === 'unsupported' && (
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
+                  이 환경에서는 알림을 지원하지 않아요.
+                </div>
+              )}
             </SettingCard>
 
             <button onClick={handleSave} style={{

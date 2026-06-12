@@ -1,26 +1,65 @@
 {
   "name": "saem-work",
   "version": "0.1.0",
+  "description": "쌤워크 — 보육교사 기록·문서 자동화 (100% 로컬)",
+  "author": "SaemWork",
   "private": true,
+  "homepage": ".",
+  "main": "electron/main.cjs",
   "dependencies": {
+    "date-fns": "^3.6.0",
+    "date-fns-tz": "^3.1.3",
+    "lucide-react": "^0.383.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "lucide-react": "^0.383.0",
-    "date-fns": "^3.6.0",
-    "date-fns-tz": "^3.1.3"
+    "react-scripts": "5.0.1"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "node scripts/start.js",
     "build": "react-scripts build",
+    "desktop": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win portable",
+    "make:launcher": "node scripts/make-windows-launcher.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "build": {
+    "extends": null,
+    "appId": "com.saemwork.app",
+    "productName": "SaemWork",
+    "files": [
+      "build/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
+  },
   "eslintConfig": {
-    "extends": ["react-app"]
+    "extends": [
+      "react-app"
+    ]
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
   }
 }

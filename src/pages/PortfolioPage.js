@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { getRecordsByChild, CATEGORIES, formatDate } from '../utils/storage';
-import { ArrowLeft, BarChart3 } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { getRecordsByChild, CATEGORIES, formatDate, addCopyHistory } from '../utils/storage';
+import { ArrowLeft, BarChart3, FileText, Copy, Check } from 'lucide-react';
 
 const AVATAR_COLORS = ['#4F7FFF', '#6C63FF', '#FF8C42', '#00B4D8', '#4CAF50', '#E91E9A', '#FF5722', '#607D8B'];
 
@@ -9,8 +9,101 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
+// 누리과정 6개 영역 ↔ 기록 카테고리 매핑 (StatsPage 발달추이와 동일 기준)
+const NURI_AREAS = [
+  { key: 'body',   label: '신체운동·건강',          cats: ['body'],          color: '#4CAF50' },
+  { key: 'nature', label: '자연탐구',               cats: ['nature', 'play'], color: '#FF8C42' },
+  { key: 'art',    label: '예술경험',               cats: ['art'],           color: '#E91E9A' },
+  { key: 'peer',   label: '사회관계',               cats: ['peer'],          color: '#9C27B0' },
+  { key: 'comm',   label: '의사소통',               cats: ['comm'],          color: '#4F7FFF' },
+  { key: 'habit',  label: '일상생활(기본생활습관)',  cats: ['habit'],         color: '#00B4D8' },
+];
+
+const REPORT_PERIODS = [
+  { key: 'thisMonth', label: '이번 달' },
+  { key: 'lastMonth', label: '지난 달' },
+  { key: 'semester1', label: '1학기 (3~8월)' },
+  { key: 'semester2', label: '2학기 (9~2월)' },
+  { key: 'all',       label: '전체' },
+];
+
+function getPeriodRange(periodKey) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-based
+  const ym = (yy, mm) => `${yy}-${String(mm + 1).padStart(2, '0')}`;
+  switch (periodKey) {
+    case 'thisMonth': {
+      const k = ym(y, m);
+      return { from: `${k}-01`, to: `${k}-31`, label: `${y}년 ${m + 1}월` };
+    }
+    case 'lastMonth': {
+      const d = new Date(y, m - 1, 1);
+      const k = ym(d.getFullYear(), d.getMonth());
+      return { from: `${k}-01`, to: `${k}-31`, label: `${d.getFullYear()}년 ${d.getMonth() + 1}월` };
+    }
+    case 'semester1': {
+      // 1학기: 3월~8월 (지난 3월 기준)
+      const startYear = m >= 2 ? y : y - 1;
+      return { from: `${startYear}-03-01`, to: `${startYear}-08-31`, label: `${startYear}학년도 1학기` };
+    }
+    case 'semester2': {
+      // 2학기: 9월~다음해 2월
+      const startYear = m >= 8 ? y : y - 1;
+      return { from: `${startYear}-09-01`, to: `${startYear + 1}-02-29`, label: `${startYear}학년도 2학기` };
+    }
+    default:
+      return { from: '0000-01-01', to: '9999-12-31', label: '전체 기간' };
+  }
+}
+
+// 기간 내 기록으로 아동별 보고서 텍스트 생성 (입력된 기록 사실만 사용)
+function buildChildReport(records, childName, range) {
+  const inRange = records.filter(r => r.date && r.date >= range.from && r.date <= range.to);
+  const lines = [];
+  lines.push(`📋 ${childName} 발달 기록 보고서 — ${range.label}`);
+  lines.push(`기록 ${inRange.length}건 · 기록일 ${new Set(inRange.map(r => r.date)).size}일`);
+  lines.push('');
+
+  if (inRange.length === 0) {
+    lines.push('해당 기간에 저장된 기록이 없습니다.');
+    return lines.join('\n');
+  }
+
+  lines.push('[발달 영역별 기록 수]');
+  NURI_AREAS.forEach(area => {
+    const count = inRange.filter(r => area.cats.includes(r.category)).length;
+    lines.push(`· ${area.label}: ${count}건`);
+  });
+  const specialCount = inRange.filter(r => r.category === 'special' || !NURI_AREAS.some(a => a.cats.includes(r.category))).length;
+  if (specialCount > 0) lines.push(`· 특이사항: ${specialCount}건`);
+  lines.push('');
+
+  lines.push('[영역별 주요 관찰 내용]');
+  const sorted = [...inRange].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  NURI_AREAS.forEach(area => {
+    const rec = sorted.find(r => area.cats.includes(r.category));
+    if (!rec) return;
+    const text = (rec.observation || rec.rawText || '').trim();
+    if (!text) return;
+    lines.push(`· (${area.label}, ${formatDate(rec.date)}) ${text}`);
+  });
+  const specials = sorted.filter(r => r.category === 'special');
+  if (specials.length > 0) {
+    lines.push('');
+    lines.push('[특이사항]');
+    specials.slice(0, 5).forEach(r => {
+      const text = (r.observation || r.rawText || '').trim();
+      if (text) lines.push(`· (${formatDate(r.date)}) ${text}`);
+    });
+  }
+  return lines.join('\n');
+}
+
 export default function PortfolioPage({ childId, childName, onBack, isDesktop }) {
   const [records, setRecords] = useState([]);
+  const [reportPeriod, setReportPeriod] = useState('thisMonth');
+  const [reportCopied, setReportCopied] = useState(false);
 
   useEffect(() => {
     setRecords(getRecordsByChild(childId));
@@ -22,6 +115,48 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
     const category = record.category || 'special';
     catCounts[category] = (catCounts[category] || 0) + 1;
   });
+
+  // 6개 누리과정 영역 집계
+  const areaCounts = NURI_AREAS.map(area => ({
+    ...area,
+    count: records.filter(r => area.cats.includes(r.category)).length,
+  }));
+  const specialCount = catCounts.special || 0;
+
+  // 월간/학기 보고서
+  const { reportText, reportRange } = useMemo(() => {
+    const range = getPeriodRange(reportPeriod);
+    return { reportText: buildChildReport(records, childName, range), reportRange: range };
+  }, [records, childName, reportPeriod]);
+
+  const handleCopyReport = async () => {
+    try {
+      await navigator.clipboard.writeText(reportText);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = reportText;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    addCopyHistory({ title: `${childName} 보고서 (${reportRange.label})`, text: reportText, source: 'portfolio' });
+    setReportCopied(true);
+    setTimeout(() => setReportCopied(false), 1600);
+  };
+
+  // 전체 기록 타임라인 (월별 그룹, 최신순)
+  const timeline = useMemo(() => {
+    const sorted = [...records].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const groups = [];
+    sorted.forEach(record => {
+      const ym = record.date ? record.date.slice(0, 7) : '날짜 없음';
+      const last = groups[groups.length - 1];
+      if (last && last.ym === ym) last.items.push(record);
+      else groups.push({ ym, items: [record] });
+    });
+    return groups;
+  }, [records]);
 
   const totalRecs = records.length;
   const uniqueDays = new Set(records.map(record => record.date).filter(Boolean)).size;
@@ -82,24 +217,64 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
         </div>
       </div>
 
-      <SectionCard title="카테고리 분포">
-        {totalRecs === 0 ? <EmptyMsg /> : Object.entries(CATEGORIES).map(([key, category]) => {
-          const count = catCounts[key] || 0;
-          const pct = totalRecs > 0 ? Math.round((count / totalRecs) * 100) : 0;
-          return (
-            <div key={key} style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? category.color : 'var(--text-tertiary)' }}>
-                  {category.emoji} {category.label}
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: count > 0 ? category.color : 'var(--text-tertiary)' }}>{count}건 ({pct}%)</span>
+      <SectionCard title="🌱 누리과정 6개 영역 분포">
+        {totalRecs === 0 ? <EmptyMsg /> : (
+          <>
+            {areaCounts.map(area => {
+              const pct = totalRecs > 0 ? Math.round((area.count / totalRecs) * 100) : 0;
+              return (
+                <div key={area.key} style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: area.count > 0 ? area.color : 'var(--text-tertiary)' }}>
+                      {area.label}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: area.count > 0 ? area.color : 'var(--text-tertiary)' }}>{area.count}건 ({pct}%)</span>
+                  </div>
+                  <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 100, overflow: 'hidden' }}>
+                    <div style={{ height: 8, background: area.count > 0 ? area.color : 'transparent', borderRadius: 100, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+                  </div>
+                </div>
+              );
+            })}
+            {specialCount > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                📋 특이사항 {specialCount}건은 영역 분포에서 제외돼요.
               </div>
-              <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 100, overflow: 'hidden' }}>
-                <div style={{ height: 8, background: count > 0 ? category.color : 'transparent', borderRadius: 100, width: `${pct}%`, transition: 'width 0.6s ease' }} />
-              </div>
-            </div>
-          );
-        })}
+            )}
+          </>
+        )}
+      </SectionCard>
+
+      <SectionCard title="📝 월간·학기 보고서">
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {REPORT_PERIODS.map(p => (
+            <button key={p.key} onClick={() => setReportPeriod(p.key)} style={{
+              padding: '7px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700,
+              background: reportPeriod === p.key ? 'var(--primary)' : 'var(--gray-100)',
+              color: reportPeriod === p.key ? 'white' : 'var(--text-secondary)',
+              transition: 'all 0.15s',
+            }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div style={{
+          background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12,
+          padding: '14px 16px', fontSize: 13, lineHeight: 1.8, color: 'var(--text-primary)',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 360, overflowY: 'auto',
+        }}>
+          {reportText}
+        </div>
+        <button onClick={handleCopyReport} style={{
+          marginTop: 12, width: '100%', padding: '12px', borderRadius: 12,
+          background: reportCopied ? 'var(--cat-play)' : 'var(--primary)', color: 'white',
+          fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          {reportCopied ? <><Check size={16} /> 복사 완료!</> : <><Copy size={16} /> 보고서 복사하기</>}
+        </button>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <FileText size={12} /> 입력한 기록 사실만으로 구성돼요. 복사 후 한글·워드에 붙여넣어 다듬어 쓰세요.
+        </div>
       </SectionCard>
 
       <SectionCard title="월별 기록 타임라인">
@@ -157,20 +332,33 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
         )}
       </SectionCard>
 
-      <SectionCard title="최근 기록">
-        {records.length === 0 ? <EmptyMsg /> : records.slice(0, 10).map(record => {
-          const category = CATEGORIES[record.category] || CATEGORIES.special;
-          const preview = record.rawText || record.observation || '';
+      <SectionCard title={`📚 전체 기록 타임라인 (${records.length}건)`}>
+        {records.length === 0 ? <EmptyMsg /> : timeline.map(group => {
+          const [gy, gm] = group.ym.includes('-') ? group.ym.split('-') : [null, null];
+          const monthLabel = gy ? `${gy}년 ${parseInt(gm, 10)}월` : group.ym;
           return (
-            <div key={record.id} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 16 }}>{category.emoji}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: category.color, background: category.bg, padding: '2px 8px', borderRadius: 100 }}>{category.label}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>{formatDate(record.date)}</span>
+            <div key={group.ym} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--primary)' }}>{monthLabel}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 100 }}>{group.items.length}건</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                {preview || '(내용 없음)'}
-              </div>
+              {group.items.map(record => {
+                const category = CATEGORIES[record.category] || CATEGORIES.special;
+                const preview = record.rawText || record.observation || '';
+                return (
+                  <div key={record.id} style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 16 }}>{category.emoji}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: category.color, background: category.bg, padding: '2px 8px', borderRadius: 100 }}>{category.label}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>{formatDate(record.date)}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {preview || '(내용 없음)'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
