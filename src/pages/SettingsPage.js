@@ -1087,7 +1087,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 </div>
               )}
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 12 }}>
-                <b>본인 구글 계정의 드라이브</b>에 백업 파일을 자동 보관합니다. 데이터는 개발자 서버를 거치지 않고
+                기록이 바뀔 때마다 <b>본인 구글 계정의 드라이브</b>에 자동으로 백업돼요. 데이터는 개발자 서버를 거치지 않고
                 이 브라우저에서 내 드라이브로 바로 전송되며, 앱은 자신이 만든 백업 파일 1개에만 접근할 수 있어요.
               </div>
 
@@ -1102,36 +1102,9 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 </div>
               )}
 
-              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 5 }}>구글 클라이언트 ID <span style={{ fontWeight: 600, color: 'var(--text-tertiary)' }}>(구글 로그인과 공유)</span></div>
-              <input
-                value={googleClientId}
-                onChange={e => handleClientIdChange(e.target.value)}
-                placeholder="예: 1234567890-xxxx.apps.googleusercontent.com"
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
-              />
-
-              <button onClick={() => setShowDriveGuide(v => !v)} style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '7px 14px', marginBottom: 12 }}>
-                {showDriveGuide ? '▲ 설정 방법 닫기' : '▼ 최초 설정 방법 보기 (1회만, 약 5분)'}
-              </button>
-
-              {showDriveGuide && (
-                <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.9, marginBottom: 14 }}>
-                  {[
-                    ['1', 'console.cloud.google.com 접속 → 상단에서 "새 프로젝트" 만들기 (이름 자유, 예: 쌤워크백업)'],
-                    ['2', '왼쪽 메뉴 "API 및 서비스 → 라이브러리"에서 Google Drive API 검색 후 "사용" 클릭'],
-                    ['3', '"OAuth 동의 화면" → 외부 선택 → 앱 이름·이메일 입력 → 저장. "테스트 사용자"에 본인 Gmail 주소 추가'],
-                    ['4', '"사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID" → 유형: 웹 애플리케이션'],
-                    ['5', '"승인된 자바스크립트 원본"에 이 앱 주소 2개 추가: 배포 주소(https://…vercel.app)와 http://localhost:3000'],
-                    ['6', '만들어진 클라이언트 ID(…apps.googleusercontent.com)를 복사해 위 칸에 붙여넣기 → "지금 드라이브에 백업" 클릭'],
-                  ].map(([n, t]) => (
-                    <div key={n} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontWeight: 900, color: 'var(--primary)', flexShrink: 0 }}>{n}.</span>
-                      <span>{t}</span>
-                    </div>
-                  ))}
-                  <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--text-tertiary)' }}>
-                    💡 클라이언트 ID는 비밀번호가 아니라 "이 앱 주소에서만 내 구글 로그인을 쓸 수 있다"는 공개 식별자예요.
-                  </div>
+              {!googleClientId.trim() && (
+                <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 12 }}>
+                  구글 로그인 설정(클라이언트 ID)이 아직 없어요. {isMaster(currentUser) ? '관리자 탭에서 설정해 주세요.' : '관리자에게 문의해 주세요.'}
                 </div>
               )}
 
@@ -1468,6 +1441,43 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 {adminMsg.text}
               </div>
             )}
+
+            <SettingCard title="🔐 구글 로그인 설정 (클라이언트 ID)">
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 12 }}>
+                구글 로그인과 드라이브 백업이 모두 이 클라이언트 ID 하나로 동작해요.
+                한 번 설정하면 이 기기의 모든 사용자에게 적용됩니다.
+              </div>
+              <input
+                value={googleClientId}
+                onChange={e => handleClientIdChange(e.target.value)}
+                placeholder="예: 1234567890-xxxx.apps.googleusercontent.com"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+              />
+              <button onClick={() => setShowDriveGuide(v => !v)} style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 100, padding: '7px 14px' }}>
+                {showDriveGuide ? '▲ 발급 방법 닫기' : '▼ 클라이언트 ID 발급 방법 (1회만, 약 5분)'}
+              </button>
+              {showDriveGuide && (
+                <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.9, marginTop: 12 }}>
+                  {[
+                    ['1', 'console.cloud.google.com 접속 → 상단에서 "새 프로젝트" 만들기 (이름 자유, 예: 쌤워크)'],
+                    ['2', '왼쪽 메뉴 "API 및 서비스 → 라이브러리"에서 Google Drive API 검색 후 "사용" 클릭'],
+                    ['3', '"OAuth 동의 화면" → 외부 선택 → 앱 이름·이메일 입력 → 저장. "테스트 사용자"에 사용할 Gmail 주소 추가'],
+                    ['4', '"사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID" → 유형: 웹 애플리케이션'],
+                    ['5', '"승인된 자바스크립트 원본"에 이 앱 주소 2개 추가: 배포 주소(https://…vercel.app)와 http://localhost:3000'],
+                    ['6', '만들어진 클라이언트 ID(…apps.googleusercontent.com)를 복사해 위 칸에 붙여넣기'],
+                  ].map(([n, t]) => (
+                    <div key={n} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 900, color: 'var(--primary)', flexShrink: 0 }}>{n}.</span>
+                      <span>{t}</span>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--text-tertiary)' }}>
+                    💡 클라이언트 ID는 비밀번호가 아니라 "이 앱 주소에서만 내 구글 로그인을 쓸 수 있다"는 공개 식별자예요.<br />
+                    ⚠️ "오류 401: invalid_client"가 나면 클라이언트 ID가 아닌 값(보안 비밀, API 키)을 넣었거나 일부만 복사된 경우예요.
+                  </div>
+                </div>
+              )}
+            </SettingCard>
 
             <SettingCard title="👑 회원 관리">
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 14, background: 'var(--gray-50)', borderRadius: 10, padding: '10px 12px' }}>
