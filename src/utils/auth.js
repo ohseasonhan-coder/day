@@ -133,6 +133,44 @@ export function loginWithGoogle(profile) {
   return { ok: true, user: account };
 }
 
+// ── 기존 계정에 구글 연동 ────────────────────────────────────────────────────
+// 연동 후에는 로그인 화면의 구글 버튼으로 이 계정(데이터 포함)에 바로 로그인된다
+export function linkGoogleToAccount(userId, profile) {
+  const sub = String(profile?.sub || '').trim();
+  if (!sub) return { ok: false, error: '구글 인증 정보가 올바르지 않아요.' };
+
+  const accounts = getAccounts();
+  const taken = accounts.find(a => a.googleSub === sub && a.userId !== userId);
+  if (taken) return { ok: false, error: `이 구글 계정은 이미 다른 계정(@${taken.userId})에 연동되어 있어요.` };
+
+  const idx = accounts.findIndex(a => a.userId === userId);
+  if (idx === -1) return { ok: false, error: '계정을 찾을 수 없어요.' };
+
+  accounts[idx] = {
+    ...accounts[idx],
+    googleSub: sub,
+    googleEmail: profile.email || '',
+    googleLinkedAt: new Date().toISOString(),
+  };
+  saveAccountsInternal(accounts);
+  setSession(accounts[idx]);
+  return { ok: true, user: accounts[idx] };
+}
+
+export function unlinkGoogleFromAccount(userId) {
+  const accounts = getAccounts();
+  const idx = accounts.findIndex(a => a.userId === userId);
+  if (idx === -1) return { ok: false, error: '계정을 찾을 수 없어요.' };
+  if (accounts[idx].provider === 'google')
+    return { ok: false, error: '구글로 만든 계정은 연동을 해제할 수 없어요. (해제하면 로그인 방법이 없어져요)' };
+
+  const { googleSub, googleEmail, googleLinkedAt, ...rest } = accounts[idx]; // eslint-disable-line no-unused-vars
+  accounts[idx] = rest;
+  saveAccountsInternal(accounts);
+  setSession(accounts[idx]);
+  return { ok: true };
+}
+
 // ── 로그아웃 ──────────────────────────────────────────────────────────────────
 export function logout() {
   localStorage.removeItem(SESSION_KEY);

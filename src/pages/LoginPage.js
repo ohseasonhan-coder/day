@@ -250,7 +250,9 @@ export default function LoginPage({ onLogin }) {
           <div>
             <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>
-              구글은 로그인에만 사용돼요. 기록 데이터는 여전히 이 기기에만 저장됩니다.
+              구글은 로그인에만 사용돼요. 기록 데이터는 여전히 이 기기에만 저장됩니다.<br />
+              이미 아이디 계정이 있다면, 아이디로 로그인한 뒤 <b>설정 → 계정 → 구글 계정 연동</b>을 해두세요.
+              그러면 이 버튼으로 기존 계정에 바로 들어올 수 있어요.
             </div>
           </div>
         ) : showGoogleSetup ? (

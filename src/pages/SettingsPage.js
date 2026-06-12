@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup, parseBackup, importBackupMerge,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
   getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId } from '../utils/storage';
-import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron } from '../utils/driveBackup';
-import { changePassword, deleteAccount, PLANS } from '../utils/auth';
+import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
+import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -91,6 +91,47 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [deleteMsg, setDeleteMsg] = useState('');
 
   const [pendingImport, setPendingImport] = useState(null); // { json, summary, fileName }
+  // 구글 계정 연동 (계정 탭)
+  const [googleLink, setGoogleLink] = useState(() => {
+    const acc = getAccounts().find(a => a.userId === currentUser?.userId);
+    return acc?.googleSub ? { email: acc.googleEmail || acc.email || '' } : null;
+  });
+  const [linkMsg, setLinkMsg] = useState(null);
+  const linkBtnRef = useRef(null);
+  const isGoogleAccount = (() => {
+    const acc = getAccounts().find(a => a.userId === currentUser?.userId);
+    return acc?.provider === 'google';
+  })();
+
+  useEffect(() => {
+    if (activeTab !== 'account' || googleLink || isElectron()) return;
+    const clientId = getGoogleClientId();
+    if (!clientId || !linkBtnRef.current) return;
+    let cancelled = false;
+    renderGoogleSignInButton(
+      clientId,
+      linkBtnRef.current,
+      (profile) => {
+        if (cancelled) return;
+        const res = linkGoogleToAccount(currentUser.userId, profile);
+        if (!res.ok) { setLinkMsg({ ok: false, text: res.error }); return; }
+        setGoogleLink({ email: profile.email || '' });
+        setLinkMsg({ ok: true, text: '연동 완료! 다음부터 로그인 화면의 구글 버튼으로 이 계정에 바로 로그인돼요.' });
+      },
+      () => { if (!cancelled) setLinkMsg({ ok: false, text: '구글 인증에 실패했어요. 다시 시도해 주세요.' }); }
+    ).catch(() => {
+      if (!cancelled) setLinkMsg({ ok: false, text: '구글 버튼을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.' });
+    });
+    return () => { cancelled = true; };
+  }, [activeTab, googleLink, currentUser]);
+
+  const handleUnlinkGoogle = () => {
+    if (!window.confirm('구글 연동을 해제할까요? 해제 후에는 아이디/비밀번호로만 로그인할 수 있어요.')) return;
+    const res = unlinkGoogleFromAccount(currentUser.userId);
+    if (!res.ok) { setLinkMsg({ ok: false, text: res.error }); return; }
+    setGoogleLink(null);
+    setLinkMsg({ ok: true, text: '연동을 해제했어요.' });
+  };
   // 구글 드라이브 백업
   const [driveBusy, setDriveBusy] = useState(false);
   const [driveMsg, setDriveMsg] = useState(null);
@@ -949,6 +990,59 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 </div>
               );
             })()}
+
+            {/* 구글 계정 연동 */}
+            <SettingCard title="🔗 구글 계정 연동">
+              {linkMsg && (
+                <div style={{
+                  background: linkMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',
+                  color: linkMsg.ok ? 'var(--cat-play)' : 'var(--accent)',
+                  borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 700, marginBottom: 12, lineHeight: 1.6,
+                }}>
+                  {linkMsg.text}
+                </div>
+              )}
+              {isElectron() ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  🖥️ 데스크탑 앱에서는 구글 연동을 할 수 없어요. 크롬·엣지 브라우저에서 연동해 주세요.
+                </div>
+              ) : isGoogleAccount ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  이 계정은 구글 로그인으로 만들어진 계정이라 이미 구글과 연결되어 있어요.
+                </div>
+              ) : googleLink ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <span style={{ fontSize: 20 }}>✅</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>구글 계정 연동됨</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                        {googleLink.email || '구글 계정'} · 로그인 화면의 구글 버튼으로 이 계정에 바로 로그인돼요
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={handleUnlinkGoogle} style={{
+                    width: '100%', padding: '11px', borderRadius: 10,
+                    background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800,
+                  }}>
+                    연동 해제
+                  </button>
+                </div>
+              ) : !getGoogleClientId() ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                  연동하려면 먼저 <b>백업/복구 탭</b>에서 구글 클라이언트 ID를 설정해 주세요.
+                  설정 후 이 탭에 구글 연동 버튼이 나타나요.
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 12 }}>
+                    지금 쓰고 있는 <b>@{currentUser.userId}</b> 계정을 구글 계정과 연결해요.
+                    연동하면 다음부터 비밀번호 없이 로그인 화면의 구글 버튼으로 <b>이 계정(기록 포함)</b>에 바로 로그인됩니다.
+                  </div>
+                  <div ref={linkBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
+                </div>
+              )}
+            </SettingCard>
 
             {/* 로그아웃 */}
             <SettingCard title="로그아웃">
