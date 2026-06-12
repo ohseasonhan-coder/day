@@ -1,4 +1,5 @@
 import { scheduleDriveBackup } from './driveBackup';
+import { deletePhotosByRecord } from './photoStore';
 
 // ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
 // 로그인한 사용자의 userId를 prefix로 사용 → 멀티 계정 지원
@@ -37,6 +38,27 @@ const KEYS = {
   get TRASH()           { return `sw_${_getUid()}_trash`; },
   get ARCHIVED_CHILDREN() { return `sw_${_getUid()}_archived_children`; },
 };
+
+// ── 저장 공간 사용량 ──────────────────────────────────────────────────────────
+// localStorage 한도는 브라우저당 약 5MB. 80%를 넘으면 경고를 띄운다.
+export const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
+
+export function getStorageUsage() {
+  let bytes = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      bytes += (k.length + (localStorage.getItem(k) || '').length) * 2; // UTF-16 ≈ 2바이트/문자
+    }
+  } catch {}
+  return {
+    bytes,
+    mb: bytes / 1024 / 1024,
+    percent: Math.min(100, Math.round((bytes / STORAGE_LIMIT_BYTES) * 100)),
+    warning: bytes > STORAGE_LIMIT_BYTES * 0.8,
+  };
+}
 
 // ── 신학기 진급 / 졸업 아동 보관 ──────────────────────────────────────────────
 // 졸업한 아이는 명단에서 빠지지만 기록은 그대로 남는다 (기록의 childName으로 식별 가능)
@@ -762,10 +784,19 @@ export const restoreFromTrash = (trashId) => {
 };
 
 export const purgeTrashItem = (trashId) => {
-  storage.set(KEYS.TRASH, getTrash().filter(t => t.trashId !== trashId));
+  const trash = getTrash();
+  const entry = trash.find(t => t.trashId === trashId);
+  // 기록이 영구 삭제되면 첨부 사진도 정리 (실패해도 무시)
+  if (entry?.type === 'record' && entry.item?.id) deletePhotosByRecord(entry.item.id).catch(() => {});
+  storage.set(KEYS.TRASH, trash.filter(t => t.trashId !== trashId));
 };
 
-export const emptyTrash = () => storage.set(KEYS.TRASH, []);
+export const emptyTrash = () => {
+  getTrash().forEach(t => {
+    if (t.type === 'record' && t.item?.id) deletePhotosByRecord(t.item.id).catch(() => {});
+  });
+  storage.set(KEYS.TRASH, []);
+};
 
 // ── 기록 임시저장 (자동저장) ──────────────────────────────────────────────────
 export const getDraft     = () => storage.get(KEYS.DRAFT);

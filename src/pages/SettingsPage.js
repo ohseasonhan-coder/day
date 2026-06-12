@@ -5,7 +5,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
   getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId,
   getTrash, restoreFromTrash, purgeTrashItem, emptyTrash, formatDate, hashPin,
-  promoteToNewYear, getArchivedChildren, restoreArchivedChild } from '../utils/storage';
+  promoteToNewYear, getArchivedChildren, restoreArchivedChild, getStorageUsage } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
   isMaster, adminUpdateAccount, adminDeleteAccount, getAccountDataStats } from '../utils/auth';
@@ -1065,9 +1065,32 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               </div>
             )}
 
+            <SettingCard title="📦 저장 공간">
+              {(() => {
+                const usage = getStorageUsage();
+                return (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: usage.warning ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                        {usage.mb.toFixed(2)}MB 사용 중 (약 5MB 한도)
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 900, color: usage.warning ? 'var(--accent)' : 'var(--primary)' }}>{usage.percent}%</span>
+                    </div>
+                    <div style={{ height: 10, background: 'var(--gray-100)', borderRadius: 100, overflow: 'hidden' }}>
+                      <div style={{ height: 10, borderRadius: 100, width: `${usage.percent}%`, background: usage.warning ? 'var(--accent)' : 'var(--primary)', transition: 'width 0.5s' }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.6 }}>
+                      80%를 넘으면 오늘 화면에 경고가 떠요. 문서 이력 정리(아래 "데이터 삭제")로 공간을 확보할 수 있어요.
+                    </div>
+                  </>
+                );
+              })()}
+            </SettingCard>
+
             <SettingCard title="데이터 백업">
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 16 }}>
                 지금까지 기록한 모든 데이터(아이 정보, 관찰기록, 문서, 설정)를 JSON 파일로 내보냅니다. 기기 변경이나 앱 초기화 전에 백업해 두세요.
+                <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}><br />※ 기록에 첨부한 사진은 용량 문제로 백업 파일에 포함되지 않아요 (이 기기에만 저장).</span>
               </div>
               <button onClick={handleExport} style={{
                 width: '100%', padding: '14px', borderRadius: 12,
@@ -1690,7 +1713,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             <div style={{ textAlign: 'center', padding: '40px 0 20px' }}>
               <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--primary)', marginBottom: 8 }}>쌤워크</div>
               <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 4 }}>선생님은 기록만, 문서는 앱이.</div>
-              <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>v0.4.0 · 문서 편집 + 다운로드 + 피드백</div>
+              <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>v0.5.0 · 구글 로그인 + 드라이브 자동 백업</div>
             </div>
             <SettingCard title="앱 소개">
               <div style={{ fontSize: 14, lineHeight: 1.9, color: 'var(--text-secondary)' }}>
@@ -1699,11 +1722,11 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             </SettingCard>
             <SettingCard title="최근 업데이트">
               {[
-                '문서함에서 생성 문서와 문서 이력을 TXT 파일로 다운로드',
-                '문서 이력 수정·삭제 기능 추가',
-                '중요 데이터 삭제 시 “삭제” 직접 입력 안전장치 적용',
-                '샘플 데이터 추가·삭제와 기록/문서 초기화 기능 정리',
-                '문장·분류·오류를 남길 수 있는 피드백 화면 추가',
+                '구글 계정 하나로 로그인 — 별도 회원가입 불필요',
+                '기록이 바뀔 때마다 본인 구글 드라이브에 자동 백업',
+                '문서를 Word(.docx)로 내보내기 — 한글에서도 바로 열림',
+                '휴지통(30일 보관)·PIN 화면 잠금·신학기 진급 도우미',
+                '통계 기간 필터·인쇄 리포트, 아이폰 홈 화면 설치 지원',
               ].map((item, i) => (
                 <div key={item} style={{ display: 'flex', gap: 9, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>
@@ -1720,8 +1743,8 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 '📄 오늘 기록 → 보육일지 초안 자동 작성',
                 '👶 아이별 성장 요약 및 상담자료 생성',
                 '✅ 기록 누락 체크 및 카테고리 균형 점검',
-                '💾 데이터 백업/복구 지원',
-                '👤 아이디 기반 개인 계정 관리',
+                '☁️ 본인 구글 드라이브 자동 백업 + 기기 간 병합 이동',
+                '🔐 구글 계정 로그인 · PIN 화면 잠금',
               ].map((item, i) => (
                 <div key={i} style={{ fontSize: 14, padding: '8px 0', borderBottom: '1px solid var(--border)', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
                   {item}
@@ -1730,7 +1753,9 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             </SettingCard>
             <SettingCard title="데이터 저장 방식">
               <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                현재 데이터는 사용하는 브라우저의 로컬 저장소에 보관됩니다. 서버 API 키나 외부 AI 연결 없이 작동하지만, 기기를 바꾸거나 브라우저 데이터를 삭제하기 전에는 백업 파일을 내려받아야 합니다.
+                기록은 이 기기의 브라우저 저장소에 보관되고, 기록이 바뀔 때마다 <b>본인 구글 드라이브에 자동 백업</b>됩니다.
+                개발자 서버로는 어떤 데이터도 전송되지 않아요. 기기를 바꿀 때는 새 기기에서 같은 구글 계정으로 로그인한 뒤
+                "드라이브에서 가져오기 → 병합"을 누르면 됩니다.
               </div>
               <button
                 onClick={() => setActiveTab('backup')}

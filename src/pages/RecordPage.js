@@ -27,11 +27,14 @@ import {
   clearCopyHistory,
 } from '../utils/storage';
 import { processRecord } from '../utils/ai';
+import { compressImage, savePhotos, getPhotosByRecord, deletePhoto } from '../utils/photoStore';
 import {
   Sparkles, Copy, Check, RotateCcw, Save, Mic, Zap,
   Search, CalendarDays, ListFilter, X, ChevronLeft, ChevronRight,
-  List, PlusCircle, Pencil, Trash2, Plus, ChevronDown, ChevronUp, Star,
+  List, PlusCircle, Pencil, Trash2, Plus, ChevronDown, ChevronUp, Star, Camera,
 } from 'lucide-react';
+
+const MAX_PHOTOS = 4;
 
 /* ── 기본 제공 빠른 문구 (built-in, 삭제 불가) ─────────────────────────────── */
 const BUILTIN_TEMPLATES = [
@@ -114,6 +117,8 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [selectedChild, setSelectedChild]   = useState(null);
   const [recordType, setRecordType]         = useState('observe');
   const [recordDate, setRecordDate]         = useState(() => today());
+  const [photos, setPhotos]                 = useState([]); // 첨부 대기 사진 dataURL 목록
+  const photoInputRef = useRef(null);
   const [rawText, setRawText]               = useState('');
   const [loading, setLoading]               = useState(false);
   const [result, setResult]                 = useState(null);
@@ -243,10 +248,29 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     } finally { setLoading(false); }
   };
 
+  const handleAddPhotos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    const room = MAX_PHOTOS - photos.length;
+    if (room <= 0) { showToast(`사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있어요.`, 'error'); return; }
+    try {
+      const compressed = await Promise.all(files.slice(0, room).map(f => compressImage(f)));
+      setPhotos(prev => [...prev, ...compressed]);
+    } catch {
+      showToast('사진을 불러오지 못했어요. 다른 사진으로 시도해 주세요.', 'error');
+    }
+  };
+
   const handleSave = () => {
     if (!result || !selectedChild || saved) return;
-    const newRecord = addRecord({ childId: selectedChild.id, childName: selectedChild.name, date: recordDate || today(), rawText, recordType, ...result });
+    const newRecord = addRecord({ childId: selectedChild.id, childName: selectedChild.name, date: recordDate || today(), rawText, recordType, photoCount: photos.length, ...result });
     setRecords(prev => [newRecord, ...prev]);
+    if (photos.length > 0) {
+      savePhotos(newRecord.id, photos)
+        .then(() => setPhotos([]))
+        .catch(() => showToast('사진 저장 중 오류가 발생했어요. (기록은 저장됨)', 'error'));
+    }
     setSaved(true);
     clearDraft(); setDraftBanner(false);
     const labels = newRecord.automation?.appliedLabels || [];
@@ -256,7 +280,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   };
 
   const handleReset = () => {
-    setResult(null); setRawText(''); setError(''); setSaved(false);
+    setResult(null); setRawText(''); setError(''); setSaved(false); setPhotos([]);
     clearDraft(); setDraftBanner(false);
     setTimeout(() => textareaRef.current?.focus(), 100);
   };
@@ -575,8 +599,39 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               onOpen={record => setDetailRecord(record)}
               onInsert={text => insertTextAtCursor(text)}
             />
+            {/* 사진 첨부 */}
+            <input ref={photoInputRef} type="file" accept="image/*" multiple onChange={handleAddPhotos} style={{ display: 'none' }} />
+            {photos.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {photos.map((dataUrl, i) => (
+                  <div key={i} style={{ position: 'relative', width: 72, height: 72 }}>
+                    <img src={dataUrl} alt={`첨부 사진 ${i + 1}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 12, border: '1.5px solid var(--border)' }} />
+                    <button onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))} style={{
+                      position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
+                      background: 'var(--gray-800)', color: 'white', fontSize: 11, fontWeight: 900,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                  color: 'var(--text-secondary)', background: 'var(--gray-100)',
+                  borderRadius: 100, padding: '6px 14px', fontWeight: 700,
+                  border: '1.5px solid var(--border)',
+                }}
+              >
+                <Camera size={13} /> 사진 ({photos.length}/{MAX_PHOTOS})
+              </button>
+              {!speechSupported && <span />}
             {speechSupported && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={isListening ? stopListening : startListening}
                   style={{
@@ -592,6 +647,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </button>
               </div>
             )}
+            </div>
             <SmartContextBanner onInsert={insertTextAtCursor} />
             <QuickTemplatePanel
               templates={allTemplates}
@@ -1538,6 +1594,41 @@ function RecordListCard({ record, onClick, onToggleStar }) {
 ══════════════════════════════════════════════════════════════════════════════ */
 function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }) {
   const [editMode, setEditMode]     = useState(false);
+  const [recordPhotos, setRecordPhotos] = useState([]);
+  const detailPhotoRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPhotosByRecord(record.id)
+      .then(list => { if (!cancelled) setRecordPhotos(list); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [record.id]);
+
+  const handleDetailAddPhotos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    const room = MAX_PHOTOS - recordPhotos.length;
+    if (room <= 0) return;
+    try {
+      const compressed = await Promise.all(files.slice(0, room).map(f => compressImage(f)));
+      await savePhotos(record.id, compressed);
+      const list = await getPhotosByRecord(record.id);
+      setRecordPhotos(list);
+      onUpdate(record.id, { photoCount: list.length });
+    } catch {}
+  };
+
+  const handleDeleteDetailPhoto = async (photoId) => {
+    if (!window.confirm('이 사진을 삭제할까요?')) return;
+    try {
+      await deletePhoto(photoId);
+      const list = await getPhotosByRecord(record.id);
+      setRecordPhotos(list);
+      onUpdate(record.id, { photoCount: list.length });
+    } catch {}
+  };
   const [editRaw, setEditRaw]       = useState(record.rawText || '');
   const [editObs, setEditObs]       = useState(record.observation || '');
   const [editParent, setEditParent] = useState(record.parent || '');
@@ -1678,6 +1769,40 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
           ) : (
             /* ── 보기 모드 ─────── */
             <div>
+              {/* 사진 */}
+              <div style={{ marginBottom: 14 }}>
+                {recordPhotos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {recordPhotos.map(p => (
+                      <div key={p.id} style={{ position: 'relative' }}>
+                        <img
+                          src={p.dataUrl}
+                          alt="기록 사진"
+                          onClick={() => { const w = window.open(); if (w) w.document.write(`<img src="${p.dataUrl}" style="max-width:100%" />`); }}
+                          style={{ width: 110, height: 110, objectFit: 'cover', borderRadius: 14, border: '1.5px solid var(--border)', cursor: 'zoom-in' }}
+                        />
+                        <button onClick={() => handleDeleteDetailPhoto(p.id)} style={{
+                          position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: '50%',
+                          background: 'var(--gray-800)', color: 'white', fontSize: 11, fontWeight: 900,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input ref={detailPhotoRef} type="file" accept="image/*" multiple onChange={handleDetailAddPhotos} style={{ display: 'none' }} />
+                {recordPhotos.length < MAX_PHOTOS && (
+                  <button onClick={() => detailPhotoRef.current?.click()} style={{
+                    display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700,
+                    color: 'var(--text-secondary)', background: 'var(--gray-100)', borderRadius: 100, padding: '6px 14px',
+                    border: '1.5px solid var(--border)',
+                  }}>
+                    <Camera size={13} /> 사진 추가 ({recordPhotos.length}/{MAX_PHOTOS})
+                  </button>
+                )}
+              </div>
               <DetailSection title="원본 입력"   text={record.rawText}    expanded={expanded.raw}    onToggle={() => toggleSection('raw')} />
               <DetailSection title="관찰일지 문장" text={record.observation} expanded={expanded.obs}  onToggle={() => toggleSection('obs')} accent />
               <DetailSection title="알림장 문장"   text={record.parent}    expanded={expanded.par}    onToggle={() => toggleSection('par')} />

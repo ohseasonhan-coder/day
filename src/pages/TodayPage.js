@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage } from '../utils/storage';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage, getStorageUsage } from '../utils/storage';
 import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 const SERVICE_CARDS = [
@@ -296,6 +296,20 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         <button onClick={() => { storage.set('sw_backup_banner_dismissed', today()); setBackupDismissed(true); }} style={{ padding: '9px 12px', borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800 }}>
           오늘은 그만
         </button>
+      </div>
+    </div>
+  ) : null;
+
+  /* ── 저장 공간 경고 (80% 이상일 때만) ─────────────── */
+  const storageUsage = getStorageUsage();
+  const StorageWarning = storageUsage.warning ? (
+    <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent)', borderRadius: 16, padding: '13px 16px', marginBottom: 18 }}>
+      <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
+        ⚠️ 저장 공간이 {storageUsage.percent}% 찼어요 ({storageUsage.mb.toFixed(1)}MB / 5MB)
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        가득 차면 새 기록 저장이 실패할 수 있어요. 드라이브 백업을 확인한 뒤,
+        설정 → 백업/복구에서 오래된 문서 이력을 정리해 주세요.
       </div>
     </div>
   ) : null;
@@ -624,6 +638,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         {/* 왼쪽 메인 */}
         <div>
           {HeroCard}
+          {StorageWarning}
           {BackupBanner}
           {UnrecordedSection}
           {DayClosePanel}
@@ -680,6 +695,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   return (
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
+      {StorageWarning}
       {BackupBanner}
       {UnrecordedSection}
       {DayClosePanel}

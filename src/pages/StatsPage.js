@@ -22,12 +22,32 @@ function getAvatarColor(name) {
 const DAY_LABELS = ['일','월','화','수','목','금','토'];
 const MONTH_KO   = (m) => `${m+1}월`;
 
+const STAT_PERIODS = [
+  ['all',   '전체'],
+  ['year',  '올해'],
+  ['3m',    '최근 3개월'],
+  ['month', '이번 달'],
+];
+
 export default function StatsPage({ onNavigate, isDesktop }) {
   const [tab, setTab] = useState('overview'); // 'overview' | 'children' | 'categories' | 'trend' | 'heatmap'
   const [showPrint, setShowPrint] = useState(false);
+  const [period, setPeriod] = useState('all');
 
-  const records  = useMemo(() => getRecords(), []);
-  const children = useMemo(() => getChildren(), []);
+  const allRecords = useMemo(() => getRecords(), []);
+  const children   = useMemo(() => getChildren(), []);
+
+  // 기간 필터 — 추이·히트맵처럼 자체 기간이 있는 차트는 전체 기록을 사용
+  const records = useMemo(() => {
+    if (period === 'all') return allRecords;
+    const d = new Date();
+    let from;
+    if (period === 'year') from = `${d.getFullYear()}-01-01`;
+    else if (period === '3m') { d.setMonth(d.getMonth() - 3); from = d.toISOString().slice(0, 10); }
+    else from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    return allRecords.filter(r => r.date && r.date >= from);
+  }, [allRecords, period]);
+  const periodLabel = STAT_PERIODS.find(([k]) => k === period)?.[1] || '전체';
 
   // ── 기본 집계 ─────────────────────────────────────────────────────────────
   const todayStr   = today();
@@ -43,17 +63,17 @@ export default function StatsPage({ onNavigate, isDesktop }) {
   const recordedDays   = new Set(records.map(r => r.date)).size;
   const recordedThisMonth = new Set(thisMonthRecs.map(r => r.date)).size;
 
-  // ── 최근 6개월 월별 기록 수 ───────────────────────────────────────────────
+  // ── 최근 6개월 월별 기록 수 (자체 기간 차트 — 전체 기록 기준) ─────────────
   const monthlyData = useMemo(() => {
     const months = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(thisYear, thisMonth - i, 1);
       const y = d.getFullYear(), m = d.getMonth();
-      const count = records.filter(r => { const rd = new Date(r.date); return rd.getFullYear()===y && rd.getMonth()===m; }).length;
+      const count = allRecords.filter(r => { const rd = new Date(r.date); return rd.getFullYear()===y && rd.getMonth()===m; }).length;
       months.push({ label: MONTH_KO(m), year: y, month: m, count });
     }
     return months;
-  }, [records, thisMonth, thisYear]);
+  }, [allRecords, thisMonth, thisYear]);
 
   const maxMonthly = Math.max(...monthlyData.map(m => m.count), 1);
 
@@ -102,7 +122,7 @@ export default function StatsPage({ onNavigate, isDesktop }) {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(thisYear, thisMonth - i, 1);
       const y = d.getFullYear(), m = d.getMonth();
-      const mRecs = records.filter(r => { const rd = new Date(r.date); return rd.getFullYear()===y && rd.getMonth()===m; });
+      const mRecs = allRecords.filter(r => { const rd = new Date(r.date); return rd.getFullYear()===y && rd.getMonth()===m; });
       const areaData = {};
       TREND_AREAS.forEach(a => { areaData[a.key] = mRecs.filter(r => a.cats.includes(r.category)).length; });
       months.push({ label: MONTH_KO(m), areaData });
@@ -110,12 +130,12 @@ export default function StatsPage({ onNavigate, isDesktop }) {
     const allCounts = months.flatMap(m => TREND_AREAS.map(a => m.areaData[a.key]));
     const maxY = Math.max(...allCounts, 1);
     return { months, maxY };
-  }, [records, thisMonth, thisYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allRecords, thisMonth, thisYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 연간 히트맵 ─────────────────────────────────────────────────────
+  // ── 연간 히트맵 (자체 기간 차트 — 전체 기록 기준) ───────────────────
   const heatmapData = useMemo(() => {
     const countByDate = {};
-    records.forEach(r => { if (r.date) countByDate[r.date] = (countByDate[r.date]||0) + 1; });
+    allRecords.forEach(r => { if (r.date) countByDate[r.date] = (countByDate[r.date]||0) + 1; });
     const weeks = [];
     const todayDate = new Date();
     const start = new Date(todayDate);
@@ -132,16 +152,16 @@ export default function StatsPage({ onNavigate, isDesktop }) {
     }
     const maxCount = Math.max(...Object.values(countByDate), 1);
     return { weeks, maxCount };
-  }, [records]);
+  }, [allRecords]);
 
   // ── 인쇄용 리포트 (평가제·보고용 A4) ──────────────────────────────────
   const buildPrintSections = () => {
     const catLabel = (c) => CATEGORIES[c]?.label || c || '미분류';
     const sections = [
       {
-        title: '전체 현황',
+        title: `전체 현황 (기간: ${periodLabel})`,
         content:
-          `누적 기록 ${records.length}건 · 기록한 날 ${recordedDays}일 · 아이 ${children.length}명\n` +
+          `기록 ${records.length}건 · 기록한 날 ${recordedDays}일 · 아이 ${children.length}명\n` +
           `이번 달 기록 ${thisMonthRecs.length}건 (${recordedThisMonth}일) · 최근 7일 ${thisWeekRecs.length}건 · 즐겨찾기 ${starredRecs.length}건`,
       },
       {
@@ -206,9 +226,28 @@ export default function StatsPage({ onNavigate, isDesktop }) {
         <div style={{ fontSize:14, color:'var(--text-secondary)' }}>쌓인 기록을 분석해 교사의 패턴을 보여드려요.</div>
       </div>
 
+      {/* 기간 필터 */}
+      <div style={{ display:'flex', gap:6, marginBottom:14, alignItems:'center', flexWrap:'wrap' }}>
+        <span style={{ fontSize:12, fontWeight:800, color:'var(--text-tertiary)', marginRight:2 }}>📆 기간</span>
+        {STAT_PERIODS.map(([k, v]) => (
+          <button key={k} onClick={() => setPeriod(k)} style={{
+            padding:'7px 14px', borderRadius:100, fontSize:12, fontWeight:800,
+            background: period===k ? 'var(--gray-800)' : 'var(--gray-100)',
+            color: period===k ? 'white' : 'var(--text-secondary)',
+          }}>
+            {v}
+          </button>
+        ))}
+        {period !== 'all' && (
+          <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>
+            · 발달추이/히트맵은 자체 기간으로 표시돼요
+          </span>
+        )}
+      </div>
+
       {/* 요약 카드 행 */}
       <div style={{ display:'grid', gridTemplateColumns: isDesktop ? 'repeat(4,1fr)' : 'repeat(2,1fr)', gap:10, marginBottom:20 }}>
-        <SummaryCard icon={<PenLine size={18} color="var(--primary)" />} label="전체 기록" value={`${records.length}건`} sub={`오늘 ${todayRecs.length}건`} color="var(--primary)" />
+        <SummaryCard icon={<PenLine size={18} color="var(--primary)" />} label={`기록 (${periodLabel})`} value={`${records.length}건`} sub={`오늘 ${todayRecs.length}건`} color="var(--primary)" />
         <SummaryCard icon={<CalendarDays size={18} color="var(--cat-comm)" />} label="기록한 날" value={`${recordedDays}일`} sub={`이번 달 ${recordedThisMonth}일`} color="var(--cat-comm)" />
         <SummaryCard icon={<Users size={18} color="var(--cat-play)" />} label="아이 수" value={`${children.length}명`} sub={needAttention.length > 0 ? `⚠️ ${needAttention.length}명 미기록` : '모두 기록 있음'} color="var(--cat-play)" />
         <SummaryCard icon={<Star size={18} color="#F5A623" />} label="즐겨찾기" value={`${starredRecs.length}건`} sub="중요 기록" color="#F5A623" />
