@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState } from '../utils/storage';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage } from '../utils/storage';
 import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
 
 const SERVICE_CARDS = [
@@ -259,6 +259,43 @@ export default function TodayPage({ onNavigate, isDesktop }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  ) : null;
+
+  /* ── 백업 리마인더 (마지막 백업 7일 경과 시) ──────────────── */
+  const [backupDismissed, setBackupDismissed] = useState(() => storage.get('sw_backup_banner_dismissed') === today());
+  const [backupDone, setBackupDone] = useState(false);
+  const lastBackupAt = getBackupHistory()[0]?.date;
+  const daysSinceBackup = lastBackupAt ? Math.floor((Date.now() - new Date(lastBackupAt).getTime()) / 86400000) : null;
+  const needsBackup = allRecords.length >= 5 && !backupDismissed && (daysSinceBackup === null || daysSinceBackup >= 7);
+
+  const handleQuickBackup = () => {
+    try {
+      exportBackup();
+      addBackupRecord();
+      setBackupDone(true);
+      setTimeout(() => setBackupDismissed(true), 1800);
+    } catch {}
+  };
+
+  const BackupBanner = needsBackup ? (
+    <div style={{ background: 'var(--white)', border: '1.5px solid #FFB74D', borderRadius: 16, padding: '13px 16px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ flex: 1, minWidth: 180 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)' }}>
+          💾 {daysSinceBackup === null ? '아직 백업한 적이 없어요' : `마지막 백업이 ${daysSinceBackup}일 전이에요`}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.5 }}>
+          기록은 이 기기에만 저장돼요. 백업 파일을 받아두면 기기 변경·고장에도 안전해요.
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <button onClick={handleQuickBackup} style={{ padding: '9px 14px', borderRadius: 10, background: backupDone ? 'var(--cat-play)' : 'var(--primary)', color: 'white', fontSize: 12, fontWeight: 900 }}>
+          {backupDone ? '✓ 완료!' : '지금 백업'}
+        </button>
+        <button onClick={() => { storage.set('sw_backup_banner_dismissed', today()); setBackupDismissed(true); }} style={{ padding: '9px 12px', borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800 }}>
+          오늘은 그만
+        </button>
       </div>
     </div>
   ) : null;
@@ -587,6 +624,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         {/* 왼쪽 메인 */}
         <div>
           {HeroCard}
+          {BackupBanner}
           {UnrecordedSection}
           {DayClosePanel}
           {ChildQuickPanel}
@@ -642,6 +680,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   return (
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
+      {BackupBanner}
       {UnrecordedSection}
       {DayClosePanel}
       {ChildQuickPanel}

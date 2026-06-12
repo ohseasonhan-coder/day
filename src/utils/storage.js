@@ -957,6 +957,77 @@ export function importBackup(jsonString) {
   }
 }
 
+// 백업 파일 검증·미리보기 (적용하지 않고 내용만 확인)
+export function parseBackup(jsonString) {
+  try {
+    const data = JSON.parse(jsonString);
+    if (!data.version || !data.appName)
+      return { ok: false, error: '쌤워크 백업 파일이 아니에요.' };
+    return {
+      ok: true,
+      data,
+      summary: {
+        children:  (data.children  || []).length,
+        records:   (data.records   || []).length,
+        documents: (data.documents || []).length,
+        exportedAt: data.exportedAt,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: `파일 형식이 올바르지 않아요. (${e.message})` };
+  }
+}
+
+// id 기준 병합 — 없는 항목은 추가, 같은 id는 더 최신(createdAt) 항목 유지
+function mergeById(current, incoming, dateKey = 'createdAt') {
+  const map = new Map((current || []).map(item => [item.id, item]));
+  let added = 0;
+  for (const item of incoming || []) {
+    if (!item || item.id == null) continue;
+    const existing = map.get(item.id);
+    if (!existing) { map.set(item.id, item); added += 1; continue; }
+    const a = new Date(existing[dateKey] || existing.date || 0).getTime();
+    const b = new Date(item[dateKey] || item.date || 0).getTime();
+    if (b > a) map.set(item.id, item);
+  }
+  return { merged: [...map.values()], added };
+}
+
+// 병합 복구: 기존 데이터를 지우지 않고 백업 파일 내용을 합침 (두 기기 병행 사용용)
+export function importBackupMerge(jsonString) {
+  const parsed = parseBackup(jsonString);
+  if (!parsed.ok) return parsed;
+  const data = parsed.data;
+
+  const classes  = mergeById(getClasses(),  data.classes);
+  const children = mergeById(getChildren(), data.children);
+  const records  = mergeById(getRecords(),  data.records);
+  const docs     = mergeById(getDocuments(), data.documents);
+  const routines = mergeById(getRoutines(), data.routines);
+  const forms    = mergeById(getFormTemplates(), data.formTemplates);
+
+  records.merged.sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+  docs.merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  saveClasses(classes.merged);
+  saveChildren(children.merged);
+  saveRecords(records.merged);
+  saveDocuments(docs.merged);
+  storage.set(KEYS.ROUTINES, routines.merged);
+  saveFormTemplates(forms.merged);
+  rebuildAutomationState(records.merged, children.merged, classes.merged);
+
+  return {
+    ok: true,
+    summary: {
+      addedChildren: children.added,
+      addedRecords:  records.added,
+      addedDocs:     docs.added,
+      totalRecords:  records.merged.length,
+    },
+  };
+}
+
 // ── 반복 일정 (루틴) ──────────────────────────────────────────────────────────
 // 루틴 shape: { id, title, days: [0-6], category, template }
 export const getRoutines    = () => storage.get(KEYS.ROUTINES) || [];

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup,
+import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveChildren, genId, exportBackup, importBackup, parseBackup, importBackupMerge,
   getFormTemplates, addFormTemplate, updateFormTemplate, deleteFormTemplate,
   getRoutines, addRoutine, deleteRoutine, CATEGORIES,
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
@@ -89,6 +89,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [deletePw, setDeletePw] = useState('');
   const [deleteMsg, setDeleteMsg] = useState('');
 
+  const [pendingImport, setPendingImport] = useState(null); // { json, summary, fileName }
   // 백업/복구
   const [backupMsg, setBackupMsg] = useState(null); // { ok, text }
   const fileRef = useRef(null);
@@ -148,23 +149,46 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     }
   };
 
+  // 파일 선택 → 내용 미리보기 후 병합/덮어쓰기 선택
   const handleImport = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const res = importBackup(ev.target.result);
+      const res = parseBackup(ev.target.result);
       if (!res.ok) {
         setBackupMsg({ ok: false, text: res.error });
-      } else {
-        const s = res.summary;
-        setChildren(getChildren()); // 화면 갱신
-        setBackupMsg({ ok: true, text: `복구 완료! 아이 ${s.children}명 · 기록 ${s.records}건 · 문서 ${s.documents}건` });
-        setTimeout(() => setBackupMsg(null), 5000);
+        setPendingImport(null);
+        return;
       }
+      setBackupMsg(null);
+      setPendingImport({ json: ev.target.result, summary: res.summary, fileName: file.name });
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleApplyMerge = () => {
+    if (!pendingImport) return;
+    const res = importBackupMerge(pendingImport.json);
+    setPendingImport(null);
+    if (!res.ok) { setBackupMsg({ ok: false, text: res.error }); return; }
+    const s = res.summary;
+    setChildren(getChildren());
+    setBackupMsg({ ok: true, text: `병합 완료! 새 기록 ${s.addedRecords}건 · 새 아이 ${s.addedChildren}명 추가 (전체 기록 ${s.totalRecords}건)` });
+    setTimeout(() => setBackupMsg(null), 6000);
+  };
+
+  const handleApplyOverwrite = () => {
+    if (!pendingImport) return;
+    if (!window.confirm('현재 이 기기의 데이터를 모두 지우고 백업 파일 내용으로 바꿉니다. 계속할까요?')) return;
+    const res = importBackup(pendingImport.json);
+    setPendingImport(null);
+    if (!res.ok) { setBackupMsg({ ok: false, text: res.error }); return; }
+    const s = res.summary;
+    setChildren(getChildren());
+    setBackupMsg({ ok: true, text: `복구 완료! 아이 ${s.children}명 · 기록 ${s.records}건 · 문서 ${s.documents}건` });
+    setTimeout(() => setBackupMsg(null), 5000);
   };
 
   const handleSeedSamples = () => {
@@ -655,25 +679,46 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               </button>
             </SettingCard>
 
-            <SettingCard title="데이터 복구">
-              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 8 }}>
-                이전에 저장한 백업 파일을 선택하면 데이터를 복구합니다.
-              </div>
-              <div style={{
-                background: 'var(--accent-light)', borderRadius: 10, padding: '10px 12px',
-                fontSize: 12, color: 'var(--accent)', fontWeight: 700, marginBottom: 14, lineHeight: 1.6,
-              }}>
-                ⚠️ 복구를 하면 현재 데이터를 덮어씁니다. 먼저 백업을 받아두세요.
+            <SettingCard title="데이터 가져오기 (복구·기기 이동)">
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 14 }}>
+                다른 기기에서 받은 백업 파일을 선택하면 내용을 먼저 보여드리고, <b>병합</b>(기존 데이터 유지 + 새 항목 추가)할지 <b>덮어쓰기</b>할지 선택할 수 있어요.
               </div>
               <input type="file" accept=".json" ref={fileRef} onChange={handleImport} style={{ display: 'none' }} />
-              <button onClick={() => fileRef.current?.click()} style={{
-                width: '100%', padding: '14px', borderRadius: 12,
-                background: 'var(--white)', border: '2px solid var(--border)',
-                color: 'var(--text-primary)', fontSize: 14, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}>
-                <Upload size={18} color="var(--primary)" /> 백업 파일에서 복구
-              </button>
+              {!pendingImport ? (
+                <button onClick={() => fileRef.current?.click()} style={{
+                  width: '100%', padding: '14px', borderRadius: 12,
+                  background: 'var(--white)', border: '2px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 14, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                  <Upload size={18} color="var(--primary)" /> 백업 파일 선택
+                </button>
+              ) : (
+                <div style={{ background: 'var(--gray-50)', border: '1.5px solid var(--primary)', borderRadius: 14, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 6 }}>📦 {pendingImport.fileName}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+                    아이 {pendingImport.summary.children}명 · 기록 {pendingImport.summary.records}건 · 문서 {pendingImport.summary.documents}건
+                    {pendingImport.summary.exportedAt && (
+                      <><br />내보낸 시각: {new Date(pendingImport.summary.exportedAt).toLocaleString('ko-KR')}</>
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                    <button onClick={handleApplyMerge} style={{ padding: '12px', borderRadius: 10, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 900 }}>
+                      병합하기 (권장)
+                    </button>
+                    <button onClick={handleApplyOverwrite} style={{ padding: '12px', borderRadius: 10, background: 'var(--accent)', color: 'white', fontSize: 13, fontWeight: 900 }}>
+                      전체 덮어쓰기
+                    </button>
+                  </div>
+                  <button onClick={() => setPendingImport(null)} style={{ width: '100%', padding: '10px', borderRadius: 10, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800 }}>
+                    취소
+                  </button>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 10, lineHeight: 1.6 }}>
+                    병합: 두 기기를 같이 쓸 때 안전해요. 같은 기록은 한 번만 남아요.<br />
+                    덮어쓰기: 이 기기 데이터를 지우고 파일 내용으로 완전히 교체해요.
+                  </div>
+                </div>
+              )}
             </SettingCard>
 
             <SettingCard title="샘플 데이터">
