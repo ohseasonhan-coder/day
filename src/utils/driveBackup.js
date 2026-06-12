@@ -136,6 +136,39 @@ export async function backupToDrive(clientId, jsonString, { silent = false } = {
   return { fileId: json.id, at };
 }
 
+// ── 변경 시 자동 백업 스케줄러 ───────────────────────────────────────────────
+// 데이터가 바뀔 때마다 호출 — 연속 변경은 30초 묶어서 1회만 업로드 (디바운스)
+let backupTimer = null;
+let latestGetJson = null;
+
+export function scheduleDriveBackup(getJson, { delayMs = 30000 } = {}) {
+  latestGetJson = getJson;
+  if (backupTimer) clearTimeout(backupTimer);
+  backupTimer = setTimeout(async () => {
+    backupTimer = null;
+    try {
+      const clientId = (localStorage.getItem('sw_google_client_id') || '').trim();
+      if (!clientId || !latestGetJson) return;
+      await backupToDrive(clientId, latestGetJson(), { silent: true });
+    } catch {
+      // 조용히 실패 — 다음 변경이나 앱 시작 때 다시 시도됨
+    }
+  }, delayMs);
+}
+
+// 탭을 닫거나 화면을 벗어날 때, 예약된 백업이 있으면 바로 시도
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden' || !backupTimer) return;
+    clearTimeout(backupTimer);
+    backupTimer = null;
+    try {
+      const clientId = (localStorage.getItem('sw_google_client_id') || '').trim();
+      if (clientId && latestGetJson) backupToDrive(clientId, latestGetJson(), { silent: true }).catch(() => {});
+    } catch {}
+  });
+}
+
 // 드라이브에서 백업 파일 내려받기 (가장 최근 수정본)
 export async function restoreFromDrive(clientId) {
   const token = await requestDriveToken(clientId, { silent: false });

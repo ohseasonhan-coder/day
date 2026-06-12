@@ -807,8 +807,8 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800 }}>자동 백업 (하루 1회)</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>앱을 열 때 자동으로 드라이브에 백업해요</div>
+                  <div style={{ fontSize: 13, fontWeight: 800 }}>자동 백업</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>기록이 추가·수정될 때마다 잠시 후 자동으로 드라이브에 백업해요 (앱을 열 때도 1회)</div>
                 </div>
                 <button onClick={() => saveDriveSetting({ driveAutoBackup: !settings.driveAutoBackup })} style={{
                   width: 44, height: 24, borderRadius: 12,

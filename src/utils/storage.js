@@ -1,3 +1,5 @@
+import { scheduleDriveBackup } from './driveBackup';
+
 // ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
 // 로그인한 사용자의 userId를 prefix로 사용 → 멀티 계정 지원
 // auth.js import를 피하기 위해 직접 localStorage에서 읽음
@@ -53,11 +55,30 @@ export const storage = {
   },
   set: (key, value) => {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    maybeScheduleDriveBackup(key);
   },
   remove: (key) => {
     try { localStorage.removeItem(key); } catch {}
   },
 };
+
+// ── 변경 시 드라이브 자동 백업 ────────────────────────────────────────────────
+// 실제 자료(기록·아이·문서 등)가 바뀐 경우에만 백업을 예약한다.
+// 임시저장(draft)·알림 플래그 같은 잦은 잡음성 키는 제외.
+const AUTO_BACKUP_KEY_SUFFIXES = [
+  '_records', '_children', '_classes', '_documents', '_consults',
+  '_medicines', '_accidents', '_newsletters', '_routines',
+  '_form_templates', '_events', '_templates',
+];
+
+function maybeScheduleDriveBackup(key) {
+  try {
+    if (!AUTO_BACKUP_KEY_SUFFIXES.some(suffix => String(key).endsWith(suffix))) return;
+    if (!getGoogleClientId()) return;
+    if (!getSettings().driveAutoBackup) return;
+    scheduleDriveBackup(getBackupJson);
+  } catch {}
+}
 
 // Domain-specific getters/setters
 export const getClasses = () => storage.get(KEYS.CLASSES) || [];
