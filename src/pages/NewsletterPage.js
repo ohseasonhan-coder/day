@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getNewsletters, addNewsletter, deleteNewsletter } from '../utils/storage';
-import { Newspaper, Trash2, Copy, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { getNewsletters, addNewsletter, deleteNewsletter, getClasses } from '../utils/storage';
+import { buildMonthlyNewsletter } from '../utils/planningDocs';
+import { Newspaper, Trash2, Copy, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 const TEMPLATES = {
   '행사 안내':   '이번 달에는 다음과 같은 행사가 예정되어 있습니다.\n\n【행사 일정】\n- 날짜: \n- 장소: \n- 준비물: \n\n원활한 행사 진행을 위해 협조 부탁드립니다.',
@@ -120,7 +121,18 @@ export default function NewsletterPage({ isDesktop }) {
             <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>월</label>
             <input type="month" value={form.month} onChange={e => setForm(p => ({...p, month: e.target.value}))}
               style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 14, marginBottom: 14, boxSizing: 'border-box', background: 'var(--white)' }} />
-            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>템플릿 선택</label>
+            <button
+              onClick={() => {
+                const cl = getClasses()[0];
+                const m = parseInt((form.month || '').split('-')[1] || `${new Date().getMonth() + 1}`, 10);
+                setForm(p => ({ ...p, title: p.title || `${m}월 가정통신문`, content: buildMonthlyNewsletter({ className: cl?.name }) }));
+                setSelectedTemplate('');
+              }}
+              style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 14, boxShadow: '0 6px 18px rgba(79,127,255,0.28)' }}
+            >
+              <Sparkles size={16} /> 이달의 가정통신문 자동 만들기
+            </button>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>또는 템플릿 선택</label>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
               {Object.keys(TEMPLATES).map(name => (
                 <button key={name} onClick={() => handleTemplateSelect(name)} style={{

@@ -105,6 +105,7 @@ export default function App() {
   const [recordContext, setRecordContext]     = useState(null);
   const [docsContext, setDocsContext]         = useState(null);
   const [portfolioChild, setPortfolioChild]   = useState(null);
+  const [automationContext, setAutomationContext] = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   // 사이드바 그룹 접기 상태 — 기본은 모두 접힘 (현재 페이지가 속한 그룹만 자동으로 펼침)
@@ -265,8 +266,9 @@ export default function App() {
   const handleNavigate = (p, ctx = null) => {
     setPage(p);
     setRecordContext(p === 'record' ? ctx : null);
-    setDocsContext(p === 'docs' ? ctx : null);
+    setDocsContext((p === 'docs' || p === 'aiwrite') ? ctx : null);
     setPortfolioChild(p === 'portfolio' ? ctx : null);
+    setAutomationContext(p === 'automation' ? ctx : null);
   };
 
   const pageProps = { onNavigate: handleNavigate, isDesktop, isDark, toggleTheme, activeClassId };
@@ -289,7 +291,7 @@ export default function App() {
       case 'consult':    return <ConsultPage    {...pageProps} />;
       case 'checklist':  return <ChecklistPage  {...pageProps} />;
       case 'internal':   return <InternalDocsPage {...pageProps} />;
-      case 'automation': return <AutomationPage {...pageProps} />;
+      case 'automation': return <AutomationPage {...pageProps} context={automationContext} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }

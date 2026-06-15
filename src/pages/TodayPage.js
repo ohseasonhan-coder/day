@@ -219,13 +219,16 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         <button onClick={completeDayClose} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900 }}>
           마감하고 보육일지 만들기
         </button>
-        <button onClick={() => onNavigate('note')} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 14, fontWeight: 900 }}>
-          알림장 확인
+        <button onClick={() => onNavigate('automation', { tab: 'notice' })} style={{ padding: '12px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 14, fontWeight: 900 }}>
+          알림장 일괄
         </button>
         <button onClick={() => onNavigate('check')} style={{ padding: '12px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 900 }}>
           누락 점검
         </button>
       </div>
+      <button onClick={() => onNavigate('automation', { tab: 'plan' })} style={{ width: '100%', marginTop: 8, padding: '11px', borderRadius: 12, background: 'var(--gray-50)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800 }}>
+        🗓️ 다음 주 계획안도 미리 만들기
+      </button>
     </div>
   );
 

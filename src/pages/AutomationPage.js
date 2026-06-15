@@ -13,9 +13,9 @@ const AREA_COLORS = {
 function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function docToText(d) { return `${d.title}\n${d.badge || ''}\n\n` + (d.sections || []).map(s => `[${s.title}]\n${s.text}`).join('\n\n'); }
 
-export default function AutomationPage({ isDesktop }) {
+export default function AutomationPage({ isDesktop, context }) {
   const showToast = useToast();
-  const [tab, setTab] = useState('plan'); // 'plan' | 'notice' | 'summary'
+  const [tab, setTab] = useState(context?.tab || 'plan'); // 'plan' | 'notice' | 'summary'
 
   const records  = useMemo(() => getRecords(), []);
   const children = useMemo(() => getChildren(), []);
