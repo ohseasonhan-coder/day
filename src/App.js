@@ -23,11 +23,12 @@ import EventsPage     from './pages/EventsPage';
 import ConsultPage    from './pages/ConsultPage';
 import ChecklistPage  from './pages/ChecklistPage';
 import InternalDocsPage from './pages/InternalDocsPage';
+import AutomationPage from './pages/AutomationPage';
 import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
 import LockScreen from './components/LockScreen';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
       { id: 'today',    label: '오늘',     icon: Home },
       { id: 'record',   label: '오늘기록', icon: PenLine },
       { id: 'aiwrite',  label: 'AI작성',   icon: Zap },
+      { id: 'automation', label: '자동화', icon: Sparkles },
       { id: 'internal', label: '원내문서', icon: ClipboardList },
       { id: 'docs',     label: '문서함',   icon: FolderOpen },
     ],
@@ -76,7 +78,7 @@ const NAV_GROUPS = [
 const PAGE_TITLES = {
   today: '오늘', record: '오늘기록', aiwrite: 'AI 문서작성', note: '알림장',
   children: '아이기록', docs: '문서함', check: '점검', stats: '통계',
-  internal: '원내문서',
+  internal: '원내문서', automation: '자동화 작업',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
   coach: 'AI 코칭', events: '행사 캘린더', consult: '상담 관리', checklist: '발달 체크리스트',
 };
@@ -287,6 +289,7 @@ export default function App() {
       case 'consult':    return <ConsultPage    {...pageProps} />;
       case 'checklist':  return <ChecklistPage  {...pageProps} />;
       case 'internal':   return <InternalDocsPage {...pageProps} />;
+      case 'automation': return <AutomationPage {...pageProps} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }
