@@ -1518,6 +1518,18 @@ const EVALUATION_BY_SCENE = {
   healthCondition: '자신의 몸 상태를 살피고 표현하는 과정에서 건강을 인식하는 태도가 형성되고 있다',
   problemSolving: '어려움을 스스로 해결해보려는 과정에서 사고력과 끈기가 함께 자라고 있다',
   leadership: '놀이를 이끌고 제안하는 경험을 통해 자발성과 주도성이 발달하고 있다',
+  safety: '안전한 놀이 방법을 익히는 과정에서 자신과 또래를 보호하는 태도가 자라고 있다',
+  arrival: '등원과 전이 상황에 적응해가며 정서적 안정감과 소속감이 형성되고 있다',
+  sensoryExplore: '여러 감각으로 주변을 탐색하며 감각 변별력과 호기심이 발달하고 있다',
+  creativeMake: '재료를 자유롭게 다루며 자신만의 방식으로 표현하는 창의성이 자라고 있다',
+  hygiene: '손 씻기와 위생 활동을 익히는 과정에서 건강한 생활습관이 형성되고 있다',
+  cleanupResponsibility: '놀이 후 정리에 참여하며 책임감과 질서 의식이 자라고 있다',
+  dressing: '옷을 스스로 입고 벗어보는 시도를 통해 자조 능력과 자율성이 성장하고 있다',
+  sharingOwnership: '놀잇감을 나누고 함께 사용하는 경험을 통해 배려와 나눔의 태도가 자라고 있다',
+  waitingLine: '차례와 줄서기를 경험하며 규칙을 지키고 기다리는 자기조절력이 발달하고 있다',
+  pretendStory: '경험과 상상을 놀이로 펼치는 과정에서 표현력과 이야기 구성력이 자라고 있다',
+  fieldTripEvent: '특별한 활동과 행사에 참여하며 새로운 경험에 대한 즐거움과 적응력이 자라고 있다',
+  observationToParticipation: '또래의 놀이를 살피다가 점차 참여로 나아가며 사회적 자신감이 자라고 있다',
 };
 
 const EVALUATION_BY_CATEGORY = {
@@ -1531,13 +1543,43 @@ const EVALUATION_BY_CATEGORY = {
   special: '개별적인 상황 속에서 보이는 모습을 통해 아이의 현재 발달과 요구를 이해할 수 있다',
 };
 
+// 같은 입력엔 같은 결과, 다른 입력엔 다른 결과 — 문자 합 기반 결정적 선택
+function hashPick(text, arr) {
+  if (!arr.length) return '';
+  let h = 0;
+  const s = String(text || '');
+  for (let i = 0; i < s.length; i++) h = (h + s.charCodeAt(i) * (i + 1)) % 100000;
+  return arr[h % arr.length];
+}
+
+// 누리과정 영역 연결 마무리 — 매번 같은 문장이 되지 않도록 다양화
+const EVAL_CLOSINGS = [
+  (a) => `이는 누리과정 ‘${a}’ 영역의 발달과 자연스럽게 연결된다.`,
+  (a) => `‘${a}’ 영역에서 의미 있는 성장이 이루어지고 있음을 알 수 있다.`,
+  (a) => `‘${a}’ 영역의 경험이 점차 풍부해지고 있다.`,
+  (a) => `이러한 모습은 ‘${a}’ 영역의 발달과 맞닿아 있다.`,
+  (a) => `앞으로도 ‘${a}’ 영역의 경험을 이어갈 수 있도록 지원이 필요하다.`,
+];
+
+// 2019 개정 누리과정 정식 5개 영역으로 정규화 (평가 문장의 영역 표기 정확도)
+// '기본생활습관'은 별도 영역이 아니라 신체운동·건강에 포함된다.
+const NURI_AREA_NORMALIZE = { '기본생활습관': '신체운동·건강' };
+function toNuriAreas(devAreas) {
+  const seen = [];
+  for (const a of devAreas || []) {
+    const norm = NURI_AREA_NORMALIZE[a] || a;
+    if (norm && !seen.includes(norm)) seen.push(norm);
+  }
+  return seen.slice(0, 2);
+}
+
 function makeEvaluation(name, category, devAreas, text, sceneRule) {
   const s = subject(name);
   const normalizedText = normalizeRecordText(text);
   const rule = sceneRule || findSceneRule(normalizedText);
   const core = (rule && EVALUATION_BY_SCENE[rule.id]) || EVALUATION_BY_CATEGORY[category] || EVALUATION_BY_CATEGORY.play;
-  const areas = (devAreas || []).filter(Boolean).slice(0, 2);
-  const areaText = areas.length ? ` 이는 누리과정 ‘${areas.join('·')}’ 영역의 발달과 연결된다.` : '';
+  const areas = toNuriAreas(devAreas);
+  const areaText = areas.length ? ` ${hashPick(normalizedText + (rule?.id || category), EVAL_CLOSINGS)(areas.join('·'))}` : '';
   return `${s} ${core}.${areaText}`;
 }
 
