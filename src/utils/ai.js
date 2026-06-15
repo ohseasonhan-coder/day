@@ -1984,7 +1984,8 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
 }
 
 export async function generateDailyJournal({ records, date, classAge, className }) {
-  const categories = records.map(r => r.category || detectCategory(r.rawText || ''));
+  const recs = records || [];
+  const categories = recs.map(r => r.category || detectCategory(r.rawText || ''));
   const hasPeer = categories.includes('peer');
   const hasNature = categories.includes('nature');
   const hasArt = categories.includes('art');
@@ -1997,10 +1998,19 @@ export async function generateDailyJournal({ records, date, classAge, className 
   if (hasPeer) activityParts.push('또래 상호작용');
   if (activityParts.length === 0) activityParts.push('다양한 놀이 활동');
 
-  const childCount = records.length;
+  const childCount = recs.length;
+
+  // 오늘 실제 기록의 관찰 문장에서 대표 장면을 뽑아 일지에 반영 (사실 충실도)
+  const observed = recs
+    .map(r => (r.observation || r.rawText || '').trim())
+    .filter(Boolean);
+  const sceneLines = observed.slice(0, 4).map(s => `· ${s}`).join('\n');
+  const sceneInline = observed.length
+    ? ` 오늘 관찰된 모습으로는 ${observed.slice(0, 2).map(s => s.replace(/\.$/, '')).join('; ')} 등이 있었다.`
+    : '';
 
   return {
-    playFlow: `오늘 유아들은 ${activityParts.join(', ')}에 참여하며 즐거운 하루를 보냈다. 실내외 놀이 환경에서 자신이 관심 있는 놀이를 선택하여 집중하는 모습을 보였으며, 활동 간 자연스러운 연계가 이루어졌다.`,
+    playFlow: `오늘 유아들은 ${activityParts.join(', ')}에 참여하며 즐거운 하루를 보냈다. 실내외 놀이 환경에서 자신이 관심 있는 놀이를 선택하여 집중하는 모습을 보였으며, 활동 간 자연스러운 연계가 이루어졌다.${sceneInline}${sceneLines ? `\n\n[오늘의 관찰 장면]\n${sceneLines}` : ''}`,
     childResponse: `${childCount}명의 유아가 오늘 활동에 참여하였으며, 대부분 적극적인 모습을 보였다. ${hasPeer ? '또래와 함께 놀이하는 과정에서 다양한 감정을 경험하였고, ' : ''}교사의 지원을 통해 놀이를 이어가거나 문제를 해결하는 경험을 하였다.`,
     teacherSupport: `교사는 유아들이 자유롭게 탐색할 수 있는 환경을 제공하고, 필요한 순간에 적절히 개입하였다. ${hasPeer ? '또래 갈등 상황에서 감정을 말로 표현할 수 있도록 모델링하였으며, ' : ''}개별 유아의 관심과 요구에 맞는 지원을 이어갔다.`,
     evaluation: `오늘 보육 활동은 유아의 흥미와 발달 수준에 적합하게 이루어졌다. ${activityParts[0]}을 중심으로 놀이가 확장되었으며, 유아들이 주도적으로 놀이를 이끌어가는 모습이 관찰되었다.`,

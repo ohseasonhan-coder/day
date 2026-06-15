@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getRecordsByChild, CATEGORIES, formatDate, addCopyHistory, getClasses } from '../utils/storage';
 import { NURI, AREA_COLORS, loadChecks } from './ChecklistPage';
 import { getStandardChecklist, ageKeyForClassAge } from '../utils/standardCurriculum';
-import { buildDevelopmentReport } from '../utils/developmentReport';
+import { buildDevelopmentReport, buildConsultMaterial } from '../utils/developmentReport';
 import { exportDocx } from '../utils/docxExport';
 import { ArrowLeft, BarChart3, FileText, Copy, Check, Sparkles, Download } from 'lucide-react';
 
@@ -112,6 +112,9 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
   const [evalPeriod, setEvalPeriod] = useState('semester1');
   const [evalDoc, setEvalDoc] = useState(null);
   const [evalCopied, setEvalCopied] = useState(false);
+  // 부모상담자료
+  const [consultDoc, setConsultDoc] = useState(null);
+  const [consultCopied, setConsultCopied] = useState(false);
 
   useEffect(() => {
     setRecords(getRecordsByChild(childId));
@@ -184,6 +187,31 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
   const handleWordEval = async () => {
     if (!evalDoc) return;
     try { await exportDocx(evalDoc); } catch {}
+  };
+
+  // ── 부모상담자료 자동 생성 ──
+  const handleGenerateConsult = () => {
+    const range = getPeriodRange('thisMonth');
+    // 최근 1개월 기록이 적으면 최근 3개월로 확장
+    const recent1m = records.filter(r => r.date && r.date >= range.from);
+    const useRange = recent1m.length >= 2 ? range : getPeriodRange('semester1');
+    setConsultDoc(buildConsultMaterial({ records, childName, range: useRange }));
+  };
+
+  const handleCopyConsult = async () => {
+    if (!consultDoc) return;
+    const text = evalDocToText(consultDoc);
+    try { await navigator.clipboard.writeText(text); } catch {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    addCopyHistory({ title: consultDoc.title, text, source: 'portfolio-consult' });
+    setConsultCopied(true);
+    setTimeout(() => setConsultCopied(false), 1600);
+  };
+
+  const handleWordConsult = async () => {
+    if (!consultDoc) return;
+    try { await exportDocx(consultDoc); } catch {}
   };
 
   // 발달 체크리스트 현황 — 최근 6개월 중 체크 데이터가 있는 가장 최근 달
@@ -398,6 +426,47 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.5 }}>
               실제 기록만으로 만든 초안이에요. 복사·Word로 내보내 검토 후 사용하세요.
+            </div>
+          </>
+        )}
+      </SectionCard>
+
+      <SectionCard title="💬 부모상담자료 자동 묶음">
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+          최근 기록을 모아 <b>상담에 바로 쓰는 문장 세트</b>(인사·최근 모습·강점·가정 연계)를 만들어요.
+        </div>
+        {!consultDoc ? (
+          <button onClick={handleGenerateConsult} style={{
+            width: '100%', padding: '13px', borderRadius: 12, background: '#FF8C42', color: 'white',
+            fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <Sparkles size={16} /> 부모상담자료 만들기
+          </button>
+        ) : (
+          <>
+            <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', maxHeight: 360, overflowY: 'auto', marginBottom: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, textAlign: 'center' }}>{consultDoc.title}</div>
+              {consultDoc.badge && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 2, marginBottom: 10 }}>{consultDoc.badge}</div>}
+              {consultDoc.sections.map((s, i) => (
+                <div key={i} style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: '#E07B2E', marginBottom: 4 }}>{s.title}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleCopyConsult} style={{ flex: 1, padding: '12px', borderRadius: 12, background: consultCopied ? 'var(--cat-play)' : 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {consultCopied ? <><Check size={15} /> 복사됨</> : <><Copy size={15} /> 복사</>}
+              </button>
+              <button onClick={handleWordConsult} style={{ flex: 1, padding: '12px', borderRadius: 12, background: '#2B579A', color: 'white', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Download size={15} /> Word
+              </button>
+              <button onClick={() => setConsultDoc(null)} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800 }}>
+                다시
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.5 }}>
+              실제 기록만으로 만든 초안이에요. 상담 전 검토 후 사용하세요.
             </div>
           </>
         )}

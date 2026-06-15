@@ -43,7 +43,7 @@ const MOBILE_NAV = [
 // 데스크톱 사이드바 — 카테고리로 묶어 접을 수 있게 구성
 const NAV_GROUPS = [
   {
-    title: '기록 · 문서',
+    title: '기록 · 문서', emoji: '✍️', color: '#4F7FFF',
     items: [
       { id: 'today',    label: '오늘',     icon: Home },
       { id: 'record',   label: '오늘기록', icon: PenLine },
@@ -53,7 +53,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    title: '아이 · 평가',
+    title: '아이 · 평가', emoji: '🌱', color: '#4CAF50',
     items: [
       { id: 'children',  label: '아이기록',  icon: Users },
       { id: 'checklist', label: '발달 체크', icon: ClipboardList },
@@ -62,7 +62,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    title: '소통 · 안전',
+    title: '소통 · 안전', emoji: '💬', color: '#FF8C42',
     items: [
       { id: 'note',       label: '알림장',    icon: BookOpen },
       { id: 'newsletter', label: '가정통신문', icon: Newspaper },
@@ -324,18 +324,21 @@ export default function App() {
               // 현재 페이지가 속한 그룹은 접혀 있어도 자동으로 펼쳐 보여준다
               const collapsed = !!collapsedGroups[group.title] && !groupHasActive;
               return (
-                <div key={group.title} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? 8 : 0 }}>
+                <div key={group.title} style={{ marginBottom: 10 }}>
                   <button
                     onClick={() => setCollapsedGroups(c => ({ ...c, [group.title]: !c[group.title] }))}
                     style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '10px 12px 8px', background: 'transparent',
-                      fontSize: 16, fontWeight: 900, letterSpacing: '-0.3px',
-                      color: groupHasActive ? 'var(--primary)' : 'var(--text-primary)',
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+                      padding: '11px 12px', borderRadius: 12, marginBottom: 4,
+                      background: collapsed ? 'var(--gray-50)' : `${group.color}14`,
+                      borderLeft: `3px solid ${group.color}`,
+                      fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.3px',
+                      color: group.color,
                     }}
                   >
-                    {collapsed ? <ChevronRight size={18} strokeWidth={2.5} /> : <ChevronDown size={18} strokeWidth={2.5} />}
+                    <span style={{ fontSize: 16 }}>{group.emoji}</span>
                     <span style={{ flex: 1, textAlign: 'left' }}>{group.title}</span>
+                    {collapsed ? <ChevronRight size={17} strokeWidth={2.5} /> : <ChevronDown size={17} strokeWidth={2.5} />}
                   </button>
                   {!collapsed && group.items.map(({ id, label, icon: Icon }) => {
                     const active = page === id;

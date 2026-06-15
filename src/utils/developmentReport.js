@@ -19,14 +19,17 @@ const DEVAREA_NORMALIZE = {
   '의사소통': '의사소통', '사회관계': '사회관계', '예술경험': '예술경험', '자연탐구': '자연탐구',
 };
 
-// 이름 받침에 맞는 주격/보조사 ('하준은', '서아는')
-function topicParticle(name) {
+function hasJongseong(name) {
   const last = [...String(name || '').trim()].pop();
-  if (!last) return '는';
+  if (!last) return false;
   const code = last.charCodeAt(0);
-  if (code < 0xac00 || code > 0xd7a3) return '는';
-  return (code - 0xac00) % 28 !== 0 ? '은' : '는';
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
 }
+// 이름 받침에 맞는 보조사 ('하준은', '서아는')
+function topicParticle(name) { return hasJongseong(name) ? '은' : '는'; }
+// 주격 조사 ('하준이', '서아가')
+function subjectParticle(name) { return hasJongseong(name) ? '이' : '가'; }
 
 function recordArea(r) {
   const dev = (r.devAreas || []).map(a => DEVAREA_NORMALIZE[a]).find(Boolean);
@@ -105,6 +108,67 @@ export function buildDevelopmentReport({ records, childName, className, ageKey, 
   return {
     title: `${childName} 발달평가서`,
     badge: [range?.label, className].filter(Boolean).join(' · '),
+    sections,
+  };
+}
+
+// ── 부모상담자료 자동 묶음 ────────────────────────────────────────────────────
+// 아이별 최근 기록의 부모용 문장을 모아 상담에 바로 쓰는 문장 세트를 만든다.
+export function buildConsultMaterial({ records, childName, range }) {
+  const inRange = (records || [])
+    .filter(r => r.date && (!range || (r.date >= range.from && r.date <= range.to)))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  const particle = topicParticle(childName);
+
+  // 영역별로 부모용 문장을 모아 중복 줄이기
+  const byArea = {};
+  REPORT_AREAS.forEach(a => { byArea[a] = []; });
+  inRange.forEach(r => {
+    const txt = (r.parent || '').trim();
+    if (txt) byArea[recordArea(r)].push({ date: r.date, txt });
+  });
+
+  const sections = [];
+
+  sections.push({
+    title: '상담 인사말',
+    text: `안녕하세요, ${childName} 부모님. 원에서 ${childName}${subjectParticle(childName)} 보내는 일상과 성장 모습을 함께 나누고자 합니다. 아래는 최근 관찰한 ${childName}의 모습입니다.`,
+  });
+
+  // 최근 모습 (대표 부모용 문장 3~4개)
+  const recentParent = inRange.map(r => (r.parent || '').trim()).filter(Boolean);
+  const seen = new Set();
+  const uniqRecent = recentParent.filter(t => { const k = t.slice(0, 16); if (seen.has(k)) return false; seen.add(k); return true; });
+  sections.push({
+    title: '원에서의 최근 모습',
+    text: uniqRecent.length
+      ? uniqRecent.slice(0, 4).map(t => `· ${t}`).join('\n')
+      : '최근 기록이 충분하지 않아, 상담 전 며칠간의 관찰을 더 모아두면 좋겠습니다.',
+  });
+
+  // 영역별 강점
+  const strongAreas = REPORT_AREAS.filter(a => byArea[a].length >= 1);
+  sections.push({
+    title: '강점과 성장 모습',
+    text: strongAreas.length
+      ? strongAreas.map(a => `· (${a}) ${byArea[a][0].txt}`).join('\n')
+      : `${childName}${particle} 자신의 흥미를 따라 다양한 경험을 시도하며 성장하고 있어요.`,
+  });
+
+  sections.push({
+    title: '가정 연계 제안',
+    text: `가정에서도 ${childName}의 이야기에 귀 기울여 주시고, 좋아하는 놀이를 함께 즐겨 주시면 발달에 큰 도움이 됩니다. 작은 시도와 성공도 충분히 격려해 주세요.`,
+  });
+
+  sections.push({
+    title: '함께 이야기 나눌 점',
+    text: '· 가정에서의 ' + childName + ' 모습 (식사·수면·놀이)\n· 부모님께서 궁금하시거나 걱정되는 점\n· 원-가정이 함께 지원할 부분',
+  });
+
+  return {
+    title: `${childName} 부모상담자료`,
+    badge: range?.label || '',
     sections,
   };
 }
