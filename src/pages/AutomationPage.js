@@ -3,9 +3,10 @@ import { getRecords, getChildren, getClasses, today, addDocumentDraft } from '..
 import { buildWeeklyPlan, buildBatchNotices, buildWeeklySummary,
   dailyJournalToDoc, batchNoticesToDoc, buildMonthlyEvaluation, buildChildrenMonthlyDigest, buildMonthlyNewsletter } from '../utils/planningDocs';
 import { generateDailyJournal } from '../utils/ai';
+import { buildAccreditationReadiness } from '../utils/accreditation';
 import { exportDocx } from '../utils/docxExport';
 import { useToast } from '../components/Toast';
-import { Sparkles, Copy, Check, Download, CalendarRange, MessageSquare, TrendingUp, Save, Zap, FileText } from 'lucide-react';
+import { Sparkles, Copy, Check, Download, CalendarRange, MessageSquare, TrendingUp, Save, Zap, FileText, ShieldCheck } from 'lucide-react';
 
 const AREA_COLORS = {
   '신체운동·건강': '#4CAF50', '의사소통': '#4F7FFF', '사회관계': '#9C27B0',
@@ -44,7 +45,7 @@ export default function AutomationPage({ isDesktop, context }) {
 
       {/* 탭 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-        {[['oneclick', '원클릭 일괄', Zap], ['plan', '주간 계획안', CalendarRange], ['notice', '알림장 일괄', MessageSquare], ['summary', '주간 요약·코칭', TrendingUp]].map(([k, label, Icon]) => (
+        {[['oneclick', '원클릭 일괄', Zap], ['plan', '주간 계획안', CalendarRange], ['notice', '알림장 일괄', MessageSquare], ['summary', '주간 요약·코칭', TrendingUp], ['accredit', '평가제 준비', ShieldCheck]].map(([k, label, Icon]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 100, fontSize: 13, fontWeight: 800,
             background: tab === k ? 'var(--primary)' : 'white', color: tab === k ? 'white' : 'var(--text-secondary)',
@@ -59,6 +60,7 @@ export default function AutomationPage({ isDesktop, context }) {
       {tab === 'plan'    && <WeeklyPlanTab recent={recent} cl={cl} showToast={showToast} />}
       {tab === 'notice'  && <BatchNoticeTab todayRecs={todayRecs} showToast={showToast} />}
       {tab === 'summary' && <WeeklySummaryTab week={week} children={children} showToast={showToast} />}
+      {tab === 'accredit' && <AccreditTab />}
     </div>
   );
 }
@@ -255,6 +257,46 @@ function WeeklySummaryTab({ week, children, showToast }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 평가제 준비 ──
+function AccreditTab() {
+  const data = useMemo(() => buildAccreditationReadiness(), []);
+  return (
+    <div>
+      <div style={{ background: 'var(--primary-light)', borderRadius: 14, padding: '14px 16px', marginBottom: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--primary)' }}>🛡️ 평가 준비도 {data.overall}% ({data.doneItems}/{data.totalItems} 항목 충족)</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.6 }}>
+          앱에 쌓인 기록·문서를 어린이집 평가 4개 영역에 자동으로 연결했어요. 부족한 항목을 채워보세요.
+        </div>
+      </div>
+
+      {data.areas.map(area => (
+        <div key={area.key} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 900 }}>{area.title}</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: area.percent === 100 ? 'var(--cat-play)' : 'var(--primary)', background: area.percent === 100 ? 'var(--cat-play-light)' : 'var(--primary-light)', borderRadius: 100, padding: '4px 10px' }}>{area.percent}%</span>
+          </div>
+          {area.items.map((it, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 0', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+              <span style={{ width: 20, height: 20, borderRadius: '50%', background: it.ok ? 'var(--cat-play)' : 'var(--gray-200)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                {it.ok ? <Check size={13} /> : <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-tertiary)' }}>!</span>}
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: it.ok ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  {it.label} <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>({it.count}건)</span>
+                </div>
+                {!it.ok && <div style={{ fontSize: 11.5, color: '#E07B2E', marginTop: 2, lineHeight: 1.5 }}>{it.hint}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', lineHeight: 1.6 }}>
+        ※ 실제 평가지표는 기관 상황·연도별 지침에 따라 다를 수 있어요. 준비 현황 참고용으로 사용하세요.
+      </div>
     </div>
   );
 }
