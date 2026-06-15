@@ -827,8 +827,8 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                     <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
                     <div style={{ fontSize:14, fontWeight:800, color:'var(--text-secondary)' }}>등록된 양식이 없어요</div>
                     <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:6, lineHeight:1.7 }}>
-                      원에서 쓰는 보육일지·발달평가 등의 양식을 등록하면<br/>
-                      문서 생성 후 해당 양식 구조로 자동 변환돼요.
+                      원 양식의 <b>항목 이름만 붙여넣으면</b> 끝! 문서 생성 후<br/>
+                      그 양식 구조에 맞춰 자동으로 채워서 복사·Word로 내보내요.
                     </div>
                     <button onClick={() => setEditingForm('new')} style={{ marginTop:16, padding:'11px 22px', borderRadius:12, background:'var(--primary)', color:'white', fontWeight:800 }}>
                       첫 양식 등록하기
@@ -1837,6 +1837,33 @@ async function compressImage(file, maxWidth = 1000) {
   });
 }
 
+// ── 붙여넣은 양식 텍스트 → 항목(칸) 목록 ──────────────────────────────────────
+// 원 양식의 항목명을 한 줄씩(또는 '항목 : 내용' 형태로) 붙여넣으면 칸으로 변환한다.
+function parseFormText(text, docType) {
+  const lines = String(text || '').split(/\r?\n/);
+  const fields = [];
+  const seen = new Set();
+  for (const raw of lines) {
+    let line = raw.trim();
+    if (!line) continue;
+    // 앞쪽 번호·불릿 제거 (1. / 1) / - / • / ① 등)
+    line = line.replace(/^[\s]*([0-9]{1,2}[.)]|[-•※*▷▶○●◦·]|[①-⑳])\s*/u, '').trim();
+    // '항목 : 내용' 형태면 콜론 앞만 항목명으로
+    const colon = line.split(/[:：]/)[0].trim();
+    const label = (colon || line).replace(/[()[\]{}]/g, '').trim();
+    if (!label || label.length > 24) continue;     // 너무 긴 줄은 내용으로 보고 제외
+    if (seen.has(label)) continue;
+    seen.add(label);
+    fields.push({
+      id: Date.now() + '-' + fields.length + '-' + Math.random().toString(36).slice(2, 6),
+      label,
+      mappedTo: suggestMapping(label, docType),
+      charLimit: '',
+    });
+  }
+  return fields;
+}
+
 // ── 칸 이름 → 앱 섹션 자동 감지 ──────────────────────────────────────────────
 function suggestMapping(label, docType) {
   if (!label) return '';
@@ -1863,7 +1890,9 @@ function FormEditor({ form, onSave, onCancel }) {
   const [docType, setDocType]   = useState(form?.docType || 'daily');
   const [fields, setFields]     = useState(form?.fields || []);
   const [imageData, setImageData] = useState(form?.imageData || null);
-  const [setupTab, setSetupTab] = useState(form?.imageData ? 'image' : 'image'); // 기본 이미지 모드
+  // 기본은 가장 쉬운 '양식 붙여넣기' (신규) / 기존 양식은 해당 방식 유지
+  const [setupTab, setSetupTab] = useState(form?.imageData ? 'image' : (form ? 'manual' : 'paste'));
+  const [pasteText, setPasteText] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(''); // 업로드 진행 메시지
   const [autoDetected, setAutoDetected] = useState([]); // PDF 자동 감지 결과
@@ -1973,15 +2002,50 @@ function FormEditor({ form, onSave, onCancel }) {
 
       {/* 등록 방식 탭 */}
       <div style={{ display:'flex', gap:4, background:'var(--gray-100)', borderRadius:12, padding:4, marginBottom:16 }}>
-        {[['image','📄 PDF / 이미지'],['manual','✏️ 직접 입력']].map(([id,label]) => (
+        {[['paste','📋 양식 붙여넣기'],['manual','✏️ 직접 입력'],['image','📄 PDF / 이미지']].map(([id,label]) => (
           <button key={id} onClick={() => setSetupTab(id)} style={{
-            flex:1, padding:'9px', borderRadius:9, fontSize:13,
+            flex:1, padding:'9px', borderRadius:9, fontSize:12.5,
             fontWeight: setupTab===id ? 900 : 600,
             background: setupTab===id ? 'var(--white)' : 'transparent',
             color: setupTab===id ? 'var(--primary)' : 'var(--text-secondary)',
           }}>{label}</button>
         ))}
       </div>
+
+      {/* ── 양식 붙여넣기 모드 (가장 쉬움) ── */}
+      {setupTab === 'paste' && (
+        <div>
+          <div style={{ background:'var(--primary-light)', borderRadius:12, padding:'12px 14px', marginBottom:12, fontSize:12.5, color:'var(--text-secondary)', lineHeight:1.8 }}>
+            💡 우리 원 양식의 <b>항목 이름</b>을 한 줄에 하나씩 붙여넣고 “항목 인식하기”를 누르세요.<br/>
+            한글·워드 양식을 열어 항목 부분만 복사해 붙여넣으면 돼요. (번호·콜론은 자동 정리)
+          </div>
+          <textarea
+            value={pasteText}
+            onChange={e => setPasteText(e.target.value)}
+            placeholder={'예)\n관찰 내용\n발달 평가\n교사 지원\n가정 연계\n작성일\n원아명'}
+            style={{ ...iStyle, minHeight:130, lineHeight:1.7, resize:'vertical' }}
+          />
+          <button
+            onClick={() => {
+              const parsed = parseFormText(pasteText, docType);
+              if (parsed.length === 0) { alert('항목을 인식하지 못했어요. 한 줄에 항목 하나씩 입력해 주세요.'); return; }
+              setFields(parsed);
+            }}
+            style={{ width:'100%', marginTop:10, padding:'12px', borderRadius:12, background:'var(--primary)', color:'white', fontSize:14, fontWeight:900 }}
+          >
+            ✨ 항목 인식하기
+          </button>
+
+          {fields.length > 0 && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ background:'#E8F5E9', border:'1px solid #4CAF50', borderRadius:10, padding:'10px 14px', margin:'12px 0', fontSize:12.5, color:'#2E7D32', fontWeight:700, lineHeight:1.6 }}>
+                ✅ {fields.length}개 항목을 인식했어요. 아래에서 각 항목에 들어갈 내용을 확인·조정하세요.
+              </div>
+              <ManualFieldEditor fields={fields} onFieldsChange={setFields} docType={docType} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── 이미지/PDF 업로드 모드 ── */}
       {setupTab === 'image' && (
