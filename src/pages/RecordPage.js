@@ -432,6 +432,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               </div>
             )}
             <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
+            <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
             <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
             <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
             <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
