@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage, getStorageUsage } from '../utils/storage';
-import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper } from 'lucide-react';
+import { buildWeeklySummary } from '../utils/planningDocs';
+import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, TrendingUp, Sparkles } from 'lucide-react';
 
 const SERVICE_CARDS = [
   { title: '보육일지',          desc: '오늘 기록으로 일일 문서 작성',    icon: '📄', nav: 'docs' },
@@ -314,6 +315,53 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         가득 차면 새 기록 저장이 실패할 수 있어요. 드라이브 백업을 확인한 뒤,
         설정 → 백업/복구에서 오래된 문서 이력을 정리해 주세요.
       </div>
+    </div>
+  ) : null;
+
+  /* ── 사전 알림: 주간 요약 + 시점 안내 ─────────────── */
+  const weekRecords = allRecords.filter(r => {
+    const d = new Date(r.date);
+    return (new Date() - d) / 86400000 <= 7;
+  });
+  const weeklySummary = buildWeeklySummary({ weekRecords, children });
+
+  // 월말(마지막 5일) / 학기말(2월·8월 후반) 시점 안내
+  const nowDate = new Date();
+  const dim = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+  const isMonthEnd = nowDate.getDate() >= dim - 4;
+  const mo = nowDate.getMonth() + 1;
+  const isSemesterEnd = (mo === 2 || mo === 8) && nowDate.getDate() >= dim - 9;
+
+  const TimingNotice = (isMonthEnd || isSemesterEnd) ? (
+    <div style={{ background: 'linear-gradient(135deg, #FF8C42, #E07B2E)', color: 'white', borderRadius: 16, padding: '14px 16px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <Sparkles size={22} style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 900 }}>
+          {isSemesterEnd ? '학기말이 다가와요' : '이달이 곧 끝나요'}
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2, lineHeight: 1.5 }}>
+          {isSemesterEnd ? '발달평가서·부모상담자료를 미리 만들어 두면 편해요.' : '월간평가·가정통신문을 한 번에 만들 시점이에요.'}
+        </div>
+      </div>
+      <button onClick={() => onNavigate('automation', { tab: 'oneclick' })} style={{ background: 'rgba(255,255,255,0.25)', color: 'white', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 900, flexShrink: 0 }}>
+        만들기
+      </button>
+    </div>
+  ) : null;
+
+  const WeeklyDigest = weeklySummary.total > 0 ? (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <TrendingUp size={17} color="var(--primary)" />
+          <span style={{ fontSize: 15, fontWeight: 900 }}>이번 주 우리 반</span>
+        </div>
+        <button onClick={() => onNavigate('automation', { tab: 'summary' })} style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 800, background: 'var(--primary-light)', borderRadius: 100, padding: '6px 11px' }}>자세히</button>
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: weeklySummary.tips.length ? 10 : 0 }}>{weeklySummary.headline}</div>
+      {weeklySummary.tips.slice(0, 2).map((t, i) => (
+        <div key={i} style={{ fontSize: 12.5, color: '#E07B2E', fontWeight: 700, lineHeight: 1.6 }}>💡 {t.replace(/^· /, '')}</div>
+      ))}
     </div>
   ) : null;
 
@@ -641,8 +689,10 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         {/* 왼쪽 메인 */}
         <div>
           {HeroCard}
+          {TimingNotice}
           {StorageWarning}
           {BackupBanner}
+          {WeeklyDigest}
           {UnrecordedSection}
           {DayClosePanel}
           {ChildQuickPanel}
@@ -698,8 +748,10 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   return (
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
+      {TimingNotice}
       {StorageWarning}
       {BackupBanner}
+      {WeeklyDigest}
       {UnrecordedSection}
       {DayClosePanel}
       {ChildQuickPanel}
