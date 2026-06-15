@@ -53,6 +53,36 @@ export async function extractDocxText(file) {
   return docxXmlToText(xml);
 }
 
+// 한글 .hwpx (OWPML) → 항목 텍스트. .docx와 동일하게 ZIP+XML 구조.
+// 본문은 Contents/section0.xml(1.xml…)에 있고, 텍스트는 <hp:t>, 셀/문단은 <hp:tc>·<hp:p>.
+function hwpxXmlToText(xml) {
+  const withBreaks = xml.replace(/<\/hp:tc>/g, '\n').replace(/<\/hp:p>/g, '\n');
+  const lines = [];
+  for (const chunk of withBreaks.split('\n')) {
+    // <hp:t> 또는 <hp:t 속성>만 — <hp:tbl>·<hp:tr>·<hp:tc>는 제외
+    const runs = [...chunk.matchAll(/<hp:t(?:\s[^>]*)?>([\s\S]*?)<\/hp:t>/g)].map(m => unescapeXml(m[1]));
+    const line = runs.join('').trim();
+    if (line) lines.push(line);
+  }
+  return lines.join('\n');
+}
+
+export async function extractHwpxText(file) {
+  const JSZip = await loadJsZip();
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  // Contents/section0.xml, section1.xml … 모두 순서대로 읽음
+  const sections = Object.keys(zip.files)
+    .filter(p => /Contents\/section\d+\.xml$/i.test(p))
+    .sort();
+  if (sections.length === 0) throw new Error('한글(.hwpx) 문서 구조를 읽을 수 없어요. 올바른 파일인지 확인해 주세요.');
+  let out = '';
+  for (const p of sections) {
+    const xml = await zip.file(p).async('string');
+    out += hwpxXmlToText(xml) + '\n';
+  }
+  return out.trim();
+}
+
 // 파일명·MIME으로 직접 읽기 가능한 형식인지 판별
 export function classifyFormFile(file) {
   const name = (file.name || '').toLowerCase();

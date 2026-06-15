@@ -12,7 +12,7 @@ import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount,
 import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
-import { extractDocxText, classifyFormFile } from '../utils/docxImport';
+import { extractDocxText, extractHwpxText, classifyFormFile } from '../utils/docxImport';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -1906,23 +1906,23 @@ function FormEditor({ form, onSave, onCancel }) {
     if (!file) return;
     const kind = classifyFormFile(file);
     if (kind === 'hwp' || kind === 'doc') {
-      setDocxMsg(`${kind.toUpperCase()} 형식은 직접 읽을 수 없어요. 한글·워드에서 "다른 이름으로 저장 → Word 문서(.docx)"로 저장한 뒤 올리거나, 아래 칸에 항목만 붙여넣어 주세요.`);
+      setDocxMsg(`${kind === 'hwp' ? '구형 한글(.hwp)' : '구형 워드(.doc)'}은 직접 읽을 수 없어요. 한글·워드에서 "다른 이름으로 저장 → ${kind === 'hwp' ? '한글 표준(.hwpx) 또는 ' : ''}Word(.docx)"로 저장해 올리거나, 아래 칸에 항목만 붙여넣어 주세요.`);
       return;
     }
-    if (kind !== 'docx') {
-      setDocxMsg('지원하지 않는 형식이에요. .docx 파일을 올리거나 항목을 붙여넣어 주세요.');
+    if (kind !== 'docx' && kind !== 'hwpx') {
+      setDocxMsg('지원하지 않는 형식이에요. .docx / .hwpx 파일을 올리거나 항목을 붙여넣어 주세요.');
       return;
     }
     setDocxBusy(true); setDocxMsg('');
     try {
-      const text = await extractDocxText(file);
+      const text = kind === 'hwpx' ? await extractHwpxText(file) : await extractDocxText(file);
       const parsed = parseFormText(text, docType);
       if (parsed.length === 0) {
         setDocxMsg('문서에서 항목을 찾지 못했어요. 항목만 직접 붙여넣어 주세요.');
       } else {
         setFields(parsed);
         setPasteText(text);
-        if (!name.trim()) setName(file.name.replace(/\.docx$/i, ''));
+        if (!name.trim()) setName(file.name.replace(/\.(docx|hwpx)$/i, ''));
         setDocxMsg(`✅ "${file.name}"에서 ${parsed.length}개 항목을 인식했어요.`);
       }
     } catch (err) {
@@ -2059,7 +2059,7 @@ function FormEditor({ form, onSave, onCancel }) {
             disabled={docxBusy}
             style={{ width:'100%', padding:'13px', borderRadius:12, background:'#2B579A', color:'white', fontSize:14, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:10, opacity:docxBusy?0.6:1 }}
           >
-            <Upload size={16}/> {docxBusy ? '문서 읽는 중…' : 'Word(.docx) 양식 파일 올리기'}
+            <Upload size={16}/> {docxBusy ? '문서 읽는 중…' : '양식 파일 올리기 (.docx / .hwpx)'}
           </button>
           {docxMsg && (
             <div style={{ background: docxMsg.startsWith('✅') ? '#E8F5E9' : 'var(--accent-light)', color: docxMsg.startsWith('✅') ? '#2E7D32' : 'var(--accent)', borderRadius:10, padding:'10px 13px', fontSize:12, fontWeight:700, marginBottom:10, lineHeight:1.6 }}>
@@ -2068,8 +2068,8 @@ function FormEditor({ form, onSave, onCancel }) {
           )}
 
           <div style={{ background:'var(--primary-light)', borderRadius:12, padding:'12px 14px', marginBottom:12, fontSize:12.5, color:'var(--text-secondary)', lineHeight:1.8 }}>
-            💡 <b>Word(.docx)</b> 양식은 위 버튼으로 바로 올리면 항목이 자동 인식돼요.<br/>
-            한글(.hwp)은 <b>다른 이름으로 저장 → Word(.docx)</b>로 바꿔 올리거나, 아래 칸에 <b>항목 이름</b>만 한 줄씩 붙여넣으세요. (번호·콜론 자동 정리)
+            💡 <b>Word(.docx)</b> 또는 <b>한글 표준(.hwpx)</b> 양식은 위 버튼으로 바로 올리면 항목이 자동 인식돼요.<br/>
+            구형 한글(.hwp)은 한글에서 <b>다른 이름으로 저장 → .hwpx 또는 .docx</b>로 바꿔 올리거나, 아래 칸에 <b>항목 이름</b>만 한 줄씩 붙여넣으세요.
           </div>
           <textarea
             value={pasteText}
