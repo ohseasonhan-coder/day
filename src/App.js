@@ -27,7 +27,7 @@ import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
 import LockScreen from './components/LockScreen';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight } from 'lucide-react';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
@@ -40,22 +40,37 @@ const MOBILE_NAV = [
   { id: 'docs',     label: '문서함',   icon: FolderOpen },
 ];
 
-// 데스크톱 사이드바 — 핵심 메뉴를 앞쪽에, 보조 메뉴는 뒤에
-const DESKTOP_NAV = [
-  { id: 'today',      label: '오늘',     icon: Home },
-  { id: 'record',     label: '오늘기록', icon: PenLine },
-  { id: 'aiwrite',    label: 'AI작성',   icon: Zap },
-  { id: 'internal',   label: '원내문서', icon: ClipboardList },
-  { id: 'children',   label: '아이기록', icon: Users },
-  { id: 'docs',       label: '문서함',   icon: FolderOpen },
-  { id: 'note',       label: '알림장',   icon: BookOpen },
-  { id: 'check',      label: '점검',     icon: CheckSquare },
-  { id: 'stats',      label: '통계',     icon: BarChart3 },
-  { id: 'medicine',   label: '투약',     icon: Pill },
-  { id: 'accident',   label: '사고기록', icon: AlertTriangle },
-  { id: 'newsletter', label: '가정통신문', icon: Newspaper },
-  { id: 'consult',    label: '상담 관리',  icon: MessageSquare },
-  { id: 'checklist',  label: '발달 체크',  icon: ClipboardList },
+// 데스크톱 사이드바 — 카테고리로 묶어 접을 수 있게 구성
+const NAV_GROUPS = [
+  {
+    title: '기록 · 문서',
+    items: [
+      { id: 'today',    label: '오늘',     icon: Home },
+      { id: 'record',   label: '오늘기록', icon: PenLine },
+      { id: 'aiwrite',  label: 'AI작성',   icon: Zap },
+      { id: 'internal', label: '원내문서', icon: ClipboardList },
+      { id: 'docs',     label: '문서함',   icon: FolderOpen },
+    ],
+  },
+  {
+    title: '아이 · 평가',
+    items: [
+      { id: 'children',  label: '아이기록',  icon: Users },
+      { id: 'checklist', label: '발달 체크', icon: ClipboardList },
+      { id: 'check',     label: '점검',      icon: CheckSquare },
+      { id: 'stats',     label: '통계',      icon: BarChart3 },
+    ],
+  },
+  {
+    title: '소통 · 안전',
+    items: [
+      { id: 'note',       label: '알림장',    icon: BookOpen },
+      { id: 'newsletter', label: '가정통신문', icon: Newspaper },
+      { id: 'consult',    label: '상담 관리',  icon: MessageSquare },
+      { id: 'medicine',   label: '투약',      icon: Pill },
+      { id: 'accident',   label: '사고기록',  icon: AlertTriangle },
+    ],
+  },
 ];
 
 const PAGE_TITLES = {
@@ -90,6 +105,7 @@ export default function App() {
   const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState({}); // 사이드바 그룹 접기 상태
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -296,35 +312,52 @@ export default function App() {
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', paddingLeft: 2 }}>선생님은 기록만, 문서는 앱이.</div>
           </div>
 
-          {/* 네비 */}
-          <nav style={{ flex: 1, padding: '14px 12px', overflowY: 'auto' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.6px', padding: '4px 12px 10px', textTransform: 'uppercase' }}>
-              메뉴
-            </div>
-            {DESKTOP_NAV.map(({ id, label, icon: Icon }) => {
-              const active = page === id;
-              const badge  = (id === 'today' || id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
+          {/* 네비 — 카테고리별 그룹 (접기 가능) */}
+          <nav style={{ flex: 1, padding: '10px 12px', overflowY: 'auto' }}>
+            {NAV_GROUPS.map((group, gi) => {
+              const collapsed = !!collapsedGroups[group.title];
+              const groupHasActive = group.items.some(it => it.id === page);
               return (
-                <button
-                  key={id}
-                  onClick={() => handleNavigate(id)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 11,
-                    padding: '11px 14px', borderRadius: 12, marginBottom: 3,
-                    background: active ? 'var(--primary-light)' : 'transparent',
-                    color:      active ? 'var(--primary)' : 'var(--text-secondary)',
-                    fontSize: 14, fontWeight: active ? 800 : 500,
-                    transition: 'all 0.12s',
-                  }}
-                >
-                  <Icon size={19} strokeWidth={active ? 2.5 : 1.8} />
-                  <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
-                  {badge > 0 && (
-                    <span style={{ minWidth: 20, height: 20, padding: '0 5px', background: 'var(--accent)', color: 'white', borderRadius: 100, fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                </button>
+                <div key={group.title} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? 6 : 0 }}>
+                  <button
+                    onClick={() => setCollapsedGroups(c => ({ ...c, [group.title]: !c[group.title] }))}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '8px 12px 6px', background: 'transparent',
+                      fontSize: 11, fontWeight: 800, letterSpacing: '0.4px',
+                      color: groupHasActive ? 'var(--primary)' : 'var(--text-tertiary)',
+                    }}
+                  >
+                    {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                    <span style={{ flex: 1, textAlign: 'left', textTransform: 'uppercase' }}>{group.title}</span>
+                  </button>
+                  {!collapsed && group.items.map(({ id, label, icon: Icon }) => {
+                    const active = page === id;
+                    const badge  = (id === 'today' || id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => handleNavigate(id)}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', gap: 11,
+                          padding: '10px 14px', borderRadius: 12, marginBottom: 2,
+                          background: active ? 'var(--primary-light)' : 'transparent',
+                          color:      active ? 'var(--primary)' : 'var(--text-secondary)',
+                          fontSize: 14, fontWeight: active ? 800 : 500,
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
+                        <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
+                        {badge > 0 && (
+                          <span style={{ minWidth: 20, height: 20, padding: '0 5px', background: 'var(--accent)', color: 'white', borderRadius: 100, fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {badge > 9 ? '9+' : badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               );
             })}
           </nav>
