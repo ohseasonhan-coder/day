@@ -6,6 +6,7 @@ import {
   generateSentences,
   detectCategoryFromText,
 } from './sentenceLibrary';
+import { matchCurriculumBest, ageKeyForClassAge } from './standardCurriculum';
 
 export const RECORD_QUALITY_SAMPLES = [
   { category: '또래관계', text: '하준이/가 또래와의 놀이 상황에서 친구와 캠핑놀이를 하며 순서를 잘기다린다.' },
@@ -1960,6 +1961,10 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
   const parent = makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name);
   const support = makeSupportPlan(category, normalizedText, sceneRule);
 
+  // 표준보육과정(2024 개정) 자동 매칭 — 기록 내용과 겹치는 공식 '내용'을 평가 근거로 첨부
+  const ageKey = ageKeyForClassAge(classAge);
+  const curriculumBasis = matchCurriculumBest(normalizedText, ageKey, devAreas);
+
   return {
     category,
     devAreas,
@@ -1970,6 +1975,7 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
     documentReadyText: makeDocumentReadyText(documentMeta),
     observation: applyTone(observation, 'observation', tone),
     evaluation: applyTone(evaluation, 'evaluation', tone),
+    curriculumBasis, // { area, category, item } | null
     parent: applyTone(parent, 'parent', tone),
     support: applyTone(support, 'support', tone),
     title: makeTitle(normalizedText, category),

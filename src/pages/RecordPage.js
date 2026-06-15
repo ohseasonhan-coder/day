@@ -437,6 +437,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             )}
             <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
             <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
+            <CurriculumBasisCard basis={result.curriculumBasis} />
             <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
             <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
             <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
@@ -711,6 +712,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               )}
               <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
+              <CurriculumBasisCard basis={result.curriculumBasis} />
               <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
               <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
               <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
@@ -1917,6 +1919,27 @@ function SummaryCard({ label, value, icon }) {
       <div style={{ fontSize: 20, marginBottom: 3 }}>{icon}</div>
       <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 800 }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)' }}>{value}</div>
+    </div>
+  );
+}
+
+// 표준보육과정 자동 매칭 근거 — 기록과 겹치는 공식 '내용'을 평가 근거로 표시
+function CurriculumBasisCard({ basis }) {
+  if (!basis) return null;
+  return (
+    <div style={{ background: '#F0F7FF', border: '1px solid #BBD6FF', borderRadius: 15, padding: '13px 16px', marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 900, color: '#2F5FE0', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+        📚 표준보육과정 근거
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+        {basis.area} · {basis.category}
+      </div>
+      <div style={{ fontSize: 13.5, color: 'var(--text-primary)', fontWeight: 700, lineHeight: 1.6 }}>
+        “{basis.item}”
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6, lineHeight: 1.5 }}>
+        이 기록은 위 표준보육과정 내용과 연결돼요. (발달평가·관찰일지 근거로 활용)
+      </div>
     </div>
   );
 }

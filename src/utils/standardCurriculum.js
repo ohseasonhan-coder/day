@@ -149,3 +149,80 @@ export function ageKeyForClassAge(classAge) {
   if (n === 2) return 'age2';
   return 'age35';
 }
+
+// 발달영역 이름을 표준보육과정 정식 5개 영역으로 정규화
+const AREA_NORMALIZE = { '기본생활습관': '신체운동·건강', '신체운동': '신체운동·건강', '신체건강': '신체운동·건강' };
+function normalizeArea(name) {
+  return AREA_NORMALIZE[name] || name;
+}
+
+// 텍스트에서 의미 있는 2자 이상 한글 토큰 추출 (조사 일부 제거)
+function tokens(text) {
+  return (String(text || '').match(/[가-힣]{2,}/g) || [])
+    .map(w => w.replace(/(하기|하는|한다|해요|했다|있다|이다|에서|으로|들이|들을)$/u, ''))
+    .filter(w => w.length >= 2);
+}
+
+// 자주 등장하는 동의어 — 기록 어휘와 표준보육과정 어휘 사이 간극을 메운다
+const SYNONYMS = [
+  ['관찰', '탐색'], ['곤충', '동식물'], ['벌레', '동식물'], ['식물', '동식물'],
+  ['돋보기', '탐색'], ['궁금', '호기심'], ['그림', '미술'], ['색칠', '미술'],
+  ['블록', '쌓'], ['노래', '리듬'], ['춤', '움직임'], ['친구', '또래'],
+  ['스스로', '할 수 있는'], ['혼자', '할 수 있는'], ['양보', '사이좋게'],
+  ['도와', '도우며'], ['위로', '감정'], ['세', '수량'], ['숫자', '수량'],
+];
+function expandTokens(tokenSet) {
+  const out = new Set(tokenSet);
+  for (const [a, b] of SYNONYMS) {
+    if ([...tokenSet].some(t => t.includes(a))) out.add(b);
+    if ([...tokenSet].some(t => t.includes(b))) out.add(a);
+  }
+  return out;
+}
+
+function scoreItem(recTokens, item) {
+  const itemTokens = tokens(item);
+  let score = 0;
+  for (const t of itemTokens) {
+    if (recTokens.has(t)) score += 2;
+    else if ([...recTokens].some(r => r.includes(t) || t.includes(r))) score += 1;
+  }
+  return score;
+}
+
+// 특정 영역 안에서 매칭 (영역이 분명할 때)
+export function matchCurriculumItem(text, areaName, ageKey) {
+  const area = normalizeArea(areaName);
+  const data = getCurriculum(ageKey);
+  const areaData = data[area];
+  if (!areaData) return null;
+  const recTokens = expandTokens(new Set(tokens(text)));
+  if (recTokens.size === 0) return null;
+  let best = null, bestScore = 0;
+  for (const cat of areaData.categories) {
+    for (const item of cat.items) {
+      const s = scoreItem(recTokens, item);
+      if (s > bestScore) { bestScore = s; best = { area, category: cat.name, item }; }
+    }
+  }
+  return bestScore >= 2 ? best : null;
+}
+
+// 전체 5개 영역에서 최적 매칭 (영역 감지가 어긋나도 찾음) — 사실 충실도: score 미달이면 null
+export function matchCurriculumBest(text, ageKey, preferAreas = []) {
+  const data = getCurriculum(ageKey);
+  const recTokens = expandTokens(new Set(tokens(text)));
+  if (recTokens.size === 0) return null;
+  const prefer = new Set((preferAreas || []).map(normalizeArea));
+  let best = null, bestScore = 0;
+  for (const area of Object.keys(data)) {
+    for (const cat of data[area].categories) {
+      for (const item of cat.items) {
+        let s = scoreItem(recTokens, item);
+        if (s > 0 && prefer.has(area)) s += 1; // 감지된 영역에 가산점
+        if (s > bestScore) { bestScore = s; best = { area, category: cat.name, item }; }
+      }
+    }
+  }
+  return bestScore >= 2 ? best : null;
+}
