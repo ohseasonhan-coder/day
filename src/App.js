@@ -22,6 +22,7 @@ import CoachPage      from './pages/CoachPage';
 import EventsPage     from './pages/EventsPage';
 import ConsultPage    from './pages/ConsultPage';
 import ChecklistPage  from './pages/ChecklistPage';
+import InternalDocsPage from './pages/InternalDocsPage';
 import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
 import LockScreen from './components/LockScreen';
@@ -46,6 +47,7 @@ const DESKTOP_NAV = [
   { id: 'note',       label: '알림장',   icon: BookOpen },
   { id: 'children',   label: '아이들',   icon: Users },
   { id: 'docs',       label: '문서함',   icon: FolderOpen },
+  { id: 'internal',   label: '원내문서', icon: ClipboardList },
   { id: 'check',      label: '점검',     icon: CheckSquare },
   { id: 'stats',      label: '통계',     icon: BarChart3 },
   { id: 'medicine',   label: '투약',     icon: Pill },
@@ -58,6 +60,7 @@ const DESKTOP_NAV = [
 const PAGE_TITLES = {
   today: '오늘', record: '기록', note: '알림장',
   children: '아이들', docs: '문서함', check: '점검', stats: '통계',
+  internal: '원내문서',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
   coach: 'AI 코칭', events: '행사 캘린더', consult: '상담 관리', checklist: '발달 체크리스트',
 };
@@ -260,6 +263,7 @@ export default function App() {
       case 'events':     return <EventsPage     {...pageProps} />;
       case 'consult':    return <ConsultPage    {...pageProps} />;
       case 'checklist':  return <ChecklistPage  {...pageProps} />;
+      case 'internal':   return <InternalDocsPage {...pageProps} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }

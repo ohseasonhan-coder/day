@@ -7,7 +7,7 @@ const SERVICE_CARDS = [
   { title: '주간·월간 놀이평가', desc: '놀이 흐름과 다음 지원계획',       icon: '🗓️', nav: 'docs' },
   { title: '부모상담자료',       desc: '아이별 상담 문장 자동 정리',      icon: '💬', nav: 'children' },
   { title: '발달평가',          desc: '6개 발달영역 기반 평가',          icon: '🌱', nav: 'children' },
-  { title: '안전·행사평가',     desc: '견학·안전교육 평가 초안',         icon: '🛡️', nav: 'docs' },
+  { title: '원내문서',          desc: '교육일지·회의록·평가서 자동완성',   icon: '📋', nav: 'internal' },
   { title: '평가제 준비',       desc: '누락 기록과 영역 균형 점검',       icon: '✅', nav: 'check' },
 ];
 

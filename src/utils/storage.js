@@ -37,6 +37,7 @@ const KEYS = {
   get COPY_HISTORY()    { return `sw_${_getUid()}_copy_history`; },
   get TRASH()           { return `sw_${_getUid()}_trash`; },
   get ARCHIVED_CHILDREN() { return `sw_${_getUid()}_archived_children`; },
+  get INTERNAL_DOCS()   { return `sw_${_getUid()}_internal_docs`; },
 };
 
 // ── 저장 공간 사용량 ──────────────────────────────────────────────────────────
@@ -62,6 +63,19 @@ export function getStorageUsage() {
 
 // ── 신학기 진급 / 졸업 아동 보관 ──────────────────────────────────────────────
 // 졸업한 아이는 명단에서 빠지지만 기록은 그대로 남는다 (기록의 childName으로 식별 가능)
+// ── 원내문서 (교직원 교육일지·회의록 등) ──────────────────────────────────────
+export const getInternalDocs = () => storage.get(KEYS.INTERNAL_DOCS) || [];
+export const addInternalDoc = (doc) => {
+  const list = getInternalDocs();
+  const item = { ...doc, id: genId(), createdAt: new Date().toISOString() };
+  storage.set(KEYS.INTERNAL_DOCS, [item, ...list]);
+  return item;
+};
+export const updateInternalDoc = (id, updates) =>
+  storage.set(KEYS.INTERNAL_DOCS, getInternalDocs().map(d => d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d));
+export const deleteInternalDoc = (id) =>
+  storage.set(KEYS.INTERNAL_DOCS, getInternalDocs().filter(d => d.id !== id));
+
 export const getArchivedChildren = () => storage.get(KEYS.ARCHIVED_CHILDREN) || [];
 
 export function promoteToNewYear({ classUpdates, graduateIds }) {
