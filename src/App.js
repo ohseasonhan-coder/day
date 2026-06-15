@@ -105,7 +105,12 @@ export default function App() {
   const [portfolioChild, setPortfolioChild]   = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState({}); // 사이드바 그룹 접기 상태
+  // 사이드바 그룹 접기 상태 — 기본은 모두 접힘 (현재 페이지가 속한 그룹만 자동으로 펼침)
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    const init = {};
+    NAV_GROUPS.forEach(g => { init[g.title] = true; });
+    return init;
+  });
   const [activeClassId, setActiveClassIdState] = useState(() => getActiveClassId());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -315,21 +320,22 @@ export default function App() {
           {/* 네비 — 카테고리별 그룹 (접기 가능) */}
           <nav style={{ flex: 1, padding: '10px 12px', overflowY: 'auto' }}>
             {NAV_GROUPS.map((group, gi) => {
-              const collapsed = !!collapsedGroups[group.title];
               const groupHasActive = group.items.some(it => it.id === page);
+              // 현재 페이지가 속한 그룹은 접혀 있어도 자동으로 펼쳐 보여준다
+              const collapsed = !!collapsedGroups[group.title] && !groupHasActive;
               return (
-                <div key={group.title} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? 6 : 0 }}>
+                <div key={group.title} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? 8 : 0 }}>
                   <button
                     onClick={() => setCollapsedGroups(c => ({ ...c, [group.title]: !c[group.title] }))}
                     style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '8px 12px 6px', background: 'transparent',
-                      fontSize: 11, fontWeight: 800, letterSpacing: '0.4px',
-                      color: groupHasActive ? 'var(--primary)' : 'var(--text-tertiary)',
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '10px 12px 8px', background: 'transparent',
+                      fontSize: 16, fontWeight: 900, letterSpacing: '-0.3px',
+                      color: groupHasActive ? 'var(--primary)' : 'var(--text-primary)',
                     }}
                   >
-                    {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                    <span style={{ flex: 1, textAlign: 'left', textTransform: 'uppercase' }}>{group.title}</span>
+                    {collapsed ? <ChevronRight size={18} strokeWidth={2.5} /> : <ChevronDown size={18} strokeWidth={2.5} />}
+                    <span style={{ flex: 1, textAlign: 'left' }}>{group.title}</span>
                   </button>
                   {!collapsed && group.items.map(({ id, label, icon: Icon }) => {
                     const active = page === id;

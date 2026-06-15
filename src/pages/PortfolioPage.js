@@ -2,7 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getRecordsByChild, CATEGORIES, formatDate, addCopyHistory, getClasses } from '../utils/storage';
 import { NURI, AREA_COLORS, loadChecks } from './ChecklistPage';
 import { getStandardChecklist, ageKeyForClassAge } from '../utils/standardCurriculum';
-import { ArrowLeft, BarChart3, FileText, Copy, Check } from 'lucide-react';
+import { buildDevelopmentReport } from '../utils/developmentReport';
+import { exportDocx } from '../utils/docxExport';
+import { ArrowLeft, BarChart3, FileText, Copy, Check, Sparkles, Download } from 'lucide-react';
 
 const AVATAR_COLORS = ['#4F7FFF', '#6C63FF', '#FF8C42', '#00B4D8', '#4CAF50', '#E91E9A', '#FF5722', '#607D8B'];
 
@@ -106,6 +108,10 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
   const [records, setRecords] = useState([]);
   const [reportPeriod, setReportPeriod] = useState('thisMonth');
   const [reportCopied, setReportCopied] = useState(false);
+  // 발달평가서
+  const [evalPeriod, setEvalPeriod] = useState('semester1');
+  const [evalDoc, setEvalDoc] = useState(null);
+  const [evalCopied, setEvalCopied] = useState(false);
 
   useEffect(() => {
     setRecords(getRecordsByChild(childId));
@@ -145,6 +151,39 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
     addCopyHistory({ title: `${childName} 보고서 (${reportRange.label})`, text: reportText, source: 'portfolio' });
     setReportCopied(true);
     setTimeout(() => setReportCopied(false), 1600);
+  };
+
+  // ── 발달평가서 자동 생성 ──
+  const handleGenerateEval = () => {
+    const cl = getClasses()[0];
+    const age = parseInt(cl?.age || '4', 10);
+    const ageKey = ageKeyForClassAge(age);
+    const range = getPeriodRange(evalPeriod);
+    const cs = checklistSummary;
+    const checksByArea = cs ? Object.fromEntries(cs.byArea.map(a => [a.name, { done: a.done, total: a.total }])) : {};
+    const doc = buildDevelopmentReport({
+      records, childName, className: cl?.name || '', ageKey, range, checksByArea,
+    });
+    setEvalDoc(doc);
+  };
+
+  const evalDocToText = (d) =>
+    `${d.title}\n${d.badge || ''}\n\n` + (d.sections || []).map(s => `[${s.title}]\n${s.text}`).join('\n\n');
+
+  const handleCopyEval = async () => {
+    if (!evalDoc) return;
+    const text = evalDocToText(evalDoc);
+    try { await navigator.clipboard.writeText(text); } catch {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    addCopyHistory({ title: evalDoc.title, text, source: 'portfolio-eval' });
+    setEvalCopied(true);
+    setTimeout(() => setEvalCopied(false), 1600);
+  };
+
+  const handleWordEval = async () => {
+    if (!evalDoc) return;
+    try { await exportDocx(evalDoc); } catch {}
   };
 
   // 발달 체크리스트 현황 — 최근 6개월 중 체크 데이터가 있는 가장 최근 달
@@ -308,6 +347,58 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
                 </div>
               );
             })}
+          </>
+        )}
+      </SectionCard>
+
+      <SectionCard title="🌱 발달평가서 자동 생성">
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+          누적 기록 · 표준보육과정 · 발달 체크 달성도를 합쳐 <b>학기별 발달평가서 초안</b>을 만들어요.
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {REPORT_PERIODS.filter(p => p.key !== 'thisMonth' && p.key !== 'lastMonth').map(p => (
+            <button key={p.key} onClick={() => { setEvalPeriod(p.key); setEvalDoc(null); }} style={{
+              padding: '7px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700,
+              background: evalPeriod === p.key ? 'var(--cat-nature)' : 'var(--gray-100)',
+              color: evalPeriod === p.key ? 'white' : 'var(--text-secondary)',
+            }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {!evalDoc ? (
+          <button onClick={handleGenerateEval} style={{
+            width: '100%', padding: '13px', borderRadius: 12, background: 'var(--cat-nature)', color: 'white',
+            fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <Sparkles size={16} /> 발달평가서 만들기
+          </button>
+        ) : (
+          <>
+            <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', maxHeight: 380, overflowY: 'auto', marginBottom: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, textAlign: 'center' }}>{evalDoc.title}</div>
+              {evalDoc.badge && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 2, marginBottom: 10 }}>{evalDoc.badge}</div>}
+              {evalDoc.sections.map((s, i) => (
+                <div key={i} style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--cat-nature)', marginBottom: 4 }}>{s.title}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleCopyEval} style={{ flex: 1, padding: '12px', borderRadius: 12, background: evalCopied ? 'var(--cat-play)' : 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {evalCopied ? <><Check size={15} /> 복사됨</> : <><Copy size={15} /> 복사</>}
+              </button>
+              <button onClick={handleWordEval} style={{ flex: 1, padding: '12px', borderRadius: 12, background: '#2B579A', color: 'white', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Download size={15} /> Word
+              </button>
+              <button onClick={() => setEvalDoc(null)} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800 }}>
+                다시
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.5 }}>
+              실제 기록만으로 만든 초안이에요. 복사·Word로 내보내 검토 후 사용하세요.
+            </div>
           </>
         )}
       </SectionCard>
