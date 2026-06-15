@@ -1490,6 +1490,57 @@ function makeSupportPlan(category, text, sceneRule) {
   return SUPPORT_TEMPLATES[category] || SUPPORT_TEMPLATES.play;
 }
 
+// ─── 관찰일지 평가(해석) ─────────────────────────────────────────────
+// 관찰된 행동이 발달적으로 어떤 의미인지 교사 관점에서 해석하고, 누리과정 발달영역과 연결한다.
+// 관찰일지의 "평가란"에 바로 옮겨 쓸 수 있는 문장을 만든다.
+const EVALUATION_BY_SCENE = {
+  peerWait: '차례를 기다리는 경험을 통해 또래와 함께하는 놀이 규칙을 이해하고 자기조절력을 키워가고 있다',
+  peerConflict: '갈등을 겪고 조율해보는 과정에서 자신의 요구와 또래의 입장을 함께 인식하는 사회적 능력이 발달하고 있다',
+  emotion: '자신의 감정을 행동과 말로 드러내는 과정에서 정서를 인식하고 표현하는 힘이 자라고 있다',
+  speech: '생각과 요구를 말로 표현하려는 시도가 늘면서 언어로 소통하는 능력이 향상되고 있다',
+  selfHelp: '스스로 해보려는 시도를 통해 자조 기술과 자율성이 성장하고 있다',
+  meal: '다양한 음식을 경험하고 스스로 먹어보는 과정에서 건강한 식습관과 자립심이 형성되고 있다',
+  nap: '안정적인 분위기 속에서 휴식하는 경험을 통해 자기 몸의 리듬을 조절하는 힘을 길러가고 있다',
+  toilet: '배변 신호를 인식하고 표현하려는 시도를 통해 기본적인 신체 조절 능력이 발달하고 있다',
+  natureExplore: '주변 사물과 자연을 관찰하고 궁금해하는 과정에서 탐구적 사고와 호기심이 자라고 있다',
+  artExpression: '자신의 생각과 느낌을 다양한 재료로 표현하며 창의성과 심미적 감각이 발달하고 있다',
+  grossMotor: '몸을 활발하게 움직이는 활동을 통해 대근육의 협응과 신체 조절 능력이 향상되고 있다',
+  fineMotor: '손과 도구를 정교하게 사용하는 경험을 통해 소근육 조작 능력이 발달하고 있다',
+  rolePlay: '역할을 맡아 표현하는 놀이를 통해 상상력과 또래와 협력하는 능력이 함께 자라고 있다',
+  constructPlay: '재료를 구성하고 조작하는 놀이를 통해 공간 지각과 문제해결력이 발달하고 있다',
+  ruleGame: '규칙이 있는 놀이에 참여하며 약속을 지키고 또래와 협력하는 태도를 익혀가고 있다',
+  bookLiteracy: '책과 글자에 관심을 보이는 경험을 통해 문해의 기초와 상상력이 자라고 있다',
+  mathPattern: '수와 양, 규칙을 비교하고 탐색하는 과정에서 수학적 사고의 기초가 형성되고 있다',
+  scienceExperiment: '직접 시도하고 결과를 살펴보는 경험을 통해 탐구적 태도와 인과적 사고가 발달하고 있다',
+  empathyComfort: '또래의 마음을 살피고 위로하려는 모습을 통해 공감 능력과 배려심이 자라고 있다',
+  cooperativePlan: '함께 의논하고 역할을 나누는 경험을 통해 협동심과 의사소통 능력이 발달하고 있다',
+  musicMovement: '음악과 몸짓으로 자신을 표현하며 리듬감과 심미적 감수성이 자라고 있다',
+  healthCondition: '자신의 몸 상태를 살피고 표현하는 과정에서 건강을 인식하는 태도가 형성되고 있다',
+  problemSolving: '어려움을 스스로 해결해보려는 과정에서 사고력과 끈기가 함께 자라고 있다',
+  leadership: '놀이를 이끌고 제안하는 경험을 통해 자발성과 주도성이 발달하고 있다',
+};
+
+const EVALUATION_BY_CATEGORY = {
+  peer: '또래와 상호작용하는 경험을 통해 함께 어울리고 조율하는 사회적 능력이 발달하고 있다',
+  habit: '일상생활을 스스로 해나가는 경험을 통해 기본생활습관과 자립심이 형성되고 있다',
+  comm: '자신의 생각과 감정을 말로 주고받는 과정에서 의사소통 능력이 향상되고 있다',
+  nature: '주변 환경을 탐색하고 궁금해하는 과정에서 탐구적 태도와 사고력이 자라고 있다',
+  art: '다양한 방법으로 자신을 표현하며 창의성과 심미적 감수성이 발달하고 있다',
+  body: '몸을 움직이는 활동에 즐겁게 참여하며 신체 조절 능력과 건강한 발달이 이루어지고 있다',
+  play: '관심 있는 놀이에 몰입하는 과정에서 자발성과 문제해결력이 자라고 있다',
+  special: '개별적인 상황 속에서 보이는 모습을 통해 아이의 현재 발달과 요구를 이해할 수 있다',
+};
+
+function makeEvaluation(name, category, devAreas, text, sceneRule) {
+  const s = subject(name);
+  const normalizedText = normalizeRecordText(text);
+  const rule = sceneRule || findSceneRule(normalizedText);
+  const core = (rule && EVALUATION_BY_SCENE[rule.id]) || EVALUATION_BY_CATEGORY[category] || EVALUATION_BY_CATEGORY.play;
+  const areas = (devAreas || []).filter(Boolean).slice(0, 2);
+  const areaText = areas.length ? ` 이는 누리과정 ‘${areas.join('·')}’ 영역의 발달과 연결된다.` : '';
+  return `${s} ${core}.${areaText}`;
+}
+
 // ─── 키워드 기반 분류 ─────────────────────────────────────────────
 function detectCategory(text) {
   const normalizedText = normalizeRecordText(text);
@@ -1741,6 +1792,7 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     documentMeta,
     documentReadyText: makeDocumentReadyText(documentMeta),
     observation,
+    evaluation: makeEvaluation(name, category, devAreas, normalizedText, sceneRule),
     parent: makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name),
     support: makeSupportPlan(category, normalizedText, sceneRule),
     title: makeTitle(normalizedText, category),

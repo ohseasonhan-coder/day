@@ -21,6 +21,11 @@ async function expectBasicQuality(rawText, childName = '하준') {
   });
   // 관찰일지는 문어체 종결
   expect(res.observation).toMatch(/(다|요)[.!]?$/);
+  // 관찰일지 평가도 항상 생성되고 발달적 해석 문장이어야 함
+  expect(typeof res.evaluation).toBe('string');
+  expect(res.evaluation.trim().length).toBeGreaterThan(0);
+  expect(res.evaluation).not.toContain('🔚');
+  expect(res.evaluation).toMatch(/발달|성장|형성|향상|자라|키워|길러/);
   return res;
 }
 

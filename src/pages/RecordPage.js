@@ -700,6 +700,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               )}
               <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
+              <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
               <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
               <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
               <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
@@ -1233,7 +1234,7 @@ function QuickTemplatePanel({ templates, customTemplates, onInsert, onAdd, onDel
 export function exportRecordsToCSV(records, children) {
   const childMap = {};
   children.forEach(c => { childMap[c.id] = c.name; });
-  const headers = ['날짜', '아이 이름', '기록 유형', '카테고리', '원본 내용', '생성된 내용'];
+  const headers = ['날짜', '아이 이름', '기록 유형', '카테고리', '원본 내용', '관찰일지 문장', '관찰일지 평가'];
   const rows = records.map(r => [
     r.date || '',
     childMap[r.childId] || r.childName || '',
@@ -1241,6 +1242,7 @@ export function exportRecordsToCSV(records, children) {
     r.category || '',
     `"${(r.rawText || '').replace(/"/g, '""')}"`,
     `"${(r.observation || r.result || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+    `"${(r.evaluation || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
   ]);
   const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
   const BOM = '﻿';
@@ -1631,6 +1633,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
   };
   const [editRaw, setEditRaw]       = useState(record.rawText || '');
   const [editObs, setEditObs]       = useState(record.observation || '');
+  const [editEval, setEditEval]     = useState(record.evaluation || '');
   const [editParent, setEditParent] = useState(record.parent || '');
   const [editSupport, setEditSupport] = useState(record.support || '');
   const [editDate, setEditDate]     = useState(record.date || today());
@@ -1642,7 +1645,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
   const cat = record.category ? CATEGORIES[record.category] : null;
 
   const handleSave = () => {
-    onUpdate(record.id, { rawText: editRaw, observation: editObs, parent: editParent, support: editSupport, date: editDate || record.date });
+    onUpdate(record.id, { rawText: editRaw, observation: editObs, evaluation: editEval, parent: editParent, support: editSupport, date: editDate || record.date });
     setEditMode(false);
     // Show regen banner if record had AI result
     if (record.observation || record.parent || record.support) {
@@ -1755,6 +1758,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
               </div>
               <EditField label="원본 입력" value={editRaw}     onChange={setEditRaw}     rows={3} />
               <EditField label="관찰일지 문장" value={editObs}  onChange={setEditObs}     rows={4} accent />
+              <EditField label="관찰일지 평가" value={editEval} onChange={setEditEval}    rows={3} />
               <EditField label="알림장 문장"  value={editParent} onChange={setEditParent}  rows={3} />
               <EditField label="교사 지원계획" value={editSupport} onChange={setEditSupport} rows={3} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
@@ -1805,6 +1809,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
               </div>
               <DetailSection title="원본 입력"   text={record.rawText}    expanded={expanded.raw}    onToggle={() => toggleSection('raw')} />
               <DetailSection title="관찰일지 문장" text={record.observation} expanded={expanded.obs}  onToggle={() => toggleSection('obs')} accent />
+              {record.evaluation && <DetailSection title="관찰일지 평가" text={record.evaluation} expanded={expanded.eval} onToggle={() => toggleSection('eval')} />}
               <DetailSection title="알림장 문장"   text={record.parent}    expanded={expanded.par}    onToggle={() => toggleSection('par')} />
               <DetailSection title="교사 지원계획" text={record.support}   expanded={expanded.sup}    onToggle={() => toggleSection('sup')} />
               {record.softened && <DetailSection title="원문 순화본" text={record.softened} expanded={expanded.soft} onToggle={() => toggleSection('soft')} />}
