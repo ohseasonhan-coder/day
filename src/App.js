@@ -31,23 +31,24 @@ import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen,
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
-// 모바일 하단 탭 (5개 유지)
+// 모바일 하단 탭 (핵심 5개)
 const MOBILE_NAV = [
-  { id: 'today',    label: '오늘',   icon: Home },
-  { id: 'record',   label: '기록',   icon: PenLine },
-  { id: 'children', label: '아이들', icon: Users },
-  { id: 'docs',     label: '문서함', icon: FolderOpen },
-  { id: 'check',    label: '점검',   icon: CheckSquare },
+  { id: 'record',   label: '오늘기록', icon: PenLine },
+  { id: 'aiwrite',  label: 'AI작성',   icon: Zap },
+  { id: 'internal', label: '원내문서', icon: ClipboardList },
+  { id: 'children', label: '아이기록', icon: Users },
+  { id: 'docs',     label: '문서함',   icon: FolderOpen },
 ];
 
-// 데스크톱 사이드바
+// 데스크톱 사이드바 — 핵심 메뉴를 앞쪽에, 보조 메뉴는 뒤에
 const DESKTOP_NAV = [
   { id: 'today',      label: '오늘',     icon: Home },
-  { id: 'record',     label: '기록',     icon: PenLine },
-  { id: 'note',       label: '알림장',   icon: BookOpen },
-  { id: 'children',   label: '아이들',   icon: Users },
-  { id: 'docs',       label: '문서함',   icon: FolderOpen },
+  { id: 'record',     label: '오늘기록', icon: PenLine },
+  { id: 'aiwrite',    label: 'AI작성',   icon: Zap },
   { id: 'internal',   label: '원내문서', icon: ClipboardList },
+  { id: 'children',   label: '아이기록', icon: Users },
+  { id: 'docs',       label: '문서함',   icon: FolderOpen },
+  { id: 'note',       label: '알림장',   icon: BookOpen },
   { id: 'check',      label: '점검',     icon: CheckSquare },
   { id: 'stats',      label: '통계',     icon: BarChart3 },
   { id: 'medicine',   label: '투약',     icon: Pill },
@@ -58,8 +59,8 @@ const DESKTOP_NAV = [
 ];
 
 const PAGE_TITLES = {
-  today: '오늘', record: '기록', note: '알림장',
-  children: '아이들', docs: '문서함', check: '점검', stats: '통계',
+  today: '오늘', record: '오늘기록', aiwrite: 'AI 문서작성', note: '알림장',
+  children: '아이기록', docs: '문서함', check: '점검', stats: '통계',
   internal: '원내문서',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
   coach: 'AI 코칭', events: '행사 캘린더', consult: '상담 관리', checklist: '발달 체크리스트',
@@ -253,7 +254,8 @@ export default function App() {
       case 'record':   return <RecordPage   {...pageProps} context={recordContext} />;
       case 'note':     return <NotePage     {...pageProps} />;
       case 'children': return <ChildrenPage {...pageProps} />;
-      case 'docs':     return <DocsPage     {...pageProps} context={docsContext} />;
+      case 'docs':     return <DocsPage     {...pageProps} context={docsContext} initialTab="history" />;
+      case 'aiwrite':  return <DocsPage     {...pageProps} context={docsContext} initialTab="new" />;
       case 'check':    return <CheckPage    {...pageProps} />;
       case 'stats':      return <StatsPage      {...pageProps} />;
       case 'medicine':   return <MedicinePage   {...pageProps} />;
@@ -438,7 +440,10 @@ export default function App() {
         padding: '0 20px', height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--primary)', letterSpacing: '-0.5px' }}>쌤워크</span>
+        <button onClick={() => handleNavigate('today')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent' }}>
+          <Home size={18} color="var(--primary)" />
+          <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--primary)', letterSpacing: '-0.5px' }}>쌤워크</span>
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={() => setShowSearch(true)}

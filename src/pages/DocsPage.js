@@ -43,8 +43,8 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-export default function DocsPage({ onNavigate, isDesktop, context }) {
-  const [mainTab, setMainTab]       = useState('new'); // 'new' | 'history'
+export default function DocsPage({ onNavigate, isDesktop, context, initialTab }) {
+  const [mainTab, setMainTab]       = useState(initialTab || 'new'); // 'new' | 'history'
   const [viewDate, setViewDate]     = useState(today());
   const [allRecords, setAllRecords] = useState([]);
   const [children, setChildren]     = useState([]);
