@@ -136,6 +136,29 @@ describe('과거 버그 회귀 방지', () => {
     expect(noTone.parent.length).toBeGreaterThan(0);
   });
 
+  test('풍부한 입력은 맥락 프레임이 중복되지 않는다', async () => {
+    const r = await run('서아가 동화책을 끝까지 집중해서 들었어요', '서아');
+    // '책' 주제가 입력에 있으므로 '책과 글자 관련 상황에서' 프레임이 덧붙지 않아야 함
+    expect(r.observation).not.toMatch(/책과 글자 관련 상황에서 동화책/);
+    expect(r.observation).toContain('동화책');
+  });
+
+  test('짧은 입력은 맥락 프레임으로 보완된다', async () => {
+    const r = await run('그림 그렸어요', '지우');
+    // 짧은 입력엔 프레임(예술 활동에서)이 붙어 완결된 문장이 됨
+    expect(r.observation).toMatch(/활동|상황|중|에서/);
+  });
+
+  test('목적격 조사(을/를)가 빠진 짧은 표현을 보정한다', async () => {
+    const r1 = await run('그림 그렸어요', '지우');
+    expect(r1.observation).toContain('그림을');
+    const r2 = await run('블록 높이 쌓았어요', '하준');
+    expect(r2.observation).toContain('블록을');
+    // 이미 조사가 있으면 중복 보정하지 않음
+    const r3 = await run('그림을 그렸어요', '서아');
+    expect(r3.observation).not.toContain('그림을을');
+  });
+
   test('관찰·부모·지원이 같은 장면을 바라본다 (갈등 상황)', async () => {
     const res = await run('친구가 가지고 놀던 장난감을 빼앗았다 친구가 울자 미안하다고 했다');
     const all = `${res.observation} ${res.parent} ${res.support}`;

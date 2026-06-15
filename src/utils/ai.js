@@ -852,6 +852,17 @@ const PHRASE_NORMALIZATION_RULES = [
   [/상황\s*을/g, '상황을'],
 ];
 
+// 목적격 조사(을/를)가 빠진 흔한 짧은 표현 보정 — 이미 조사가 있으면 건드리지 않음
+const OBJECT_PARTICLE_FIXES = [
+  [/그림\s+(?=(잘\s+|열심히\s+|예쁘게\s+|크게\s+)?그(렸|려|린|리고|립))/g, '그림을 '],
+  [/블록\s+(?=(높이\s+|크게\s+)?(쌓|만들|세웠))/g, '블록을 '],
+  [/노래\s+(?=(크게\s+|신나게\s+)?(불렀|부르|따라))/g, '노래를 '],
+  [/책\s+(?=(혼자\s+)?(읽|봤|보았|보며))/g, '책을 '],
+  [/밥\s+(?=(잘\s+|혼자\s+|골고루\s+)?(먹었|먹고|먹는))/g, '밥을 '],
+  [/물\s+(?=(많이\s+)?(마셨|마시))/g, '물을 '],
+  [/손\s+(?=(깨끗이\s+|혼자\s+)?(씻었|씻고))/g, '손을 '],
+];
+
 function normalizeRecordText(text) {
   let result = String(text || '').normalize('NFC');
   result = result
@@ -876,6 +887,11 @@ function normalizeRecordText(text) {
 
   // 숫자+단위는 붙여쓰기 복원 ("37.8 도" → "37.8도")
   result = result.replace(/(\d)\s+(도|개|명|번|살|회|층|분|초)(?=[\s.,!?]|$)/g, '$1$2');
+
+  // 목적격 조사 보정 — 흔한 '명사 + 동사' 짧은 입력에 빠진 을/를을 채운다 ("그림 그렸다" → "그림을 그렸다")
+  for (const [pattern, replace] of OBJECT_PARTICLE_FIXES) {
+    result = result.replace(pattern, replace);
+  }
 
   return result.replace(/\s+/g, ' ').trim();
 }
@@ -972,6 +988,30 @@ function stripLeadingName(text, name) {
   return text.replace(new RegExp(`^${escaped}(이가|이|가|은|는|도)?\\s+`, 'u'), '');
 }
 
+// 프레임(맥락)과 입력 내용이 같은 주제를 가리키면 프레임을 생략 — 중복 표현 방지
+// 예: 프레임 '책과 글자 관련 상황에서' + 입력 '동화책' → '책' 중복이므로 프레임 생략
+const FRAME_SKIP_TRIGGERS = [
+  { frame: /또래|친구|관계/, detail: /친구|또래/ },
+  { frame: /책|글자/, detail: /책|글자|동화/ },
+  { frame: /식사|간식/, detail: /밥|식사|간식|먹|반찬|국|우유/ },
+  { frame: /화장실|배변/, detail: /화장실|배변|소변|대변|쉬|기저귀|팬티/ },
+  { frame: /휴식|낮잠/, detail: /낮잠|잠|이불|휴식|졸/ },
+  { frame: /신체|바깥/, detail: /바깥|뛰|달리|미끄럼|그네|공|점프|계단/ },
+  { frame: /예술|미술|만들/, detail: /그림|색칠|물감|만들|그렸|꾸미|크레파스|점토/ },
+  { frame: /음악|움직임/, detail: /노래|춤|율동|박자|악기/ },
+  { frame: /자연|탐구/, detail: /곤충|관찰|돋보기|자연|식물|벌레|애벌레|씨앗|잎/ },
+  { frame: /역할/, detail: /역할|병원|가게|마트|요리|가족놀이|손님|의사/ },
+  { frame: /구성|블록/, detail: /블록|레고|쌓|터널|다리.?만들/ },
+  { frame: /등원|전이/, detail: /등원|하원|엄마|아빠|교실/ },
+  { frame: /위생/, detail: /손.?씻|비누|양치|칫솔|수건/ },
+  { frame: /정리/, detail: /정리|치우|제자리/ },
+  { frame: /감각/, detail: /촉감|냄새|소리|만져|부드럽|차갑|따뜻/ },
+];
+
+function frameOverlapsDetail(frame, detail) {
+  return FRAME_SKIP_TRIGGERS.some(t => t.frame.test(frame) && t.detail.test(detail));
+}
+
 // 장면 프레임(맥락) + 교사가 입력한 사실만 — 원문에 없는 결론·해석 추가 금지
 function makeSceneObservation(name, text, sceneRule) {
   const s = subject(name);
@@ -979,13 +1019,14 @@ function makeSceneObservation(name, text, sceneRule) {
   if (!rule) return null;
   const frame = SCENE_FRAMES[rule.id] || '활동 중';
   const detail = observationDetail(stripLeadingName(text, name));
-  // 원문이 이미 장소·시간 맥락으로 시작하거나 프레임과 같은 맥락이면 프레임 생략
-  // — "식사 시간에 점심시간에", "예술 활동에서 바깥놀이에서" 같은 중복 방지
+  // 원문이 이미 장소·시간 맥락으로 시작하거나, 프레임과 같은 주제를 담고 있으면 프레임 생략
   const frameHead = frame.split(' ')[0].replace(/(에서|에|중)$/u, '');
   const startsWithContext = /^[가-힣]{1,8}(에서|에)\s/u.test(detail);
-  const sentence = startsWithContext || detail.slice(0, 14).includes(frameHead)
-    ? `${s} ${detail}`
-    : `${s} ${frame} ${detail}`;
+  // 주제 중복으로 인한 프레임 생략은 입력이 충분히 풍부할 때만 — 짧은 입력은 맥락이 필요
+  const skipFrame = startsWithContext
+    || detail.slice(0, 14).includes(frameHead)
+    || (frameOverlapsDetail(frame, detail) && detail.replace(/\s/g, '').length >= 11);
+  const sentence = skipFrame ? `${s} ${detail}` : `${s} ${frame} ${detail}`;
   return finishSentence(sentence.replace(/[가-힣]+\s?시간에\s+([가-힣]+\s?시간에)/g, '$1'));
 }
 
