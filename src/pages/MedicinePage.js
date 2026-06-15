@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getMedicines, addMedicine, updateMedicine, deleteMedicine, today } from '../utils/storage';
-import { Pill, Check, Trash2, Copy, X } from 'lucide-react';
+import { buildMedicineReport, reportToText } from '../utils/reportDocs';
+import { exportDocx } from '../utils/docxExport';
+import { Pill, Check, Trash2, Copy, X, FileText, Download } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 
@@ -13,7 +15,13 @@ export default function MedicinePage({ isDesktop }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ childId: '', medicine: '', dose: '', timing: [], reason: '' });
   const [smsModal, setSmsModal] = useState(null);
+  const [reportModal, setReportModal] = useState(null); // { doc }
   const showToast = useToast();
+
+  const handleReport = (med) => {
+    const child = children.find(c => c.id === med.childId);
+    setReportModal({ doc: buildMedicineReport(med, child?.name) });
+  };
 
   useEffect(() => {
     setChildren(getChildren());
@@ -123,6 +131,7 @@ export default function MedicinePage({ isDesktop }) {
                   {med.administered && (
                     <button onClick={() => handleSmsModal(med)} style={{ fontSize: 11, background: '#E8F5E9', color: '#388E3C', borderRadius: 8, padding: '5px 8px', fontWeight: 700 }}>문자 생성</button>
                   )}
+                  <button onClick={() => handleReport(med)} style={{ fontSize: 11, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 8, padding: '5px 8px', fontWeight: 700 }}>보고서</button>
                   <button onClick={() => handleDelete(med.id)} style={{ color: 'var(--text-tertiary)', padding: 4 }}><Trash2 size={15} /></button>
                 </div>
               </div>
@@ -204,6 +213,36 @@ export default function MedicinePage({ isDesktop }) {
             <button onClick={() => handleCopy(smsModal)} style={{ width: '100%', background: 'var(--primary)', color: 'white', borderRadius: 10, padding: '12px', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
               <Copy size={15} /> 복사하기
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 투약 보고서 Modal */}
+      {reportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--white)', borderRadius: 20, padding: 22, width: '100%', maxWidth: 460, maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={17} color="var(--primary)" /> 투약 보고서</div>
+              <button onClick={() => setReportModal(null)}><X size={20} /></button>
+            </div>
+            <div style={{ background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, textAlign: 'center' }}>{reportModal.doc.title}</div>
+              {reportModal.doc.badge && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 2, marginBottom: 8 }}>{reportModal.doc.badge}</div>}
+              {reportModal.doc.sections.map((s, i) => (
+                <div key={i} style={{ marginTop: 11 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--primary)', marginBottom: 3 }}>{s.title}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => handleCopy(reportToText(reportModal.doc))} style={{ flex: 1, background: 'var(--primary)', color: 'white', borderRadius: 10, padding: '12px', fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Copy size={15} /> 복사
+              </button>
+              <button onClick={() => exportDocx(reportModal.doc).catch(() => {})} style={{ flex: 1, background: '#2B579A', color: 'white', borderRadius: 10, padding: '12px', fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Download size={15} /> Word
+              </button>
+            </div>
           </div>
         </div>
       )}
