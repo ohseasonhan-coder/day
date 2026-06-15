@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { getChildren, getConsults, addConsult, updateConsult, deleteConsult, getAutomationState } from '../utils/storage';
-import { Plus, X } from 'lucide-react';
+import { getChildren, getConsults, addConsult, updateConsult, deleteConsult, getAutomationState, getRecordsByChild } from '../utils/storage';
+import { buildConsultMaterial } from '../utils/developmentReport';
+import { exportDocx } from '../utils/docxExport';
+import { Plus, X, FileText, Copy, Download } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
 
 const CONSULT_TYPES = ['대면', '전화', '알림장'];
 const CONSULT_DURATIONS = [15, 30, 45, 60];
@@ -32,6 +35,16 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
   const [detailConsult, setDetailConsult] = useState(null);
   const [outcomeText, setOutcomeText] = useState('');
   const [automation, setAutomation] = useState(() => getAutomationState());
+  const [prepDoc, setPrepDoc] = useState(null); // 자동 준비된 상담자료
+  const showToast = useToast();
+
+  const handlePrepare = (consult) => {
+    const child = getChildren().find(c => c.id === consult.childId);
+    const name = child?.name || consult.childName || '아동';
+    const records = getRecordsByChild(consult.childId);
+    setPrepDoc(buildConsultMaterial({ records, childName: name, range: null }));
+  };
+  const prepToText = (d) => `${d.title}\n${d.badge || ''}\n\n` + (d.sections || []).map(s => `[${s.title}]\n${s.text}`).join('\n\n');
 
   const [formChildId, setFormChildId] = useState('');
   const [formDate, setFormDate] = useState('');
@@ -161,7 +174,7 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
                   onEdit={openEditForm}
                   onDelete={handleDelete}
                   onMarkDone={handleMarkDone}
-                  onPrepareDoc={() => onNavigate?.('docs', { childId: consult.childId, docType: 'parent' })}
+                  onPrepareDoc={() => handlePrepare(consult)}
                 />
               ))}
             </div>
@@ -247,6 +260,35 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
             <button onClick={handleSave} style={{ width: '100%', padding: '14px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 15, fontWeight: 800 }}>
               {editingConsult ? '수정 완료' : '저장'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 자동 준비된 상담자료 */}
+      {prepDoc && (
+        <div onClick={() => setPrepDoc(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,50,0.55)', zIndex: 1100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, maxHeight: '88vh', background: 'var(--white)', borderRadius: '24px 24px 0 0', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 15, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={17} color="var(--primary)" /> 자동 준비된 상담자료</div>
+              <button onClick={() => setPrepDoc(null)} style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '16px 20px', flex: 1 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center' }}>{prepDoc.title}</div>
+              {prepDoc.sections.map((s, i) => (
+                <div key={i} style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--primary)', marginBottom: 4 }}>{s.title}</div>
+                  <div style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, padding: '12px 20px 20px', borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => { navigator.clipboard?.writeText(prepToText(prepDoc)).catch(() => {}); showToast('복사했어요 📋', 'success'); }} style={{ flex: 1, padding: '13px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Copy size={15} /> 복사
+              </button>
+              <button onClick={() => exportDocx(prepDoc).catch(() => {})} style={{ flex: 1, padding: '13px', borderRadius: 12, background: '#2B579A', color: 'white', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Download size={15} /> Word
+              </button>
+            </div>
           </div>
         </div>
       )}
