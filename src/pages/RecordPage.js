@@ -29,6 +29,8 @@ import {
 } from '../utils/storage';
 import { processRecord } from '../utils/ai';
 import { compressImage, savePhotos, getPhotosByRecord, deletePhoto } from '../utils/photoStore';
+import CurriculumModal from '../components/CurriculumModal';
+import { ageKeyForClassAge } from '../utils/standardCurriculum';
 import {
   Sparkles, Copy, Check, RotateCcw, Save, Mic, Zap,
   Search, CalendarDays, ListFilter, X, ChevronLeft, ChevronRight,
@@ -120,6 +122,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [recordDate, setRecordDate]         = useState(() => today());
   const [photos, setPhotos]                 = useState([]); // 첨부 대기 사진 dataURL 목록
   const photoInputRef = useRef(null);
+  const [showCurriculum, setShowCurriculum] = useState(false);
   const [rawText, setRawText]               = useState('');
   const [loading, setLoading]               = useState(false);
   const [result, setResult]                 = useState(null);
@@ -664,10 +667,15 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               onDelete={handleDeleteCopyHistory}
               onClear={handleClearCopyHistory}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-              <button onClick={() => setRawText(EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)])} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-light)', borderRadius: 100, padding: '6px 12px' }}>
-                <Mic size={13} /> 예시 넣기
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, gap: 8 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button onClick={() => setRawText(EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)])} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-light)', borderRadius: 100, padding: '6px 12px' }}>
+                  <Mic size={13} /> 예시 넣기
+                </button>
+                <button onClick={() => setShowCurriculum(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700, background: 'var(--gray-100)', borderRadius: 100, padding: '6px 12px', border: '1.5px solid var(--border)' }}>
+                  📚 표준보육과정
+                </button>
+              </div>
               <div style={{ fontSize: 12, fontWeight: rawText.length > 0 ? 700 : 400, color: rawText.length > 0 ? 'var(--primary)' : 'var(--text-tertiary)' }}>{rawText.length}자</div>
             </div>
           </StepSection>
@@ -741,6 +749,12 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
           onToggleStar={handleToggleStar}
         />
       )}
+      <CurriculumModal
+        isOpen={showCurriculum}
+        onClose={() => setShowCurriculum(false)}
+        onInsert={insertTextAtCursor}
+        defaultAgeKey={ageKeyForClassAge(cl?.age)}
+      />
     </div>
   );
 }
