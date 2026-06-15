@@ -109,6 +109,33 @@ describe('과거 버그 회귀 방지', () => {
     expect(res.observation).not.toContain('기특하는');
   });
 
+  test('말투(tone)가 부모 문장 종결과 어휘를 바꾼다', async () => {
+    const input = '서아가 혼자 단추를 채웠어요';
+    const warm = await processRecord({ childName: '서아', rawText: input, classAge: '4', recordType: 'observe', tone: 'warm' });
+    const pro  = await processRecord({ childName: '서아', rawText: input, classAge: '4', recordType: 'observe', tone: 'professional' });
+    const formal = await processRecord({ childName: '서아', rawText: input, classAge: '4', recordType: 'observe', tone: 'formal' });
+    const report = await processRecord({ childName: '서아', rawText: input, classAge: '4', recordType: 'observe', tone: 'report' });
+
+    // warm: 부모 문장이 일관된 해요체 (합쇼체 종결 없음)
+    expect(warm.parent).not.toMatch(/습니다[.!]?(\s|$)/);
+    // professional: 합쇼체
+    expect(pro.parent).toMatch(/습니다/);
+    expect(pro.parent).not.toMatch(/있어요|보이고 있어요/);
+    // formal: '원' → '기관' 격식 어휘 + 합쇼체
+    expect(formal.parent).not.toContain('원에서');
+    expect(formal.parent).toMatch(/습니다/);
+    // report: 관찰·평가가 명사형(~음/~함)
+    expect(report.evaluation).toMatch(/(음|함)\.?$|있음/);
+    expect(report.observation).not.toMatch(/관찰되었다$/);
+  });
+
+  test('tone 미지정 시 변환 없이 원본 템플릿을 반환한다', async () => {
+    const input = '서아가 혼자 단추를 채웠어요';
+    const noTone = await processRecord({ childName: '서아', rawText: input, classAge: '4', recordType: 'observe' });
+    expect(typeof noTone.parent).toBe('string');
+    expect(noTone.parent.length).toBeGreaterThan(0);
+  });
+
   test('관찰·부모·지원이 같은 장면을 바라본다 (갈등 상황)', async () => {
     const res = await run('친구가 가지고 놀던 장난감을 빼앗았다 친구가 울자 미안하다고 했다');
     const all = `${res.observation} ${res.parent} ${res.support}`;

@@ -9,7 +9,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
   isMaster, adminUpdateAccount, adminDeleteAccount, getAccountDataStats } from '../utils/auth';
-import { RECORD_QUALITY_SAMPLES } from '../utils/ai';
+import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
 
@@ -581,15 +581,19 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             </SettingCard>
 
             <SettingCard title="기본 말투">
-              {[['warm', '따뜻하고 전문적으로'], ['professional', '전문적이고 간결하게'], ['formal', '공식적이고 격식 있게']].map(([k, v]) => (
-                <button key={k} onClick={() => setSettings(s => ({ ...s, tone: k }))} style={{
-                  width: '100%', padding: '12px 14px', textAlign: 'left', fontSize: 14,
-                  background: settings.tone === k ? 'var(--primary-light)' : 'transparent',
-                  color: settings.tone === k ? 'var(--primary)' : 'var(--text-primary)',
-                  fontWeight: settings.tone === k ? 700 : 400,
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6, marginBottom: 10 }}>
+                선택한 말투에 따라 기록 정리 결과의 문체가 바뀌어요. (관찰일지·평가·부모문장·지원계획에 적용)
+              </div>
+              {TONE_OPTIONS.map(({ key, label, desc }) => (
+                <button key={key} onClick={() => setSettings(s => ({ ...s, tone: key }))} style={{
+                  width: '100%', padding: '12px 14px', textAlign: 'left',
+                  background: (settings.tone || 'warm') === key ? 'var(--primary-light)' : 'transparent',
                   borderRadius: 8, marginBottom: 2,
                 }}>
-                  {settings.tone === k ? '✓ ' : '  '}{v}
+                  <div style={{ fontSize: 14, fontWeight: (settings.tone || 'warm') === key ? 800 : 500, color: (settings.tone || 'warm') === key ? 'var(--primary)' : 'var(--text-primary)' }}>
+                    {(settings.tone || 'warm') === key ? '✓ ' : '   '}{label}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, paddingLeft: 16 }}>{desc}</div>
                 </button>
               ))}
             </SettingCard>

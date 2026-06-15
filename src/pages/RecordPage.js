@@ -25,6 +25,7 @@ import {
   addCopyHistory,
   deleteCopyHistory,
   clearCopyHistory,
+  getSettings,
 } from '../utils/storage';
 import { processRecord } from '../utils/ai';
 import { compressImage, savePhotos, getPhotosByRecord, deletePhoto } from '../utils/photoStore';
@@ -241,7 +242,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     if (!rawText.trim())  return setError('기록 내용을 입력해 주세요.');
     setError(''); setLoading(true); setResult(null); setSaved(false);
     try {
-      const res = await processRecord({ childName: selectedChild.name, rawText: rawText.trim(), classAge: cl?.age, recordType });
+      const res = await processRecord({ childName: selectedChild.name, rawText: rawText.trim(), classAge: cl?.age, recordType, tone: getSettings().tone });
       setResult({ ...res, recordType });
     } catch (e) {
       setError(e.message || '기록을 정리하는 중 오류가 발생했어요.');
@@ -1660,7 +1661,7 @@ function RecordDetailModal({ record, onClose, onUpdate, onDelete, onToggleStar }
     try {
       const classes = getClasses();
       const cl = classes[0];
-      const res = await processRecord({ childName: record.childName, rawText: editRaw || record.rawText, classAge: cl?.age, recordType: record.recordType || 'observe' });
+      const res = await processRecord({ childName: record.childName, rawText: editRaw || record.rawText, classAge: cl?.age, recordType: record.recordType || 'observe', tone: getSettings().tone });
       onUpdate(record.id, { ...res });
     } catch (e) {
       alert('재생성 중 오류가 발생했어요: ' + (e.message || ''));

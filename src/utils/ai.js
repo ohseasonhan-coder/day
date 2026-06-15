@@ -1740,9 +1740,100 @@ function makeTitle(text, categoryId) {
   return found ? `${label} - ${found}` : label;
 }
 
+// ─── 말투(tone) 변환 ─────────────────────────────────────────────
+// 사용자가 선택한 말투에 따라 생성 문구의 종결·어휘를 조정한다.
+// 'warm'(기본)은 변환 없이 현재 문구를 그대로 유지한다.
+export const TONE_OPTIONS = [
+  { key: 'warm',         label: '따뜻하고 다정하게',   desc: '부모님께 친근한 존댓말 (기본)' },
+  { key: 'professional', label: '전문적이고 단정하게', desc: '관찰·평가에 적합한 전문 서술체' },
+  { key: 'formal',       label: '공식적이고 격식 있게', desc: "제출 문서용 격식체 ('유아' 표기)" },
+  { key: 'concise',      label: '간결하고 핵심만',     desc: '핵심 문장만 짧게' },
+  { key: 'report',       label: '평가서·공문서체',     desc: '명사형 종결 (~함, ~음)' },
+];
+
+// 해요체 → 합쇼체 (부모용 문장을 전문/격식 존댓말로)
+const HAEYO_TO_HAPSYO = [
+  [/나타나고 있어요/g, '나타나고 있습니다'],
+  [/늘고 있어요/g, '늘고 있습니다'],
+  [/있어요/g, '있습니다'],
+  [/없어요/g, '없습니다'],
+  [/보여요/g, '보입니다'],
+  [/같아요/g, '같습니다'],
+  [/좋아요/g, '좋습니다'],
+  [/돼요/g, '됩니다'],
+  [/거예요/g, '것입니다'],
+  [/줘요/g, '줍니다'],
+  [/([가-힣])해요(?=[\s.,!?]|$)/g, '$1합니다'],
+];
+
+// 평서문(~다) → 명사형(~음/~함) (평가서·공문서체)
+const PYEONGSEO_TO_NOMINAL = [
+  [/관찰되었다/g, '관찰됨'],
+  [/나타나고 있다/g, '나타나고 있음'],
+  [/연결된다/g, '연결됨'],
+  [/([가-힣]) ?있다(?=[\s.,!?]|$)/g, '$1 있음'],
+  [/([았었였])다(?=[\s.,!?]|$)/g, '$1음'],
+  [/했다(?=[\s.,!?]|$)/g, '했음'],
+  [/한다(?=[\s.,!?]|$)/g, '함'],
+  [/된다(?=[\s.,!?]|$)/g, '됨'],
+];
+
+// 격식체 어휘 치환 ('아이' → '유아' 등)
+const FORMAL_WORDS = [
+  [/아이가/g, '유아가'], [/아이는/g, '유아는'], [/아이의/g, '유아의'],
+  [/아이를/g, '유아를'], [/아이도/g, '유아도'], [/아이에게/g, '유아에게'],
+  [/원에서는/g, '기관에서는'], [/원에서/g, '기관에서'],
+];
+
+function firstSentences(text, n) {
+  const parts = String(text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+  return parts.slice(0, n).join(' ').trim();
+}
+
+// 합쇼체 → 해요체 (부모용 문장을 일관되게 다정한 존댓말로)
+const HAPSYO_TO_HAEYO = [
+  [/나타나고 있습니다/g, '나타나고 있어요'],
+  [/늘고 있습니다/g, '늘고 있어요'],
+  [/있습니다/g, '있어요'],
+  [/없습니다/g, '없어요'],
+  [/됩니다/g, '돼요'],
+  [/보입니다/g, '보여요'],
+  [/같습니다/g, '같아요'],
+  [/좋습니다/g, '좋아요'],
+  [/드립니다/g, '드려요'],
+  [/바랍니다/g, '바라요'],
+  [/([가-힣])합니다(?=[\s.,!?]|$)/g, '$1해요'],
+];
+
+// kind: 'observation' | 'evaluation' | 'support'(문어체) | 'parent'(존댓말)
+function applyTone(text, kind, tone) {
+  if (!text || !tone) return text;
+  const isDoc = kind === 'observation' || kind === 'evaluation' || kind === 'support';
+  let out = text;
+
+  // warm(기본): 부모 문장을 일관된 해요체로 다듬어 다정한 인상을 준다
+  if (tone === 'warm') {
+    if (!isDoc) HAPSYO_TO_HAEYO.forEach(([re, r]) => { out = out.replace(re, r); });
+    return out;
+  }
+
+  if (tone === 'concise') return firstSentences(out, isDoc ? 1 : 2);
+
+  if (tone === 'report') {
+    if (isDoc) PYEONGSEO_TO_NOMINAL.forEach(([re, r]) => { out = out.replace(re, r); });
+    else HAEYO_TO_HAPSYO.forEach(([re, r]) => { out = out.replace(re, r); });
+    return out;
+  }
+
+  // professional / formal — 부모용 문장은 합쇼체로
+  if (!isDoc) HAEYO_TO_HAPSYO.forEach(([re, r]) => { out = out.replace(re, r); });
+  if (tone === 'formal') FORMAL_WORDS.forEach(([re, r]) => { out = out.replace(re, r); });
+  return out;
+}
+
 // ─── 공개 함수 ────────────────────────────────────────────────────
 
-export async function processRecord({ childName, rawText, classAge, recordType }) {
+export async function processRecord({ childName, rawText, classAge, recordType, tone }) {
   const name = childName || '아동';
   const normalizedText = normalizeRecordText(rawText);
   const category = detectCategory(normalizedText);
@@ -1782,6 +1873,9 @@ export async function processRecord({ childName, rawText, classAge, recordType }
   const observation =
     makeSceneObservation(name, normalizedText, sceneRule) ||
     finishSentence(`${subject(name)} ${fallbackFrame}${fallbackDetail}`);
+  const evaluation = makeEvaluation(name, category, devAreas, normalizedText, sceneRule);
+  const parent = makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name);
+  const support = makeSupportPlan(category, normalizedText, sceneRule);
 
   return {
     category,
@@ -1791,10 +1885,10 @@ export async function processRecord({ childName, rawText, classAge, recordType }
     normalizedText,
     documentMeta,
     documentReadyText: makeDocumentReadyText(documentMeta),
-    observation,
-    evaluation: makeEvaluation(name, category, devAreas, normalizedText, sceneRule),
-    parent: makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name),
-    support: makeSupportPlan(category, normalizedText, sceneRule),
+    observation: applyTone(observation, 'observation', tone),
+    evaluation: applyTone(evaluation, 'evaluation', tone),
+    parent: applyTone(parent, 'parent', tone),
+    support: applyTone(support, 'support', tone),
     title: makeTitle(normalizedText, category),
     libSuggestions,
   };
