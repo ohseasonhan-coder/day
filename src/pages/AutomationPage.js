@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { getRecords, getChildren, getClasses, today, addDocumentDraft } from '../utils/storage';
-import { buildWeeklyPlan, buildBatchNotices, buildWeeklySummary } from '../utils/planningDocs';
+import { buildWeeklyPlan, buildBatchNotices, buildWeeklySummary,
+  dailyJournalToDoc, batchNoticesToDoc, buildMonthlyEvaluation, buildChildrenMonthlyDigest, buildMonthlyNewsletter } from '../utils/planningDocs';
+import { generateDailyJournal } from '../utils/ai';
 import { exportDocx } from '../utils/docxExport';
 import { useToast } from '../components/Toast';
-import { Sparkles, Copy, Check, Download, CalendarRange, MessageSquare, TrendingUp, Save } from 'lucide-react';
+import { Sparkles, Copy, Check, Download, CalendarRange, MessageSquare, TrendingUp, Save, Zap, FileText } from 'lucide-react';
 
 const AREA_COLORS = {
   '신체운동·건강': '#4CAF50', '의사소통': '#4F7FFF', '사회관계': '#9C27B0',
@@ -15,7 +17,7 @@ function docToText(d) { return `${d.title}\n${d.badge || ''}\n\n` + (d.sections 
 
 export default function AutomationPage({ isDesktop, context }) {
   const showToast = useToast();
-  const [tab, setTab] = useState(context?.tab || 'plan'); // 'plan' | 'notice' | 'summary'
+  const [tab, setTab] = useState(context?.tab || 'oneclick'); // 'oneclick' | 'plan' | 'notice' | 'summary'
 
   const records  = useMemo(() => getRecords(), []);
   const children = useMemo(() => getChildren(), []);
@@ -42,7 +44,7 @@ export default function AutomationPage({ isDesktop, context }) {
 
       {/* 탭 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-        {[['plan', '주간 계획안', CalendarRange], ['notice', '알림장 일괄', MessageSquare], ['summary', '주간 요약·코칭', TrendingUp]].map(([k, label, Icon]) => (
+        {[['oneclick', '원클릭 일괄', Zap], ['plan', '주간 계획안', CalendarRange], ['notice', '알림장 일괄', MessageSquare], ['summary', '주간 요약·코칭', TrendingUp]].map(([k, label, Icon]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 100, fontSize: 13, fontWeight: 800,
             background: tab === k ? 'var(--primary)' : 'white', color: tab === k ? 'white' : 'var(--text-secondary)',
@@ -53,9 +55,99 @@ export default function AutomationPage({ isDesktop, context }) {
         ))}
       </div>
 
+      {tab === 'oneclick' && <OneClickTab records={records} children={children} cl={cl} todayRecs={todayRecs} showToast={showToast} />}
       {tab === 'plan'    && <WeeklyPlanTab recent={recent} cl={cl} showToast={showToast} />}
       {tab === 'notice'  && <BatchNoticeTab todayRecs={todayRecs} showToast={showToast} />}
       {tab === 'summary' && <WeeklySummaryTab week={week} children={children} showToast={showToast} />}
+    </div>
+  );
+}
+
+// ── 원클릭 일괄 ──
+function OneClickTab({ records, children, cl, todayRecs, showToast }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null); // { kind, docs:[{title}] }
+
+  const monthRange = () => {
+    const d = new Date();
+    const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const to = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-31`;
+    return { from, to, label: `${d.getFullYear()}년 ${d.getMonth() + 1}월` };
+  };
+
+  const runDaily = async () => {
+    if (todayRecs.length === 0) { showToast('오늘 작성한 기록이 없어요.', 'error'); return; }
+    setBusy(true);
+    try {
+      const journal = await generateDailyJournal({ records: todayRecs, date: today(), classAge: cl?.age, className: cl?.name });
+      const journalDoc = dailyJournalToDoc(journal, { className: cl?.name, date: today() });
+      const noticeDoc = batchNoticesToDoc(buildBatchNotices({ records: todayRecs, date: today() }), { className: cl?.name });
+      [journalDoc, noticeDoc].forEach(doc => addDocumentDraft({ ...doc, source: 'oneclick' }));
+      setResult({ kind: '오늘 마감', docs: [journalDoc, noticeDoc] });
+      showToast('보육일지·알림장을 만들어 문서함에 저장했어요 📁', 'success');
+    } catch { showToast('생성 중 오류가 발생했어요.', 'error'); }
+    finally { setBusy(false); }
+  };
+
+  const runMonthly = () => {
+    const range = monthRange();
+    const monthRecs = records.filter(r => r.date && r.date >= range.from && r.date <= range.to);
+    if (monthRecs.length === 0) { showToast('이달 기록이 없어요.', 'error'); return; }
+    setBusy(true);
+    try {
+      const evalDoc = buildMonthlyEvaluation({ monthRecords: monthRecs, className: cl?.name, monthLabel: range.label });
+      const digestDoc = buildChildrenMonthlyDigest({ records, children, range, monthLabel: range.label, className: cl?.name });
+      const newsletterDoc = { title: `${range.label.split('년 ')[1]} 가정통신문`, badge: range.label, docType: 'newsletter', sections: [{ title: '가정통신문', text: buildMonthlyNewsletter({ className: cl?.name }) }] };
+      [evalDoc, digestDoc, newsletterDoc].forEach(doc => addDocumentDraft({ ...doc, source: 'oneclick' }));
+      setResult({ kind: '이달 마감', docs: [evalDoc, digestDoc, newsletterDoc] });
+      showToast('월간평가·아이별 요약·통신문을 문서함에 저장했어요 📁', 'success');
+    } catch { showToast('생성 중 오류가 발생했어요.', 'error'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 14 }}>
+        버튼 한 번으로 여러 문서를 <b>한꺼번에 만들어 문서함에 저장</b>해요. 화면 이동 없이 끝나요.
+      </div>
+
+      <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 18, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 4 }}>📅 오늘 마감</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
+          오늘 기록 {todayRecs.length}건 → <b>보육일지</b> + <b>아이별 알림장</b>을 자동 생성·저장
+        </div>
+        <button onClick={runDaily} disabled={busy} style={{
+          width: '100%', padding: '14px', borderRadius: 12, background: busy ? 'var(--gray-300)' : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+          color: 'white', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <Zap size={17} /> {busy ? '만드는 중…' : '오늘 문서 한 번에 만들기'}
+        </button>
+      </div>
+
+      <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 18, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 4 }}>🗓️ 이달 마감</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
+          이달 기록 → <b>월간 놀이평가</b> + <b>아이별 월간 요약</b> + <b>가정통신문</b>을 자동 생성·저장
+        </div>
+        <button onClick={runMonthly} disabled={busy} style={{
+          width: '100%', padding: '14px', borderRadius: 12, background: busy ? 'var(--gray-300)' : 'var(--cat-nature)',
+          color: 'white', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <Zap size={17} /> {busy ? '만드는 중…' : '이달 문서 한 번에 만들기'}
+        </button>
+      </div>
+
+      {result && (
+        <div style={{ background: '#E8F5E9', border: '1px solid #4CAF50', borderRadius: 14, padding: '14px 16px' }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: '#2E7D32', marginBottom: 8 }}>✅ {result.kind} — {result.docs.length}개 문서를 문서함에 저장했어요</div>
+          {result.docs.map((d, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text-primary)', padding: '3px 0' }}>
+              <FileText size={14} color="#388E3C" /> {d.title}
+            </div>
+          ))}
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>문서함에서 열어 검토·수정 후 복사·Word로 내보내세요.</div>
+        </div>
+      )}
     </div>
   );
 }
