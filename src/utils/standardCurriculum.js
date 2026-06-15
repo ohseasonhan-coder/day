@@ -150,6 +150,34 @@ export function ageKeyForClassAge(classAge) {
   return 'age35';
 }
 
+// 표준보육과정 → 발달 체크리스트(영아반)용 영역·항목 구조로 변환.
+// ChecklistPage의 areas 형식과 호환: { 영역키: [{ id, text, category, devArea }] }
+const CHECK_AREA_KEY = {
+  '신체운동·건강': '신체운동건강', '의사소통': '의사소통', '사회관계': '사회관계',
+  '예술경험': '예술경험', '자연탐구': '자연탐구',
+};
+const CHECK_AREA_CAT = {
+  '신체운동·건강': 'body', '의사소통': 'comm', '사회관계': 'peer',
+  '예술경험': 'art', '자연탐구': 'nature',
+};
+
+export function getStandardChecklist(ageKey) {
+  const data = getCurriculum(ageKey);
+  const out = {};
+  Object.keys(data).forEach((area, ai) => {
+    const key = CHECK_AREA_KEY[area] || area;
+    const cat = CHECK_AREA_CAT[area] || 'play';
+    const items = [];
+    data[area].categories.forEach((c, ci) => {
+      c.items.forEach((text, ii) => {
+        items.push({ id: `std_${ageKey}_${ai}_${ci}_${ii}`, text, category: cat, devArea: area, subCategory: c.name });
+      });
+    });
+    out[key] = items;
+  });
+  return out;
+}
+
 // 발달영역 이름을 표준보육과정 정식 5개 영역으로 정규화
 const AREA_NORMALIZE = { '기본생활습관': '신체운동·건강', '신체운동': '신체운동·건강', '신체건강': '신체운동·건강' };
 function normalizeArea(name) {

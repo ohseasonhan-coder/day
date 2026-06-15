@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../components/Toast';
 import { getChildren, getClasses, today } from '../utils/storage';
 import { generateSentences } from '../utils/sentenceLibrary';
+import { getStandardChecklist, ageKeyForClassAge } from '../utils/standardCurriculum';
 
 // ── 누리과정 5개 영역 체크리스트 (연령별) ─────────────────────────────────────
 // PortfolioPage에서도 체크 현황 요약에 사용
@@ -201,8 +202,11 @@ export default function ChecklistPage() {
 
   const child = selectedChild;
   const age   = child ? (child.age || 4) : 4;
+  // 0~2세는 2024 개정 표준보육과정 기반 체크리스트, 3세 이상은 누리과정 체크리스트
+  const ageKey = ageKeyForClassAge(age);
+  const isInfant = ageKey === 'age01' || ageKey === 'age2';
   const nuriAge = Math.min(5, Math.max(2, parseInt(age, 10)));
-  const areas = NURI[nuriAge] || NURI[4];
+  const areas = isInfant ? getStandardChecklist(ageKey) : (NURI[nuriAge] || NURI[4]);
 
   const totalItems = Object.values(areas).flat().length;
   const doneItems  = Object.values(areas).flat().filter(i => checks[i.id]).length;
@@ -251,10 +255,12 @@ export default function ChecklistPage() {
       {/* 헤더 */}
       <div style={{ padding: '20px 20px 0' }}>
         <div style={{ fontWeight: 900, fontSize: 18, color: 'var(--text-primary)', marginBottom: 4 }}>
-          누리과정 발달 체크리스트
+          {isInfant ? '표준보육과정 발달 체크리스트' : '누리과정 발달 체크리스트'}
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-          연령별 5개 영역 · 월별 달성 현황 관리
+          {isInfant
+            ? `${ageKey === 'age01' ? '0~1세' : '2세'} 표준보육과정(2024 개정) 5개 영역 · 월별 달성 현황`
+            : '연령별 5개 영역 · 월별 달성 현황 관리'}
         </div>
       </div>
 

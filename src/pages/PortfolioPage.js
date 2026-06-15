@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getRecordsByChild, CATEGORIES, formatDate, addCopyHistory, getClasses } from '../utils/storage';
 import { NURI, AREA_COLORS, loadChecks } from './ChecklistPage';
+import { getStandardChecklist, ageKeyForClassAge } from '../utils/standardCurriculum';
 import { ArrowLeft, BarChart3, FileText, Copy, Check } from 'lucide-react';
 
 const AVATAR_COLORS = ['#4F7FFF', '#6C63FF', '#FF8C42', '#00B4D8', '#4CAF50', '#E91E9A', '#FF5722', '#607D8B'];
@@ -149,7 +150,11 @@ export default function PortfolioPage({ childId, childName, onBack, isDesktop })
   // 발달 체크리스트 현황 — 최근 6개월 중 체크 데이터가 있는 가장 최근 달
   const checklistSummary = useMemo(() => {
     const age = parseInt(getClasses()[0]?.age || '4', 10);
-    const areas = NURI[age] || NURI[4];
+    const ageKey = ageKeyForClassAge(age);
+    // 0~2세는 표준보육과정, 3세 이상은 누리과정 체크리스트 기준으로 집계
+    const areas = (ageKey === 'age01' || ageKey === 'age2')
+      ? getStandardChecklist(ageKey)
+      : (NURI[age] || NURI[4]);
     const now = new Date();
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
