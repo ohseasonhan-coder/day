@@ -55,7 +55,7 @@ export function createRecordDrafts({ analysis, tone } = {}) {
       tone,
       scene: analysis.scene,
     }),
-    notice: createNotice({ parsedInput: analysis.parsedInput, selectedSentence: sentences.notice, tone }),
+    notice: createNotice({ parsedInput: analysis.parsedInput, categories: analysis.categories, curriculum: analysis.curriculum, tone }),
     dailyReport: createDailyReport({
       parsedInput: analysis.parsedInput,
       categories: analysis.categories,
@@ -66,6 +66,7 @@ export function createRecordDrafts({ analysis, tone } = {}) {
     parentMessage: createParentMessage({
       parsedInput: analysis.parsedInput,
       categories: analysis.categories,
+      curriculum: analysis.curriculum,
       tone,
     }),
     supportPlan: createSupportPlan({

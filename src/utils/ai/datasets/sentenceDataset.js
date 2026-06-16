@@ -375,7 +375,159 @@ const EVALUATION_SENTENCES = EVALUATION_GROUPS.flatMap((group, gi) =>
   })),
 );
 
-export const SENTENCE_DATASET = [...BASE_SENTENCES, ...EVALUATION_SENTENCES];
+// ─────────────────────────────────────────────────────────────────
+// 알림장/부모 전달(notice/parentMessage) 전용 문장 — 13개 유형 × 5문장 = 65개
+// 부모 친화 존댓말, 부정 사실은 부드럽게, 입력에 없는 긍정 변화는 만들지 않음.
+// ─────────────────────────────────────────────────────────────────
+const NOTICE_GROUPS = [
+  {
+    key: 'play_join', type: 'parent', situation: ['긍정놀이참여'], category: ['사회관계'],
+    texts: [
+      '오늘 {childName}는 놀이에 관심을 보이며 자신의 방식으로 참여하는 모습을 보였어요.',
+      '오늘 {childName}는 하고 싶은 놀이를 스스로 선택해 몰입하는 모습이 사랑스러웠습니다.',
+      '오늘 {childName}는 새로운 놀이에 호기심을 가지고 다가가 보았어요.',
+      '오늘 {childName}는 놀이 속에서 자신의 생각을 표현하며 즐거운 시간을 보냈습니다.',
+      '오늘 {childName}는 좋아하는 놀이에 푹 빠져 하루를 보냈어요.',
+    ],
+  },
+  {
+    key: 'peer', type: 'parent', situation: ['또래상호작용'], category: ['사회관계'],
+    texts: [
+      '오늘 {childName}는 친구와 함께 놀이하며 생각을 나누는 모습을 보였어요.',
+      '오늘 {childName}는 친구와 놀잇감을 나누며 사이좋게 노는 모습이 예뻤습니다.',
+      '오늘 {childName}는 친구의 이야기에 귀 기울이며 함께하는 시간을 보냈어요.',
+      '오늘 {childName}는 친구에게 먼저 다가가 함께 놀자고 권하는 모습을 보였습니다.',
+      '오늘 {childName}는 친구와 역할을 나누어 협력하는 경험을 했어요.',
+    ],
+  },
+  {
+    key: 'support_change', type: 'parent', situation: ['교사지원변화'], category: ['사회관계'],
+    texts: [
+      '오늘 {childName}는 처음에는 망설였지만 교사의 도움을 받아 새롭게 시도해 보았어요.',
+      '오늘 {childName}는 어려워하던 활동도 교사와 함께 끝까지 해내는 모습을 보였습니다.',
+      '오늘 {childName}는 교사의 안내를 받아 조금씩 스스로 해 보는 모습을 보였어요.',
+      '오늘 {childName}는 교사가 곁에서 도와주자 편안하게 활동에 참여했습니다.',
+      '오늘 {childName}는 교사의 격려 속에서 한 걸음 더 도전해 보았어요.',
+    ],
+  },
+  {
+    key: 'passive', type: 'parent', situation: ['소극적참여'], category: ['사회관계'],
+    texts: [
+      '오늘 {childName}는 활동에 바로 참여하기보다 주변을 천천히 살펴보는 모습이 있었어요. 편안해질 수 있도록 곁에서 함께했습니다.',
+      '오늘 {childName}는 친구들의 놀이를 관심 있게 지켜본 뒤 천천히 다가가 보았습니다.',
+      '오늘 {childName}는 새로운 활동을 충분히 살펴본 뒤 참여하는 모습을 보였어요.',
+      '오늘 {childName}는 조심스러워했지만 교사와 함께 한 걸음씩 다가가 보았습니다.',
+      '오늘 {childName}는 익숙해진 뒤 편안하게 놀이에 함께하는 모습을 보였어요.',
+    ],
+  },
+  {
+    key: 'emotion', type: 'parent', situation: ['감정표현'], category: ['사회관계'],
+    texts: [
+      '오늘 {childName}는 속상한 마음을 표현하는 모습이 있었고, 교사의 다독임 속에서 안정을 찾았어요.',
+      '오늘 {childName}는 자신의 감정을 솔직하게 표현해 보았습니다. 마음을 읽어 주자 편안해졌어요.',
+      '오늘 {childName}는 기쁜 마음과 아쉬운 마음을 다양하게 표현하는 하루를 보냈어요.',
+      '오늘 {childName}는 감정을 말과 표정으로 나타내 보았고, 교사가 함께 마음을 살폈습니다.',
+      '오늘 {childName}는 마음이 불편할 때 교사에게 도움을 청하는 모습을 보였어요.',
+    ],
+  },
+  {
+    key: 'conflict', type: 'parent', situation: ['갈등조율'], category: ['사회관계'],
+    texts: [
+      '오늘 {childName}는 친구와 생각이 다를 때 자신의 마음을 표현해 보았어요. 교사의 도움으로 함께 방법을 찾았습니다.',
+      '오늘 {childName}는 같은 놀잇감을 두고 친구와 의견을 조율하는 경험을 했어요.',
+      '오늘 {childName}는 교사의 안내를 받아 차례를 정하고 약속을 지켜 보았습니다.',
+      '오늘 {childName}는 친구의 마음을 듣고 자신의 행동을 조절해 보는 경험을 했어요.',
+      '오늘 {childName}는 다툼 이후 마음을 풀고 다시 친구와 함께 놀이했습니다.',
+    ],
+  },
+  {
+    key: 'habit', type: 'parent', situation: ['기본생활습관'], category: ['신체운동·건강'],
+    texts: [
+      '오늘 {childName}는 식사 전 손 씻기를 교사와 함께 실천해 보았어요.',
+      '오늘 {childName}는 놀이 후 놀잇감을 스스로 정리하는 모습이 기특했습니다.',
+      '오늘 {childName}는 스스로 옷과 신발을 챙기려는 모습을 보였어요.',
+      '오늘 {childName}는 새로운 음식을 한 입 시도해 보는 용기를 냈습니다.',
+      '오늘 {childName}는 정해진 일과를 따르며 하루를 안정적으로 보냈어요.',
+    ],
+  },
+  {
+    key: 'safety', type: 'parent', situation: ['안전교육'], category: ['신체운동·건강'],
+    texts: [
+      '오늘 {childName}는 안전 약속을 알아보고 직접 실천해 보았어요.',
+      '오늘 {childName}는 대피 훈련에 참여해 질서를 지켜 이동했습니다.',
+      '오늘 {childName}는 횡단보도를 건너는 방법을 배우고 멈추고 살펴보았어요.',
+      '오늘 {childName}는 놀이 기구를 안전하게 사용하는 방법을 익혔습니다.',
+      '오늘 {childName}는 안전하게 행동하는 약속을 잘 기억하는 모습을 보였어요.',
+    ],
+  },
+  {
+    key: 'physical', type: 'parent', situation: ['신체놀이'], category: ['신체운동·건강'],
+    texts: [
+      '오늘 {childName}는 몸을 마음껏 움직이며 균형을 잡아 보았어요.',
+      '오늘 {childName}는 달리고 뛰며 신나게 바깥놀이를 즐겼습니다.',
+      '오늘 {childName}는 공을 던지고 받으며 몸의 움직임을 조절해 보았어요.',
+      '오늘 {childName}는 새로운 동작에 도전하며 끝까지 해내는 모습을 보였습니다.',
+      '오늘 {childName}는 친구와 함께 몸을 움직이는 놀이를 즐겼어요.',
+    ],
+  },
+  {
+    key: 'art', type: 'parent', situation: ['미술놀이'], category: ['예술경험'],
+    texts: [
+      '오늘 {childName}는 색을 섞어 보며 그림 그리기에 몰입했어요.',
+      '오늘 {childName}는 다양한 재료로 자신만의 작품을 만들어 보았습니다.',
+      '오늘 {childName}는 자신의 생각을 그림과 색으로 표현해 보았어요.',
+      '오늘 {childName}는 만들기 활동에 집중하며 끝까지 완성해 보았습니다.',
+      '오늘 {childName}는 재료의 느낌을 탐색하며 자유롭게 표현했어요.',
+    ],
+  },
+  {
+    key: 'nature', type: 'parent', situation: ['자연탐구'], category: ['자연탐구'],
+    texts: [
+      '오늘 {childName}는 바깥에서 발견한 자연물을 관심 있게 관찰했어요.',
+      '오늘 {childName}는 곤충과 식물을 살펴보며 궁금한 점을 물어보았습니다.',
+      '오늘 {childName}는 물과 모래의 변화를 탐색하며 놀이했어요.',
+      '오늘 {childName}는 수와 모양에 관심을 가지고 세어 보고 비교해 보았습니다.',
+      '오늘 {childName}는 자연 속에서 호기심을 가지고 탐색하는 하루를 보냈어요.',
+    ],
+  },
+  {
+    key: 'home', type: 'homeLink', situation: ['가정연계'], category: ['사회관계'], documentType: ['notice', 'counseling'],
+    texts: [
+      '가정에서도 오늘의 놀이 이야기를 함께 나눠 주세요.',
+      '가정에서도 아이가 좋아하는 놀이를 함께 즐겨 주세요.',
+      '가정에서도 아이의 마음을 따뜻하게 읽어 주세요.',
+      '가정에서도 스스로 해 볼 기회를 주고 격려해 주세요.',
+      '가정에서도 안전 약속을 함께 이야기해 주세요.',
+    ],
+  },
+  {
+    key: 'closing', type: 'closing', situation: ['마무리'], category: ['사회관계'],
+    texts: [
+      '오늘도 건강하고 즐겁게 지낸 하루였습니다.',
+      '내일은 또 어떤 즐거운 놀이를 만날지 함께 기대해 봅니다.',
+      '작은 성장의 순간을 가정에서도 따뜻하게 응원해 주세요.',
+      '오늘 하루도 사랑스러운 모습 가득한 하루였어요.',
+      '언제나 아이의 속도를 존중하며 함께 지켜보겠습니다.',
+    ],
+  },
+];
+
+const NOTICE_SENTENCES = NOTICE_GROUPS.flatMap((group) =>
+  group.texts.map((text, i) => ({
+    id: `notice_${group.key}_${String(i + 1).padStart(2, '0')}`,
+    type: group.type,
+    situation: group.situation,
+    category: group.category,
+    status: '전달',
+    ageGroup: ['만3세', '만4세', '만5세'],
+    documentType: group.documentType || ['notice'],
+    tone: 'warm',
+    riskLevel: 'safe',
+    text,
+  })),
+);
+
+export const SENTENCE_DATASET = [...BASE_SENTENCES, ...EVALUATION_SENTENCES, ...NOTICE_SENTENCES];
 
 // ── 보조 인덱스/조회 헬퍼 ────────────────────────────────────────
 export const SENTENCE_TYPES = [

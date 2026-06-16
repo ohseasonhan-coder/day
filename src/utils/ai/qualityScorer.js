@@ -94,7 +94,7 @@ function scoreFactPreservation(text, input, documentType, warnings, suggestions)
   // 어려움을 부드럽게 인정하기만 해도 사실을 왜곡하지 않은 것으로 본다.
   const inputNeg = includesAny(input, NEGATIVE_FACT_MARKERS);
   const outputNeg = includesAny(text, NEGATIVE_FACT_MARKERS);
-  const softAck = /(어려|속상|불안|낯설|시간이 필요|조절이 필요|기다|걸리|눈물|좌절|부딪|머뭇|지원이 필요)/.test(text);
+  const softAck = /(어려|속상|불안|낯설|시간이 필요|조절이 필요|기다|걸리|눈물|좌절|부딪|머뭇|지원이 필요|천천히|주변을 살펴|살펴보는 모습|바로 참여하기보다|강하게 표현|안내가 필요|도움이 필요|조율)/.test(text);
   const spins = countMatches(text, POSITIVE_SPIN_MARKERS);
   const isObservation = documentType === 'observation';
   let factScore = 8;
@@ -191,7 +191,17 @@ function scoreDocumentFit(text, documentType, warnings, suggestions) {
   if (cueBonus < 2 && (documentType === 'dailyReport' || documentType === 'development')) {
     warnings.push('평가/발달 문서에 어울리는 표현(경험·지원·발달·영역)이 부족합니다.');
   }
-  return clamp(Math.round(voice + cueBonus), 0, 20);
+
+  // 알림장이 평가제처럼 딱딱한 문어체를 쓰면 감점(부모 친화도 저하).
+  let stiffPenalty = 0;
+  if (wantsWarm) {
+    const stiff = (text.match(/(하였다|되었다|보였다|필요가 있다|발달 양상|영역과 연결|관찰되었다)/g) || []).length;
+    if (stiff > 0) {
+      stiffPenalty = clamp(stiff * 2, 0, 8);
+      warnings.push('알림장이 평가제 문체처럼 딱딱합니다. 부모가 읽기 편한 어조로 바꿔 주세요.');
+    }
+  }
+  return clamp(Math.round(voice + cueBonus - stiffPenalty), 0, 20);
 }
 
 // ── 4) 부정 표현 순화/안전성 (15) ─────────────────────────────────
