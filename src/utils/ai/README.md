@@ -106,6 +106,15 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `composeEvaluation(...)`: 패턴 A(놀이 확장)/B(또래 상호작용)/C(어려움·소극 — 부드러운 사실 인정)/D(안전교육)로 핵심 소재·교사 지원·발달영역을 반영한 평가 문단 생성. 내부 라벨("놀이 흐름:" 등) 미사용, 발화 원문 보존, 입력에 없는 사실 추가 안 함.
     - `dailyReportEngine.js`/`evaluationEngine.js`가 이 composer를 사용(모듈러 경로, UI 미연결). 골든 입력 기준 보육일지 평가 평균 77.6 → 93.5.
 
+18. `documentEngines/noticeComposer.js` — 알림장(notice/parentMessage) 전용 조립기
+    - 부모 친화 패턴 A(긍정 참여)/B(교사지원 후 변화, 입력에 변화 있을 때만)/C(소극·거부·감정, 부드러운 사실 전달)/D(또래 갈등·조율). 발화 보존, 부정 사실 순화하되 삭제 안 함. 평균 86.6 → 97.0.
+
+19. `documentEngines/counselingDevelopmentComposer.js` — 상담자료(counseling)·발달평가(development) 전용 조립기
+    - `composeCounseling`: 관찰된 모습·교사 지원·가정 연계 방향을 부드럽고 전문적인 문체로. 단일 사건을 반복 성향처럼 과장하지 않음.
+    - `composeDevelopment`: 발달영역별 현재 모습·관찰 근거·지원 방향을 전문 문체로. 입력에 없는 발달 수준 추정 금지, '못한다/부족/늦다' 미사용.
+    - `consultDraftEngine.js`/`growthSummaryEngine.js`가 사용(원본 메모 덤프 제거). 상담 평균 95.7, 발달 평균 93.0.
+    - qualityScorer: counseling/development는 정중한 전문 문체(습니다)와 문어체(다.) 모두 인정, '못한다/부족/늦다/지연' 부정 단정 추가 감점.
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.

@@ -175,14 +175,22 @@ function scoreDocumentFit(text, documentType, warnings, suggestions) {
   const sentences = splitSentences(text);
   if (sentences.length === 0) return 0;
   const wantsWarm = documentType === 'notice';
+  // 상담·발달은 부모 전달 가능한 정중한 전문 문체(습니다)와 문어체(다.)를 모두 허용한다.
+  const politeProfessional = documentType === 'counseling' || documentType === 'development';
   const warmEnd = (s) => /(요|습니다|에요|예요|드립니다|주세요)[.!?]?$/.test(s);
   const formalEnd = (s) => /(다|이다)[.!?]?$/.test(s) && !warmEnd(s);
+  const politeEnd = (s) => /(습니다|니다)[.!?]?$/.test(s);
+  const accept = (s) => {
+    if (wantsWarm) return warmEnd(s);
+    if (politeProfessional) return formalEnd(s) || politeEnd(s);
+    return formalEnd(s);
+  };
 
-  const matched = sentences.filter((s) => (wantsWarm ? warmEnd(s) : formalEnd(s))).length;
+  const matched = sentences.filter(accept).length;
   let voice = (matched / sentences.length) * 14;
   if (matched < sentences.length) {
     if (wantsWarm) suggestions.push('알림장은 “~했어요/~습니다” 같은 부모 친화 존댓말로 써 주세요.');
-    else if (FORMAL_TYPES.has(documentType)) suggestions.push('관찰·보육·발달 문서는 “~하였다/~보였다” 문어체로 통일하세요.');
+    else if (FORMAL_TYPES.has(documentType)) suggestions.push('관찰·보육·발달 문서는 “~하였다/~보였다/~습니다” 전문 문체로 통일하세요.');
   }
 
   const cues = CUE_WORDS[documentType] || [];
@@ -206,7 +214,8 @@ function scoreDocumentFit(text, documentType, warnings, suggestions) {
 
 // ── 4) 부정 표현 순화/안전성 (15) ─────────────────────────────────
 const DIAGNOSIS_RE = /(ADHD|자폐|장애|지능|아이큐|IQ)/;
-function scoreSafety(text, warnings, suggestions) {
+const DEV_NEGATIVE_RE = /(못한다|못한|부족하|뒤처|발달이 늦|발달 지연|지연되|뒤떨어)/;
+function scoreSafety(text, documentType, warnings, suggestions) {
   let score = 15;
   const labels = countMatches(text, SUBJECTIVE_LABELS);
   const overstatements = countMatches(text, ABSOLUTE_OVERSTATEMENTS);
@@ -224,6 +233,12 @@ function scoreSafety(text, warnings, suggestions) {
   if (DIAGNOSIS_RE.test(text)) {
     score -= 8;
     warnings.push('진단성 표현이 포함되어 있습니다.');
+  }
+  // 상담·발달 문서에서 '못한다/부족/늦다/지연' 등 부정 단정은 추가 감점한다.
+  if ((documentType === 'counseling' || documentType === 'development') && DEV_NEGATIVE_RE.test(text)) {
+    score -= 5;
+    warnings.push('상담·발달 문서에 부정 단정 표현(못한다·부족·늦다 등)이 있습니다.');
+    suggestions.push('부정 단정 대신 성장 가능성과 지원 방향으로 바꿔 주세요.');
   }
   return clamp(Math.round(score), 0, 15);
 }
@@ -283,7 +298,7 @@ export function scoreText(text, { input = '', sourceText = '', documentType = 'o
     factPreservation: scoreFactPreservation(out, source, documentType, warnings, suggestions),
     naturalness: scoreNaturalness(out, warnings, suggestions),
     documentFit: scoreDocumentFit(out, documentType, warnings, suggestions),
-    safety: scoreSafety(out, warnings, suggestions),
+    safety: scoreSafety(out, documentType, warnings, suggestions),
     repetition: scoreRepetition(out, warnings, suggestions),
     curriculumFit: scoreCurriculumFit(out),
   };

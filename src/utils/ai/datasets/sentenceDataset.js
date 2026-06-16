@@ -527,7 +527,120 @@ const NOTICE_SENTENCES = NOTICE_GROUPS.flatMap((group) =>
   })),
 );
 
-export const SENTENCE_DATASET = [...BASE_SENTENCES, ...EVALUATION_SENTENCES, ...NOTICE_SENTENCES];
+// ─────────────────────────────────────────────────────────────────
+// 상담자료(counseling)·발달평가(development) 전용 문장 — 각 20개
+// 부정 단정·진단·발달 지연 표현을 쓰지 않고, 성장 가능성과 지원 방향을 함께 담는다.
+// ─────────────────────────────────────────────────────────────────
+const COUNSELING_GROUPS = [
+  {
+    key: 'peer', category: ['사회관계'], situation: ['또래관계'],
+    texts: [
+      '{childName}는 최근 또래와 어울리며 자신의 생각을 표현하는 모습을 보이고 있습니다. 가정에서도 친구와 어울릴 기회를 함께 마련해 주시면 좋겠습니다.',
+      '{childName}는 친구와 놀이하며 서로의 의견을 조율해 보는 경험을 이어 가고 있습니다. 원과 가정이 함께 격려하면 도움이 될 것으로 보입니다.',
+      '{childName}는 또래에게 먼저 다가가 관계를 맺으려는 모습을 보이고 있으며, 교사는 상호작용을 돕는 지원을 제공하고 있습니다.',
+      '{childName}는 함께 사용하는 놀이 상황에서 차례를 정해 보는 경험을 하고 있으며, 가정에서도 순서 지키기를 함께 연습해 주시면 좋겠습니다.',
+    ],
+  },
+  {
+    key: 'emotion', category: ['사회관계'], situation: ['정서'],
+    texts: [
+      '{childName}는 감정을 다양하게 표현해 보는 경험을 이어 가고 있으며, 교사의 공감 속에서 안정을 찾아 가고 있습니다.',
+      '{childName}는 속상한 마음이 들 때 교사에게 도움을 청하는 모습을 보이고 있습니다. 가정에서도 마음을 말로 읽어 주시면 좋겠습니다.',
+      '{childName}는 자신의 기분을 말과 표정으로 나타내 보는 경험을 하고 있으며, 원에서는 편안하게 표현할 수 있도록 지원하고 있습니다.',
+      '{childName}는 새로운 상황에서 안정감을 찾아 가는 과정에 있으며, 가정과 원이 함께 기다려 주면 도움이 될 것으로 보입니다.',
+    ],
+  },
+  {
+    key: 'habit', category: ['신체운동·건강'], situation: ['기본생활습관'],
+    texts: [
+      '{childName}는 일상생활에서 스스로 해 보려는 모습을 보이고 있으며, 가정에서도 스스로 할 기회를 주시면 좋겠습니다.',
+      '{childName}는 손 씻기와 정리 등 기본생활습관을 교사의 안내와 함께 실천해 가고 있습니다.',
+      '{childName}는 새로운 음식을 시도해 보는 경험을 이어 가고 있으며, 가정에서도 강요 없이 권해 주시면 좋겠습니다.',
+      '{childName}는 정해진 일과를 따르며 생활의 흐름을 익혀 가고 있습니다.',
+    ],
+  },
+  {
+    key: 'explore', category: ['자연탐구', '예술경험'], situation: ['탐구표현'],
+    texts: [
+      '{childName}는 주변에 관심을 가지고 탐색하는 모습을 보이고 있으며, 가정에서도 함께 살펴보는 경험을 마련해 주시면 좋겠습니다.',
+      '{childName}는 다양한 재료로 자신의 생각을 표현해 보는 경험을 이어 가고 있습니다.',
+      '{childName}는 궁금한 점을 질문하고 직접 확인해 보려는 모습을 보이고 있으며, 교사는 탐구를 돕는 지원을 제공하고 있습니다.',
+      '{childName}는 놀이 속에서 새로운 방법을 발견하며 경험을 넓혀 가고 있습니다.',
+    ],
+  },
+  {
+    key: 'adapt', category: ['사회관계'], situation: ['소극적응'],
+    texts: [
+      '{childName}는 새로운 활동을 충분히 살펴본 뒤 참여하는 모습을 보이고 있으며, 원에서는 편안하게 다가가도록 지원하고 있습니다.',
+      '{childName}는 익숙해진 뒤 또래와 어울리는 모습을 보이고 있으며, 가정에서도 천천히 기다려 주시면 좋겠습니다.',
+      '{childName}는 활동에 다가가는 데 시간이 필요한 모습이 있으나, 교사의 격려 속에서 점차 참여를 시도하고 있습니다.',
+      '{childName}는 안정감을 바탕으로 조금씩 참여를 넓혀 가고 있습니다.',
+    ],
+  },
+];
+
+const DEVELOPMENT_GROUPS = [
+  {
+    key: 'physical', category: ['신체운동·건강'], situation: ['신체발달'],
+    texts: [
+      '{childName}는 신체 활동에서 몸을 조절하며 균형을 잡는 발달 양상을 보이고 있습니다. 앞으로 다양한 신체 활동 기회를 제공할 필요가 있습니다.',
+      '{childName}는 소근육을 활용한 활동에서 도구를 다루는 능력이 자라는 모습을 보이고 있습니다.',
+      '신체운동·건강 영역에서 기본생활습관을 익혀 가는 모습이 나타나며, 교사의 안내를 통해 스스로 실천하는 경험을 하고 있습니다.',
+      '{childName}는 새로운 동작에 도전하며 운동 능력을 넓혀 가는 발달 경험을 하고 있습니다.',
+    ],
+  },
+  {
+    key: 'communication', category: ['의사소통'], situation: ['언어발달'],
+    texts: [
+      '{childName}는 자신의 생각을 말과 행동으로 표현하는 발달 양상을 보이고 있으며, 앞으로 풍부한 언어 경험을 제공할 필요가 있습니다.',
+      '의사소통 영역에서 궁금한 점을 질문하고 이야기를 나누는 모습이 나타나고 있습니다.',
+      '{childName}는 인물의 마음을 읽고 공감하여 표현하는 발달 경험을 하고 있습니다.',
+      '{childName}는 또래와 말로 생각을 주고받는 경험을 넓혀 가는 모습을 보이고 있습니다.',
+    ],
+  },
+  {
+    key: 'social', category: ['사회관계'], situation: ['사회성발달'],
+    texts: [
+      '{childName}는 또래와 어울리며 협력하는 발달 양상을 보이고 있으며, 앞으로 다양한 또래 경험을 제공할 필요가 있습니다.',
+      '사회관계 영역에서 자신의 감정을 인식하고 조절해 가는 모습이 나타나고 있습니다.',
+      '{childName}는 차례를 지키고 약속을 이해하는 발달 경험을 하고 있습니다.',
+      '{childName}는 친구의 마음을 살피고 배려하는 모습을 넓혀 가고 있습니다.',
+    ],
+  },
+  {
+    key: 'art', category: ['예술경험'], situation: ['예술발달'],
+    texts: [
+      '{childName}는 재료를 탐색하며 자신의 방식으로 표현하는 발달 양상을 보이고 있습니다.',
+      '예술경험 영역에서 색과 형태로 생각과 감정을 나타내는 모습이 나타나고 있습니다.',
+      '{childName}는 리듬에 맞추어 몸으로 표현하는 발달 경험을 하고 있습니다.',
+      '{childName}는 표현 활동에 몰입하며 창의적으로 시도하는 모습을 넓혀 가고 있습니다.',
+    ],
+  },
+  {
+    key: 'nature', category: ['자연탐구'], situation: ['탐구발달'],
+    texts: [
+      '{childName}는 대상을 관찰하고 특징을 발견하는 발달 양상을 보이고 있으며, 앞으로 탐구를 이어 갈 환경을 제공할 필요가 있습니다.',
+      '자연탐구 영역에서 수와 양에 관심을 가지고 비교하는 모습이 나타나고 있습니다.',
+      '{childName}는 물질의 변화를 탐색하며 원인과 결과에 관심을 가지는 발달 경험을 하고 있습니다.',
+      '{childName}는 호기심을 바탕으로 탐색을 넓혀 가는 모습을 보이고 있습니다.',
+    ],
+  },
+];
+
+const COUNSEL_DEV_SENTENCES = [
+  ...COUNSELING_GROUPS.flatMap((g) => g.texts.map((text, i) => ({
+    id: `counsel_${g.key}_${String(i + 1).padStart(2, '0')}`,
+    type: 'counseling', situation: g.situation, category: g.category, status: '상담',
+    ageGroup: ['만3세', '만4세', '만5세'], documentType: ['counseling'], tone: 'evaluative', riskLevel: 'safe', text,
+  }))),
+  ...DEVELOPMENT_GROUPS.flatMap((g) => g.texts.map((text, i) => ({
+    id: `develop_${g.key}_${String(i + 1).padStart(2, '0')}`,
+    type: 'development', situation: g.situation, category: g.category, status: '평가',
+    ageGroup: ['만3세', '만4세', '만5세'], documentType: ['development'], tone: 'evaluative', riskLevel: 'safe', text,
+  }))),
+];
+
+export const SENTENCE_DATASET = [...BASE_SENTENCES, ...EVALUATION_SENTENCES, ...NOTICE_SENTENCES, ...COUNSEL_DEV_SENTENCES];
 
 // ── 보조 인덱스/조회 헬퍼 ────────────────────────────────────────
 export const SENTENCE_TYPES = [

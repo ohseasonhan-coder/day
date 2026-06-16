@@ -4,6 +4,7 @@ import { GOLDEN_SAMPLES, GOLDEN_DOCUMENT_TYPES } from './ai/datasets/goldenSampl
 import { SENTENCE_DATASET, SENTENCE_TYPES, listBannedHits } from './ai/datasets/sentenceDataset';
 import { composeEvaluation, extractEvaluationElements } from './ai/documentEngines/evaluationComposer';
 import { composeNotice } from './ai/documentEngines/noticeComposer';
+import { composeCounseling, composeDevelopment } from './ai/documentEngines/counselingDevelopmentComposer';
 
 // 입력 메모에서 아이 이름(한글 2~3자 + 주격/주제 조사) 추출
 function nameFromInput(input) {
@@ -27,6 +28,14 @@ function evalFor(sample) {
 function noticeFor(sample) {
   const childName = nameFromInput(sample.input);
   return composeNotice({ childName, input: sample.input, categories: categoriesFor(sample, childName) });
+}
+function counselingFor(sample) {
+  const childName = nameFromInput(sample.input);
+  return composeCounseling({ childName, input: sample.input, categories: categoriesFor(sample, childName) });
+}
+function developmentFor(sample) {
+  const childName = nameFromInput(sample.input);
+  return composeDevelopment({ childName, input: sample.input, categories: categoriesFor(sample, childName) });
 }
 
 const INTERNAL_LABEL_RE = /놀이 흐름:|교사 지원:|발달영역:|평가:|소재:/;
@@ -98,6 +107,81 @@ describe('sentenceDataset 데이터셋', () => {
 
   test('알림장(notice) 전용 문장이 60개 이상 있다', () => {
     expect(SENTENCE_DATASET.filter((s) => s.documentType.includes('notice')).length).toBeGreaterThanOrEqual(60);
+  });
+
+  test('상담자료·발달평가 전용 문장이 각각 충분히 있다', () => {
+    expect(SENTENCE_DATASET.filter((s) => s.type === 'counseling').length).toBeGreaterThanOrEqual(30);
+    expect(SENTENCE_DATASET.filter((s) => s.type === 'development').length).toBeGreaterThanOrEqual(30);
+  });
+
+  test('상담·발달 문장에 부정 단정·진단 표현이 없다', () => {
+    SENTENCE_DATASET.filter((s) => s.type === 'counseling' || s.type === 'development').forEach((s) => {
+      expect(s.text).not.toMatch(/못한다|부족하|발달이 늦|지연|문제행동|산만|공격적|고집|ADHD|자폐/);
+    });
+  });
+});
+
+describe('상담자료·발달평가 composer', () => {
+  test('부정적 단정·진단·발달지연 표현을 생성하지 않는다', () => {
+    GOLDEN_SAMPLES.forEach((sample) => {
+      [counselingFor(sample), developmentFor(sample)].forEach((text) => {
+        expect(text).not.toMatch(/문제행동|산만|공격적|고집|발달이 늦|발달 지연|못한다|부족하|ADHD|자폐|장애/);
+        expect(text).not.toMatch(/놀이 흐름:|교사 지원:|발달영역:/);
+      });
+    });
+  });
+
+  test('상담자료는 교사 지원과 가정 연계 방향을 포함한다', () => {
+    GOLDEN_SAMPLES.forEach((sample) => {
+      const text = counselingFor(sample);
+      expect(text).toMatch(/교사/);
+      expect(text).toMatch(/가정|원에서|함께/);
+    });
+  });
+
+  test('발달평가는 발달영역과 지원 방향을 포함한다', () => {
+    GOLDEN_SAMPLES.forEach((sample) => {
+      const text = developmentFor(sample);
+      expect(text).toMatch(/신체운동·건강|의사소통|사회관계|예술경험|자연탐구/);
+      expect(text).toMatch(/지원|필요|돕|경험/);
+    });
+  });
+
+  test('실제 발화가 포함될 경우 원문 그대로 보존한다', () => {
+    const sample = GOLDEN_SAMPLES.find((s) => s.id === 'sample_coop_002');
+    expect(counselingFor(sample)).toContain('"여기는 내가 쌓을게"');
+  });
+});
+
+describe('상담자료·발달평가 품질 (composer 기반)', () => {
+  let cRows; let dRows;
+  beforeAll(() => {
+    cRows = GOLDEN_SAMPLES.map((s) => ({ id: s.id, r: scoreText(counselingFor(s), { input: s.input, documentType: 'counseling' }) }));
+    dRows = GOLDEN_SAMPLES.map((s) => ({ id: s.id, r: scoreText(developmentFor(s), { input: s.input, documentType: 'development' }) }));
+  });
+  const avg = (rows) => rows.reduce((a, x) => a + x.r.totalScore, 0) / rows.length;
+
+  test('상담자료 평균 90점 이상, 모든 샘플 85점 이상', () => {
+    expect(avg(cRows)).toBeGreaterThanOrEqual(90);
+    cRows.forEach((x) => expect(x.r.totalScore).toBeGreaterThanOrEqual(85));
+  });
+
+  test('발달평가 평균 90점 이상, 모든 샘플 85점 이상', () => {
+    expect(avg(dRows)).toBeGreaterThanOrEqual(90);
+    dRows.forEach((x) => expect(x.r.totalScore).toBeGreaterThanOrEqual(85));
+  });
+
+  test('품질 리포트: 상담·발달 평균과 90점 미만 샘플을 로그로 남긴다', () => {
+    const fmt = (rows, label) => {
+      const lines = [`[${label}] 평균 ${avg(rows).toFixed(1)}`];
+      rows.filter((x) => x.r.totalScore < 90).forEach((x) => {
+        lines.push(`  ${x.id}: ${x.r.totalScore}점 (${explainDeductions(x.r).map((d) => `${d.dimension}-${d.lost}`).join(', ')})`);
+      });
+      return lines.join('\n');
+    };
+    // eslint-disable-next-line no-console
+    console.log('\n===== 상담·발달(composer) 품질 리포트 =====\n' + fmt(cRows, 'counseling') + '\n' + fmt(dRows, 'development') + '\n');
+    expect(cRows.length).toBe(GOLDEN_SAMPLES.length);
   });
 });
 

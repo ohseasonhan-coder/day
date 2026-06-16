@@ -129,8 +129,11 @@ export function extractEvaluationElements({ childName, input, categories } = {})
   const difficulty = resolveDifficulty(text);
   const childResponse = parsed.changes[0] || '';
   const emotion = parsed.emotions[0] || '';
-  // 안전교육은 신체운동·건강(안전) 영역으로 본다.
-  const curriculumArea = isSafetyEducation ? '신체운동·건강' : resolveArea(text, categories);
+  // 안전교육은 신체운동·건강(안전), 정서·또래 어려움은 사회관계 영역으로 본다.
+  let curriculumArea;
+  if (isSafetyEducation) curriculumArea = '신체운동·건강';
+  else if (difficulty) curriculumArea = '사회관계';
+  else curriculumArea = resolveArea(text, categories);
   return {
     parsed,
     activity,

@@ -1,18 +1,16 @@
 import { makeReportStyleText } from '../qualityGuard';
+import { composeDevelopment } from './counselingDevelopmentComposer';
 
-const summarizeRecords = (records = []) =>
-  records
-    .map((record) => record.observation || record.rawText || record.parent || '')
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(' ');
-
+// 발달평가/성장요약은 입력 핵심 요소를 반영한 전문 발달평가 문장 composer로 생성한다.
+// 발달영역별 현재 모습·관찰 근거·지원 방향을 담되, 입력에 없는 발달 수준은 추정하지 않는다.
 export function createGrowthSummaryDraft({ childName, records = [], period, analysis } = {}) {
-  const name = childName || analysis?.parsedInput?.childName || '유아';
-  const recordCount = records.length;
-  const areas = analysis?.devAreas?.length ? analysis.devAreas.join(', ') : '놀이와 일상 경험';
-  const sample = summarizeRecords(records);
-  const text = `${name}는 ${period || '관찰 기간'} 동안 ${recordCount}건의 기록에서 ${areas}과 관련된 경험을 보였다. ${sample} 교사는 기록된 장면을 바탕으로 강점과 지원이 필요한 지점을 지속적으로 관찰한다.`;
-  return makeReportStyleText(text, { sourceText: sample });
+  const parsed = analysis?.parsedInput;
+  const input = parsed?.rawText || records.map((r) => r.observation || r.rawText).filter(Boolean)[0] || '';
+  const composed = composeDevelopment({
+    childName: childName || parsed?.childName,
+    input,
+    categories: analysis?.categories,
+    curriculum: analysis?.curriculum,
+  });
+  return makeReportStyleText(composed, { sourceText: input });
 }
-

@@ -1,17 +1,16 @@
 import { makeWarmNoticeText } from '../qualityGuard';
+import { composeCounseling } from './counselingDevelopmentComposer';
 
-const summarizeRecords = (records = []) =>
-  records
-    .map((record) => record.parent || record.observation || record.rawText || '')
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(' ');
-
+// 상담자료는 입력 핵심 요소를 반영한 전문 상담 문장 composer로 생성한다.
+// (원본 메모를 그대로 붙여넣지 않고, 부드럽고 전문적인 문체로 풀어낸다)
 export function createConsultDraft({ childName, records = [], analysis } = {}) {
-  const name = childName || analysis?.parsedInput?.childName || '유아';
-  const areas = analysis?.devAreas?.length ? analysis.devAreas.join(', ') : '일상생활과 놀이';
-  const sample = summarizeRecords(records);
-  const text = `${name}의 최근 기록을 보면 ${areas}에서 관찰된 모습이 있습니다. ${sample} 상담에서는 가정에서의 모습과 원에서의 지원 방향을 함께 나누면 좋겠습니다.`;
-  return makeWarmNoticeText(text, { sourceText: sample });
+  const parsed = analysis?.parsedInput;
+  const input = parsed?.rawText || records.map((r) => r.rawText || r.observation).filter(Boolean)[0] || '';
+  const composed = composeCounseling({
+    childName: childName || parsed?.childName,
+    input,
+    categories: analysis?.categories,
+    curriculum: analysis?.curriculum,
+  });
+  return makeWarmNoticeText(composed, { sourceText: input });
 }
-
