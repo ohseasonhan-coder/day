@@ -101,6 +101,11 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `datasets/sentenceDataset.js`: 150+ tag-based sentence fragments (`type`, `category`, `situation`, `documentType`, `status`, `ageGroup`, `tone`, `riskLevel`). Covers situation/behavior/support/evaluation/parent/counseling/development/homeLink/closing/softening.
     - `ai.golden.test.js`: validates golden samples score high, distorted output scores low, dataset integrity, and prints a current-engine quality regression report.
 
+17. `documentEngines/evaluationComposer.js` — 보육일지 평가(evaluation/dailyReport) 전용 문장 조립기
+    - `extractEvaluationElements({ input, categories })`: 입력에서 activity·materials·peerInteraction·teacherSupport·childResponse·safetySupport·emotion·difficulty·curriculumArea 추출.
+    - `composeEvaluation(...)`: 패턴 A(놀이 확장)/B(또래 상호작용)/C(어려움·소극 — 부드러운 사실 인정)/D(안전교육)로 핵심 소재·교사 지원·발달영역을 반영한 평가 문단 생성. 내부 라벨("놀이 흐름:" 등) 미사용, 발화 원문 보존, 입력에 없는 사실 추가 안 함.
+    - `dailyReportEngine.js`/`evaluationEngine.js`가 이 composer를 사용(모듈러 경로, UI 미연결). 골든 입력 기준 보육일지 평가 평균 77.6 → 93.5.
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.

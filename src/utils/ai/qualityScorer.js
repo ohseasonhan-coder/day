@@ -245,14 +245,21 @@ function scoreRepetition(text, warnings, suggestions) {
 }
 
 // ── 6) 발달영역/교사 지원 적합성 (5) ──────────────────────────────
-const SUPPORT_RE = /(교사|기관|가정)\S*\s*\S*(지원|안내|제안|도와|도움|격려|함께|알려|중재|기다)/;
+const SUPPORT_AGENT_RE = /(교사|기관|가정)/;
+const SUPPORT_ACTION_RE = /(지원|안내|제안|도와|도움|격려|중재|기다|읽어|토닥|권유|지지|함께|알려|마련|확보|제공|이어지도록|이어질 수 있도록|할 수 있도록)/;
 // 보육과정 영역·경험과 연결되는 핵심어 (관찰·평가·전달 문장에 두루 쓰임)
 const CURRICULUM_KEYWORDS = /(놀이|탐구|표현|상호작용|조절|관찰|활동|약속|경험|감정|습관|안전|도전|협력|배려|자립|질문|규칙|균형|관심|수|색|역할)/;
 function scoreCurriculumFit(text) {
   let score = 0;
   if (includesAny(text, CURRICULUM_AREAS) || CURRICULUM_KEYWORDS.test(text)) score += 3;
-  if (SUPPORT_RE.test(text)) score += 2;
+  if (detectsTeacherSupport(text)) score += 2;
   return clamp(score, 0, 5);
+}
+
+// 교사 지원 문장 감지 (유연한 표현 포함). 테스트·진단용으로 공개한다.
+export function detectsTeacherSupport(text) {
+  const value = String(text || '');
+  return SUPPORT_AGENT_RE.test(value) && SUPPORT_ACTION_RE.test(value);
 }
 
 // ── 메인 ──────────────────────────────────────────────────────────

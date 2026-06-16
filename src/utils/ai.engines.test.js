@@ -34,15 +34,19 @@ test('알림장은 부드럽게 작성된다', () => {
   expect(notice).not.toMatch(/문제행동|낙인|발달이 늦/);
 });
 
-test('보육일지는 놀이 흐름과 교사 지원을 포함한다', () => {
+test('보육일지는 내부 라벨 없이 놀이 소재와 교사 지원을 자연스럽게 포함한다', () => {
   const analysis = analyzeRecordInput(sample);
   const daily = createDailyReport({
     parsedInput: analysis.parsedInput,
     categories: analysis.categories,
     curriculum: analysis.curriculum,
   });
-  expect(daily).toContain('놀이 흐름');
-  expect(daily).toContain('교사 지원');
+  // 내부 라벨이 최종 출력에 남지 않는다.
+  expect(daily).not.toMatch(/놀이 흐름:|교사 지원:|발달영역:|평가:|소재:/);
+  // 입력 핵심 소재(블록)와 교사 지원이 반영된다.
+  expect(daily).toContain('블록');
+  expect(daily).toMatch(/교사/);
+  expect(daily).toMatch(/경험|놀이|지원/);
 });
 
 test('부모 안내문, 지원계획, 평가는 새 엔진 초안으로 생성된다', () => {

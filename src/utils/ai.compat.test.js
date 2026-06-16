@@ -49,7 +49,9 @@ test('기존 보육일지 생성 함수도 계속 사용할 수 있다', async (
   });
   expect(result.playFlow).toBeTruthy();
   expect(result.teacherSupport).toBeTruthy();
-  expect(result.modularDraft).toContain('놀이 흐름');
+  // 보육일지 모듈 초안은 내부 라벨 없이 놀이·교사 지원 내용을 담는다.
+  expect(result.modularDraft).not.toMatch(/놀이 흐름:|교사 지원:|발달영역:/);
+  expect(result.modularDraft).toMatch(/경험|놀이|지원/);
   expect(result.aiAnalysis.primaryCategory).toBeTruthy();
 });
 
