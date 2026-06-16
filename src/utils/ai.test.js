@@ -143,10 +143,21 @@ describe('과거 버그 회귀 방지', () => {
     expect(r.observation).toContain('동화책');
   });
 
-  test('짧은 입력은 맥락 프레임으로 보완된다', async () => {
+  test('짧은 입력은 주어를 보강해 완결된 문장이 된다', async () => {
     const r = await run('그림 그렸어요', '지우');
-    // 짧은 입력엔 프레임(예술 활동에서)이 붙어 완결된 문장이 됨
-    expect(r.observation).toMatch(/활동|상황|중|에서/);
+    // 관찰일지는 입력을 충실히 문어체로 변환 (가짜 프레임 없이 주어 보강)
+    expect(r.observation).toContain('지우');
+    expect(r.observation).toMatch(/그렸다|그림/);
+    expect(r.observation).toMatch(/다[.!]?$/);
+  });
+
+  test('관찰일지는 거부·비참여 사실을 왜곡하지 않는다', async () => {
+    const r = await run('하준이는 활동에 참여하지 않았으며 교사가 물어도 대답을 하지 않음.', '하준');
+    // 참여하지 않은 사실이 '참여했다'로 바뀌면 안 됨
+    expect(r.observation).toMatch(/참여하지 않/);
+    expect(r.observation).not.toMatch(/적극적으로 참여|참여하였다\.?\s*$/);
+    // 평가가 '표현 시도가 늘었다'처럼 사실과 반대로 가면 안 됨
+    expect(r.evaluation).not.toMatch(/표현하려는 시도가 늘/);
   });
 
   test('목적격 조사(을/를)가 빠진 짧은 표현을 보정한다', async () => {

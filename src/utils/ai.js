@@ -6,7 +6,7 @@ import {
   generateSentences,
   detectCategoryFromText,
 } from './sentenceLibrary';
-import { matchCurriculumBest, ageKeyForClassAge, curriculumNameForAge } from './standardCurriculum';
+import { matchCurriculumBest, matchCurriculumItem, ageKeyForClassAge, curriculumNameForAge } from './standardCurriculum';
 
 export const RECORD_QUALITY_SAMPLES = [
   { category: '또래관계', text: '하준이/가 또래와의 놀이 상황에서 친구와 캠핑놀이를 하며 순서를 잘기다린다.' },
@@ -943,6 +943,50 @@ function observationDetail(text, limit = 110) {
     .replace(/기다렸다$/u, '기다리는 모습이 관찰되었다');
 }
 
+// 명사형·구어체 종결을 문어체 과거 서술로 (전체 일화기록 변환용)
+const NARRATIVE_RULES = [
+  [/해\s*버림(?=[\s.,!?"]|$)/g, '하였다'],
+  [/([가-힣])아\s*버림(?=[\s.,!?"]|$)/g, '$1았다'],
+  [/([가-힣])어\s*버림(?=[\s.,!?"]|$)/g, '$1었다'],
+  [/([가-힣])줌(?=[\s.,!?"]|$)/g, '$1주었다'],
+  [/이야기를\s*함(?=[\s.,!?"]|$)/g, '이야기하였다'],
+  [/제안을\s*함(?=[\s.,!?"]|$)/g, '제안하였다'],
+  [/따라\s*함(?=[\s.,!?"]|$)/g, '따라 하였다'],
+  [/하지\s*않음(?=[\s.,!?"]|$)/g, '하지 않았다'],
+  [/않음(?=[\s.,!?"]|$)/g, '않았다'],
+  [/함(?=[\s.,!?"]|$)/g, '하였다'],
+  [/했음(?=[\s.,!?"]|$)/g, '하였다'],
+  [/([가-힣])됨(?=[\s.,!?"]|$)/g, '$1되었다'],
+  // 해요체 잔여 정리
+  [/했어요(?=[\s.,!?"]|$)/g, '하였다'],
+  // 관찰일지 표준 용어
+  [/선생님/g, '교사'],
+];
+
+// 관찰일지 = 입력 전체를 문어체 일화기록으로 (자르지 않음, 가짜 프레임 없음 — 사실 충실도 최우선)
+function buildFaithfulObservation(name, normalizedText) {
+  let t = String(normalizedText || '');
+  // 종결 변환은 따옴표 밖에서만 (아이·교사 발화는 원문 보존)
+  t = applyOutsideQuotes(t, NARRATIVE_RULES.map(([pattern, replace]) => ({ pattern, replace })));
+  // 런온 문장 분리도 따옴표 밖에서만: '~였다 친구가' → '~였다. 친구가'
+  t = applyOutsideQuotes(t, [{ pattern: /([았었였])다\s+(?=[가-힣"“])/g, replace: '$1다. ' }]);
+  t = t.replace(/\s+/g, ' ').replace(/\s+([,.!?])/g, '$1').replace(/([.!?])\1+/g, '$1').trim();
+  // 인용부호 앞 공백 정리: '싶어요? "라고' → '싶어요?"라고'
+  t = t.replace(/([?!.])\s+"(\s*)(라고|하며|라며|라는|하고|하면서|이라고)/g, '$1"$3');
+  if (!t) return '';
+
+  const bare = String(name || '').trim();
+  const hasName = bare && t.includes(bare);
+  const isFullNarrative = t.length > 24 || /친구|또래|교사|선생/.test(t);
+  if (!hasName && !isFullNarrative) {
+    t = `${subject(name)} ${stripLeadingName(t, name)}`.replace(/\s+/g, ' ').trim();
+  }
+
+  // 마지막에 종결부호가 없으면 마침표 추가
+  if (!/[.!?]["”']?$/.test(t)) t += '.';
+  return t;
+}
+
 // 각 장면 규칙의 중립적 맥락 프레임 — 원문에 없는 결론·해석 추가 금지
 const SCENE_FRAMES = {
   peerWait: '또래와의 놀이 중', peerConflict: '또래와의 놀이 중',
@@ -1035,6 +1079,26 @@ function includesAny(text, words) {
   return words.some(word => text.includes(word));
 }
 
+// 장면 → 주 발달영역 (발달영역·근거가 장면과 어긋나지 않도록 정렬에 사용)
+const SCENE_PRIMARY_AREA = {
+  withdrawal: '사회관계', emotion: '사회관계', peerWait: '사회관계', peerConflict: '사회관계',
+  empathyComfort: '사회관계', cooperativePlan: '사회관계', sharingOwnership: '사회관계',
+  leadership: '사회관계', ruleGame: '사회관계', waitingLine: '사회관계', repairApology: '사회관계',
+  observationToParticipation: '사회관계', boundaryRule: '사회관계',
+  speech: '의사소통', bookLiteracy: '의사소통', listeningTurn: '의사소통',
+  pronunciationVocabulary: '의사소통', nonverbalExpression: '의사소통', memoryRecall: '의사소통', truthRetell: '의사소통',
+  grossMotor: '신체운동·건강', fineMotor: '신체운동·건강', selfHelp: '신체운동·건강', meal: '신체운동·건강',
+  nap: '신체운동·건강', toilet: '신체운동·건강', hygiene: '신체운동·건강', dressing: '신체운동·건강',
+  safety: '신체운동·건강', healthCondition: '신체운동·건강', cleanupResponsibility: '신체운동·건강',
+  foodUtensil: '신체운동·건강', minorInjuryCare: '신체운동·건강', fatigueRest: '신체운동·건강',
+  trafficSafety: '신체운동·건강', emergencyDrill: '신체운동·건강', medicationCare: '신체운동·건강',
+  artExpression: '예술경험', creativeMake: '예술경험', musicMovement: '예술경험',
+  roleVoiceDrama: '예술경험', pretendStory: '예술경험', rolePlay: '예술경험',
+  natureExplore: '자연탐구', mathPattern: '자연탐구', scienceExperiment: '자연탐구',
+  sensoryExplore: '자연탐구', constructPlay: '자연탐구', measurementCompare: '자연탐구',
+  weatherSeason: '자연탐구', textureMessyPlay: '자연탐구', sensorySensitivity: '자연탐구',
+};
+
 const SCENE_RULES = [
   {
     id: 'peerWait',
@@ -1056,7 +1120,7 @@ const SCENE_RULES = [
   },
   {
     id: 'speech',
-    keywords: ['말했', '말하', '말로', '말을', '이야기', '질문', '대답', '나도', '할래', '요청', '거절', '라고'],
+    keywords: ['말했', '말하', '말로', '말을', '이야기를 하', '질문', '요청', '거절', '설명하', '표현하려'],
     parent: (s) => `${s} 자신의 생각과 요구를 말로 표현하려는 모습이 늘고 있습니다. 원에서는 아이의 말을 충분히 기다려 주며 짧은 문장으로 표현해볼 수 있도록 돕고 있습니다.`,
     support: '아이의 표현을 충분히 기다린 뒤 짧은 문장으로 확장해 들려주고, 또래와 교사에게 자신의 생각을 말해볼 기회를 자주 제공한다.',
   },
@@ -1098,7 +1162,7 @@ const SCENE_RULES = [
   },
   {
     id: 'grossMotor',
-    keywords: ['달리', '뛰', '점프', '계단', '공', '균형', '미끄럼틀', '그네', '바깥놀이', '장애물'],
+    keywords: ['달리', '뛰', '점프', '계단', '공', '균형', '미끄럼틀', '그네', '바깥놀이', '장애물', '미끄러지', '스케이트', '발을 밀', '발로 바닥', '몸을 움직', '기어', '굴러'],
     parent: (s) => `${s} 신체 활동에 참여하며 몸을 조절하는 경험을 하고 있습니다. 움직임 속에서 균형감과 자신감을 키워가고 있으며, 안전한 방법을 함께 익히고 있어요.`,
     support: '충분히 움직일 수 있는 놀이 환경을 제공하되, 안전한 이동 방법과 차례 지키기를 함께 안내한다.',
   },
@@ -1374,9 +1438,11 @@ SCENE_RULES.push(
   },
   {
     id: 'withdrawal',
-    keywords: ['혼자 있고 싶', '함께하고 싶지', '친구를 피', '안 끼워', '소외', '말을 너무 안', '입을 닫'],
-    parent: (s) => `${s} 또래와의 관계에서 자신에게 편안한 거리와 방식을 찾아가고 있습니다. 혼자 놀이하거나 조심스럽게 관찰하는 시간도 있으며, 안정감을 느낄 때 자연스럽게 참여하는 모습이 나타날 수 있어요.`,
-    support: '무리하게 참여를 요구하기보다 가까운 곳에서 관찰할 수 있는 자리를 마련하고, 소규모 놀이부터 자연스럽게 연결한다.',
+    keywords: ['혼자 있고 싶', '함께하고 싶지', '친구를 피', '안 끼워', '소외', '입을 닫', '입을 꾹',
+      '참여하지 않', '참여하기 싫', '참여를 거부', '안하고 싶', '안 하고 싶', '하기 싫',
+      '대답을 하지 않', '대답하지 않', '대답이 없', '고개를 돌리', '시선을 피', '눈을 피', '눈이 피', '반응을 보이지 않', '반응이 없'],
+    parent: (s) => `${s} 활동이나 또래와의 관계에서 자신에게 편안한 거리와 방식을 찾아가고 있습니다. 원하지 않을 때는 참여를 망설이거나 조심스럽게 관찰하는 모습도 있으며, 마음이 편안해질 때 자연스럽게 참여하는 모습이 나타날 수 있어요.`,
+    support: '참여를 강요하기보다 아이의 감정을 먼저 수용하고, "지금은 쉬고 싶구나", "준비되면 함께 해볼까?"처럼 선택의 기회를 제공한다. 소규모 활동부터 부담 없이 참여 경험을 늘려간다.',
   },
   {
     id: 'problemSolving',
@@ -1560,6 +1626,7 @@ const EVALUATION_BY_SCENE = {
   healthCondition: '자신의 몸 상태를 살피고 표현하는 과정에서 건강을 인식하는 태도가 형성되고 있다',
   problemSolving: '어려움을 스스로 해결해보려는 과정에서 사고력과 끈기가 함께 자라고 있다',
   leadership: '놀이를 이끌고 제안하는 경험을 통해 자발성과 주도성이 발달하고 있다',
+  withdrawal: '원하지 않는 상황에서 언어보다 비언어적 행동으로 거부 의사를 나타내는 모습을 보였다. 감정을 존중받는 경험 속에서 자신의 생각을 편안하게 표현하고 점차 활동에 참여할 수 있도록 지속적인 지원이 필요하다',
   safety: '안전한 놀이 방법을 익히는 과정에서 자신과 또래를 보호하는 태도가 자라고 있다',
   arrival: '등원과 전이 상황에 적응해가며 정서적 안정감과 소속감이 형성되고 있다',
   sensoryExplore: '여러 감각으로 주변을 탐색하며 감각 변별력과 호기심이 발달하고 있다',
@@ -1921,10 +1988,14 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
   const name = childName || '아동';
   const normalizedText = normalizeRecordText(rawText);
   const category = detectCategory(normalizedText);
-  const devAreas = detectDevAreas(normalizedText);
 
   // 핵심 장면 한 번 추출 → 관찰일지·부모상담·지원계획 세 곳이 동일 장면을 바라봄
   const sceneRule = findSceneRule(normalizedText);
+
+  // 발달영역은 장면의 주영역을 앞세워 정렬 (따옴표 속 '말/이야기'로 의사소통이 잘못 1순위가 되는 문제 방지)
+  let devAreas = detectDevAreas(normalizedText);
+  const sceneArea = sceneRule && SCENE_PRIMARY_AREA[sceneRule.id];
+  if (sceneArea) devAreas = [sceneArea, ...devAreas.filter(a => a !== sceneArea)];
 
   const tags = extractTags(normalizedText, category, sceneRule);
   const softened = softenText(normalizedText);
@@ -1952,18 +2023,23 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
     count: 5,
   });
 
-  const fallbackDetail = observationDetail(stripLeadingName(normalizedText, name));
-  const fallbackFrame = /^[가-힣]{1,8}(에서|에)\s/u.test(fallbackDetail) ? '' : `${CAT_FRAME[category] || '활동 중'} `;
-  const observation =
-    makeSceneObservation(name, normalizedText, sceneRule) ||
-    finishSentence(`${subject(name)} ${fallbackFrame}${fallbackDetail}`);
+  // 관찰일지 = 입력 전체를 문어체 일화기록으로 충실히 변환 (자르거나 가짜 프레임 붙이지 않음)
+  const observation = buildFaithfulObservation(name, normalizedText)
+    || finishSentence(`${subject(name)} ${observationDetail(stripLeadingName(normalizedText, name))}`);
   const evaluation = makeEvaluation(name, category, devAreas, normalizedText, sceneRule);
   const parent = makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name);
   const support = makeSupportPlan(category, normalizedText, sceneRule);
 
   // 표준보육과정(2024 개정) 자동 매칭 — 기록 내용과 겹치는 공식 '내용'을 평가 근거로 첨부
   const ageKey = ageKeyForClassAge(classAge);
-  const curriculumBasis = matchCurriculumBest(normalizedText, ageKey, devAreas);
+  // 근거는 장면의 주영역 안에서만 매칭 — 틀린 영역(따옴표 속 '말/이야기' 등) 교차 매칭 차단
+  // 거부·비참여 장면에서는 '자발적 참여' 같은 모순된 근거가 붙지 않도록 생략
+  let curriculumBasis = null;
+  if (sceneRule?.id !== 'withdrawal') {
+    curriculumBasis = sceneArea
+      ? matchCurriculumItem(normalizedText, sceneArea, ageKey)
+      : matchCurriculumBest(normalizedText, ageKey, devAreas);
+  }
   if (curriculumBasis) curriculumBasis.source = curriculumNameForAge(ageKey); // '누리과정' | '표준보육과정'
 
   return {
