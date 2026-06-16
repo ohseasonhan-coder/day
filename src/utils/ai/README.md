@@ -112,7 +112,8 @@ Do not remove legacy fields unless every consuming screen has migrated.
 19. `documentEngines/counselingDevelopmentComposer.js` — 상담자료(counseling)·발달평가(development) 전용 조립기
     - `composeCounseling`: 관찰된 모습·교사 지원·가정 연계 방향을 부드럽고 전문적인 문체로. 단일 사건을 반복 성향처럼 과장하지 않음.
     - `composeDevelopment`: 발달영역별 현재 모습·관찰 근거·지원 방향을 전문 문체로. 입력에 없는 발달 수준 추정 금지, '못한다/부족/늦다' 미사용.
-    - `consultDraftEngine.js`/`growthSummaryEngine.js`가 사용(원본 메모 덤프 제거). 상담 평균 95.7, 발달 평균 93.0.
+    - `consultDraftEngine.js`/`growthSummaryEngine.js`가 사용(원본 메모 덤프 제거). 상담 평균 95.7, 발달 평균 95.9.
+    - `composeDevelopment`는 활동+소재를 결합한 근거 맥락과 관찰 행동·발화를 반영(패턴 A/B/C)하여 factPreservation·documentFit을 높였다.
     - qualityScorer: counseling/development는 정중한 전문 문체(습니다)와 문어체(다.) 모두 인정, '못한다/부족/늦다/지연' 부정 단정 추가 감점.
 
 ## Safety Rules

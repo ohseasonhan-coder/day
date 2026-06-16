@@ -94,6 +94,21 @@ export function composeCounseling({ childName, input, categories, curriculum } =
   return body.replace(/\s+/g, ' ').trim();
 }
 
+// 입력의 활동·소재를 결합해 근거 있는 맥락을 만든다.
+function groundedContext(el) {
+  const mat = el.materials.length ? materialPhrase(el) : '';
+  if (el.activity && mat) return `${el.activity} 중 ${eul(mat)} 활용한 놀이`;
+  if (mat) return `${eul(mat)} 활용한 놀이`;
+  if (el.activity) return el.activity;
+  return '놀이';
+}
+// 관찰된 행동을 입력 신호(또래·발화·영역)에 맞춰 구체화한다.
+function observedActionPhrase(el) {
+  if (el.peerInteraction) return '또래와 함께 어울리며 생각을 나누는 모습';
+  if (el.speeches[0] || el.curriculumArea === '의사소통') return '자신의 생각을 말과 행동으로 표현하는 모습';
+  return OBSERVED_BY_AREA[el.curriculumArea] || '관심 있게 참여하는 모습';
+}
+
 // ── 발달평가 ──────────────────────────────────────────────────────
 export function composeDevelopment({ childName, input, categories, curriculum } = {}) {
   const el = extractEvaluationElements({ childName, input, categories });
@@ -101,20 +116,30 @@ export function composeDevelopment({ childName, input, categories, curriculum } 
   const name = nameOf(el);
   const supportNoun = el.teacherSupport ? el.teacherSupport.noun : '안내와 지원';
   const dir = SUPPORT_DIRECTION_BY_AREA[el.curriculumArea] || '다양한 경험 기회';
+  const grounded = groundedContext(el);
+  const observed = observedActionPhrase(el);
+  const grow = GROWTH_TRY_BY_AREA[el.curriculumArea] || '경험을 넓혀 가는';
 
   let body;
   if (el.difficulty) {
+    // 패턴 C — 어려움을 단정하지 않고 '지원이 필요한 모습'으로 표현
     const d = el.difficulty;
     body = [
-      `${el.curriculumArea} 영역 측면에서 ${eul(d.look)} 살펴볼 수 있었으며, ${context(el)} 속에서 아이의 시도와 반응을 확인할 수 있었습니다.`,
-      `이후에도 ${eul(d.direction)} 통해 발달 경험을 확장해 갈 수 있도록 돕겠습니다.`,
+      `${el.curriculumArea} 영역 측면에서 ${grounded} 과정에서 ${eul(d.look)} 살펴볼 수 있었으며, 교사의 지원과 함께 아이의 시도와 반응을 확인할 수 있었습니다.`,
+      `이후에도 ${eul(d.direction)} 통해 안정적으로 참여하고 표현하는 발달 경험을 확장해 갈 수 있도록 돕겠습니다.`,
+    ].join(' ');
+  } else if (el.childResponse) {
+    // 패턴 B — 입력 근거 행동 + 아이의 반응 확인
+    body = [
+      `${el.curriculumArea} 영역 측면에서 ${eul(observed)} 관찰할 수 있었으며, ${grounded} 과정에서 아이가 스스로 시도하고 반응하는 모습을 확인할 수 있었습니다.`,
+      `이후에도 ${eul(dir)} 통해 발달 경험을 확장해 갈 수 있도록 돕겠습니다.`,
     ].join(' ');
   } else {
-    const observed = OBSERVED_BY_AREA[el.curriculumArea] || '관심 있게 참여하는 모습';
-    const grow = GROWTH_TRY_BY_AREA[el.curriculumArea] || '경험을 넓혀 가는';
+    // 패턴 A — 관찰된 행동 + 발달영역 + 교사 지원 + 지원 방향
+    const speech = el.speeches[0] ? ` 놀이 과정에서 "${el.speeches[0]}"라고 표현하기도 하였습니다.` : '';
     body = [
-      `${neun(name)} ${context(el)}에서 ${eul(observed)} 보이며 ${el.curriculumArea} 영역과 관련된 발달 경험을 하고 있습니다.`,
-      `교사의 ${supportNoun} 속에서 ${grow} 모습이 나타나며, 앞으로 ${eul(dir)} 제공할 필요가 있습니다.`,
+      `${neun(name)} ${grounded}에서 ${eul(observed)} 보이며 ${el.curriculumArea} 영역과 관련된 발달 경험을 하고 있습니다.${speech}`,
+      `교사의 ${supportNoun} 속에서 ${grow} 모습이 나타났으며, 앞으로 ${eul(dir)} 제공하여 발달 능력을 넓혀 갈 수 있도록 지원할 필요가 있습니다.`,
     ].join(' ');
   }
 
