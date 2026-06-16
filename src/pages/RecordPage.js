@@ -1929,7 +1929,7 @@ function CurriculumBasisCard({ basis }) {
   return (
     <div style={{ background: '#F0F7FF', border: '1px solid #BBD6FF', borderRadius: 15, padding: '13px 16px', marginBottom: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 900, color: '#2F5FE0', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-        📚 표준보육과정 근거
+        📚 {basis.source || '표준보육과정'} 근거
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>
         {basis.area} · {basis.category}

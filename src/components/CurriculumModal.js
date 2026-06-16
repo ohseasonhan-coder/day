@@ -46,8 +46,8 @@ export default function CurriculumModal({ isOpen, onClose, onInsert, defaultAgeK
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <BookOpen size={18} color="var(--primary)" />
             <div>
-              <div style={{ fontSize: 15, fontWeight: 900 }}>표준보육과정 참고</div>
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>2024 개정 · 영역별 목표와 내용</div>
+              <div style={{ fontSize: 15, fontWeight: 900 }}>{ageKey === 'age35' ? '누리과정' : '표준보육과정'} 참고</div>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{ageKey === 'age35' ? '2019 개정 누리과정' : '2024 개정 표준보육과정'} · 영역별 목표와 내용</div>
             </div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>

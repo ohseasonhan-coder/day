@@ -150,6 +150,11 @@ export function ageKeyForClassAge(classAge) {
   return 'age35';
 }
 
+// 연령대에 맞는 과정 명칭 — 0~2세는 표준보육과정, 3~5세는 누리과정
+export function curriculumNameForAge(ageKey) {
+  return ageKey === 'age35' ? '누리과정' : '표준보육과정';
+}
+
 // 표준보육과정 → 발달 체크리스트(영아반)용 영역·항목 구조로 변환.
 // ChecklistPage의 areas 형식과 호환: { 영역키: [{ id, text, category, devArea }] }
 const CHECK_AREA_KEY = {
