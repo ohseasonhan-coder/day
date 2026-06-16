@@ -104,8 +104,9 @@ function groundedContext(el) {
 }
 // 관찰된 행동을 입력 신호(또래·발화·영역)에 맞춰 구체화한다.
 function observedActionPhrase(el) {
-  if (el.peerInteraction) return '또래와 함께 어울리며 생각을 나누는 모습';
-  if (el.speeches[0] || el.curriculumArea === '의사소통') return '자신의 생각을 말과 행동으로 표현하는 모습';
+  // 실제 협력이 있을 때만 또래 중심으로 서술하고, 단순 언급이면 활동·영역 중심으로 서술한다.
+  if (el.peerCollaboration) return '또래와 함께 어울리며 생각을 나누는 모습';
+  if (el.curriculumArea === '의사소통') return '자신의 생각을 말과 행동으로 표현하는 모습';
   return OBSERVED_BY_AREA[el.curriculumArea] || '관심 있게 참여하는 모습';
 }
 

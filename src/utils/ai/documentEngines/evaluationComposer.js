@@ -75,7 +75,7 @@ const AREA_BY_MATERIAL = [
   { re: /(역할놀이|병원놀이|친구|또래|차례|양보|규칙)/, area: '사회관계' },
 ];
 const ACTION_BY_AREA = {
-  '신체운동·건강': '몸을 움직이며 조절', 예술경험: '재료를 탐색하며 표현', 자연탐구: '관찰하고 탐색',
+  '신체운동·건강': '몸을 움직이며 조절', 예술경험: '재료를 탐색하고 표현', 자연탐구: '관찰하고 탐색',
   의사소통: '생각을 말로 표현', 사회관계: '또래와 어울리며 놀이',
 };
 
@@ -125,6 +125,8 @@ export function extractEvaluationElements({ childName, input, categories } = {})
   const safetyTerm = findFirst(text, SAFETY_TERMS);
   const isSafetyEducation = SAFETY_ACTIVITIES.includes(activity) || /(소방대피|대피훈련|안전교육|교통안전)/.test(text);
   const peerInteraction = parsed.peerInteraction.length > 0 || /(친구|또래|함께|같이)/.test(text);
+  // 단순 또래 '언급'과 실제 '협력'을 구분한다(끝에 소개·인사만 한 경우는 협력이 아님).
+  const peerCollaboration = /(함께|같이|협력|나눠|나누어|번갈아|역할을 나|서로)/.test(text);
   const teacherSupport = resolveSupport(text);
   const difficulty = resolveDifficulty(text);
   const childResponse = parsed.changes[0] || '';
@@ -139,6 +141,7 @@ export function extractEvaluationElements({ childName, input, categories } = {})
     activity,
     materials,
     peerInteraction,
+    peerCollaboration,
     teacherSupport,
     childResponse,
     safetySupport: safetyTerm || (isSafetyEducation ? '안전 약속' : ''),
@@ -215,7 +218,7 @@ export function composeEvaluation({ childName, input, categories, curriculum } =
   let body;
   if (el.difficulty) body = patternDifficulty(el);
   else if (el.isSafetyEducation) body = patternSafetyEducation(el);
-  else if (el.peerInteraction) body = patternPeerInteraction(el);
+  else if (el.peerCollaboration) body = patternPeerInteraction(el);
   else body = patternPlayExpansion(el);
 
   if (curriculum?.item && !body.includes(curriculum.item)) {

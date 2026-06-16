@@ -13,6 +13,7 @@ import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
 import { extractDocxText, extractHwpxText, classifyFormFile } from '../utils/docxImport';
+import EngineComparePanel from '../components/EngineComparePanel';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -621,6 +622,30 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 </div>
               ))}
             </SettingCard>
+
+            {isMaster() && (
+              <SettingCard title="🔬 문장 엔진 비교 (개발자/검수)">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+                  <div style={{ flex: 1, paddingRight: 12 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>비교 모드</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3, lineHeight: 1.6 }}>
+                      기존 출력(legacy)과 새 문장 엔진(modular)을 5종 문서로 비교합니다. 추천만 표시하며 자동 적용하지 않고, 일반 사용자 화면에는 영향이 없어요.
+                    </div>
+                  </div>
+                  <button onClick={() => setSettings(s => ({ ...s, engineCompareMode: !s.engineCompareMode }))} style={{
+                    width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                    background: settings.engineCompareMode ? 'var(--primary)' : 'var(--gray-300)',
+                    position: 'relative', transition: 'background 0.2s',
+                  }}>
+                    <div style={{
+                      width: 18, height: 18, background: 'var(--white)', borderRadius: '50%',
+                      position: 'absolute', top: 3, left: settings.engineCompareMode ? 23 : 3, transition: 'left 0.2s',
+                    }} />
+                  </button>
+                </div>
+                <EngineComparePanel enabled={!!settings.engineCompareMode} />
+              </SettingCard>
+            )}
 
             <SettingCard title="알림">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>

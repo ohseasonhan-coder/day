@@ -54,7 +54,7 @@ function hasGenuineChange(el) {
 function patternPositive(el) {
   const mat = materialPhrase(el);
   const core = el.isSafetyEducation ? '안전 약속을 알아보며' : (CORE_ACTION_BY_AREA[el.curriculumArea] || '관심 있게 참여하며');
-  const interaction = el.peerInteraction ? '친구와 함께' : (el.teacherSupport ? '교사와 함께' : '활동에 몰입하며');
+  const interaction = el.peerCollaboration ? '친구와 함께' : (el.teacherSupport ? '교사와 함께' : '활동에 몰입하며');
   return [
     `${nameSubject(el.childName)} ${mat}에 관심을 보이며 ${speechClause(el)}${core} 참여하는 모습을 보였습니다.`,
     `${interaction} 즐겁게 경험을 이어 갔습니다.`,

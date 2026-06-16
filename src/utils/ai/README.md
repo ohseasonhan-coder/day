@@ -116,6 +116,12 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `composeDevelopment`는 활동+소재를 결합한 근거 맥락과 관찰 행동·발화를 반영(패턴 A/B/C)하여 factPreservation·documentFit을 높였다.
     - qualityScorer: counseling/development는 정중한 전문 문체(습니다)와 문어체(다.) 모두 인정, '못한다/부족/늦다/지연' 부정 단정 추가 감점.
 
+20. `engineComparison.js` + `userCorrectionLearning.js` + `components/EngineComparePanel.js` (개발자/검수 전용, UI는 마스터에게만)
+    - `buildEngineComparison({ childName, rawText, classAge })`: legacy 출력과 modular(composer) 출력을 5종 문서(관찰/보육일지평가/알림장/상담/발달)로 생성하고 qualityScore(총점·factPreservation·naturalness·safety·documentFit) 비교. `getComparisonView({ enabled })`로 게이트 — 꺼지면 비교 데이터를 만들지 않는다.
+    - `pickRecommended`: 점수 높은 쪽 추천(자동 대체 없음). 사용자가 직접 선택/수정.
+    - `userCorrectionLearning.recordEngineChoice(...)`: 선택/수정 데이터를 받아 두는 스텁(TODO, 로컬 전용). 저장은 미구현.
+    - `EngineComparePanel`: SettingsPage에 마스터 전용 토글(`engineCompareMode`)로 장착. 일반 사용자 화면·legacy 출력은 그대로 유지.
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.
