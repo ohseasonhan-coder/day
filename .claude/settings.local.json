@@ -8,7 +8,8 @@
       "Bash(npx react-scripts *)",
       "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\한승훈\\\\Desktop\\\\개인분석\\\\1028\\\\일지\\\\src\\\\pages\\\\DocsPage.js' | Select-Object -Index 210,211,212,213,214,215\")",
       "Bash(powershell -Command ' *)",
-      "Bash(grep \"src\\\\\\\\\")"
+      "Bash(grep \"src\\\\\\\\\")",
+      "Bash(set CI=true)"
     ]
   }
 }

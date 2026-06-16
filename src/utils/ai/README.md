@@ -64,9 +64,11 @@ Do not remove legacy fields unless every consuming screen has migrated.
      - `consultDraftEngine.js`
 
 9. `qualityGuard.js`
-   - Softens risky expressions.
-   - Reduces unsupported claims and negative labeling.
-   - Preserves actual child speech.
+   - Applies per-field guard policies (`GUARD_POLICIES`).
+   - Observation/일화기록: preserves facts, no softening, no positive rephrase (only removes unsupported absolutes like 항상/완벽하게).
+   - Parent notice / counseling: softening and gentle positive rephrase allowed.
+   - Evaluation / support plan: minimal softening, no over-positive rephrase.
+   - Preserves actual child speech verbatim and never appends meta sentences.
 
 10. `normalizationRules.js`
     - Shared normalization, softening, and positive rephrase rule lists.
@@ -85,6 +87,19 @@ Do not remove legacy fields unless every consuming screen has migrated.
 14. `legacyEngine.js`
     - Preserves the original rule engine.
     - Should be reduced gradually only when regression tests remain stable.
+
+15. `quality/` (NOT wired to UI yet)
+    - `lexicon.js`: word lists for scoring (labels, overstatements, negative-fact markers, positive-spin, concrete verbs).
+    - `qualityScorer.js`: deterministic multi-dimension scorer — `scoreText(text, { sourceText, documentType })` and `scoreAgainstGolden(generated, golden)`. Dimensions: speech preservation, factual consistency, objectivity, concreteness, style, non-repetition, length. Per-document weighting in `QUALITY_PROFILES`.
+    - `goldenSamples.js`: curated input → ideal observation/evaluation benchmarks with `mustInclude` / `mustNotInclude`.
+    - `sentenceDataset.js`: area-based recommended sentence patterns, evaluation/parent frames, banned patterns.
+    - Used only by `ai.quality.test.js` for now; safe to evolve before connecting to engines.
+
+16. `qualityScorer.js` + `datasets/` (NOT wired to UI yet) — document-quality rubric layer
+    - `qualityScorer.js`: 100-point rubric scorer. `scoreText(text, { input, documentType })` returns `{ totalScore, detail, warnings, suggestions }`. Weights: factPreservation 30, naturalness 20, documentFit 20, safety 15, repetition 10, curriculumFit 5. `explainDeductions(result)` lists where points were lost.
+    - `datasets/goldenSamples.js`: 30+ teacher-input → expected-output samples, each with `expected.{observation,notice,dailyReport,counseling,development}`. Speech preserved verbatim, no fabricated facts.
+    - `datasets/sentenceDataset.js`: 150+ tag-based sentence fragments (`type`, `category`, `situation`, `documentType`, `status`, `ageGroup`, `tone`, `riskLevel`). Covers situation/behavior/support/evaluation/parent/counseling/development/homeLink/closing/softening.
+    - `ai.golden.test.js`: validates golden samples score high, distorted output scores low, dataset integrity, and prints a current-engine quality regression report.
 
 ## Safety Rules
 
