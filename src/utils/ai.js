@@ -2009,7 +2009,6 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
     classAge,
   });
 
-  const CAT_FRAME = { peer: '또래와의 놀이 중', habit: '일상생활 중', comm: '의사소통 상황에서', nature: '자연탐구 상황에서', art: '예술 활동에서', body: '신체 활동 중', play: '놀이 중', special: '활동 중' };
   const parentFn = PARENT_TEMPLATES[category] || PARENT_TEMPLATES.play;
 
   // 문장 라이브러리 조합 제안 (100만+ 조합에서 추출)
@@ -2025,6 +2024,7 @@ export async function processRecord({ childName, rawText, classAge, recordType, 
 
   // 관찰일지 = 입력 전체를 문어체 일화기록으로 충실히 변환 (자르거나 가짜 프레임 붙이지 않음)
   const observation = buildFaithfulObservation(name, normalizedText)
+    || makeSceneObservation(name, normalizedText, sceneRule)
     || finishSentence(`${subject(name)} ${observationDetail(stripLeadingName(normalizedText, name))}`);
   const evaluation = makeEvaluation(name, category, devAreas, normalizedText, sceneRule);
   const parent = makeParentMessage(name, category, normalizedText, sceneRule) || parentFn(name);
