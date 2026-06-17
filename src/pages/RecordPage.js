@@ -435,6 +435,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               </div>
             )}
+            <CopyAllButton result={result} onCopied={refreshCopyHistory} />
             <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
             <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
             <CurriculumBasisCard basis={result.curriculumBasis} />
@@ -710,6 +711,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                   </div>
                 </div>
               )}
+              <CopyAllButton result={result} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
               <CurriculumBasisCard basis={result.curriculumBasis} />
@@ -1941,6 +1943,30 @@ function CurriculumBasisCard({ basis }) {
         이 기록은 위 표준보육과정 내용과 연결돼요. (발달평가·관찰일지 근거로 활용)
       </div>
     </div>
+  );
+}
+
+function CopyAllButton({ result, onCopied }) {
+  const showToast = useToast();
+  if (!result) return null;
+  const parts = [
+    ['관찰일지 문장', result.observation],
+    ['관찰일지 평가', result.evaluation],
+    ['부모상담/알림장 문장', result.parent],
+    ['교사 지원계획', result.support],
+  ].filter(([, t]) => t && String(t).trim());
+  if (parts.length === 0) return null;
+  const handleCopyAll = () => {
+    const combined = parts.map(([label, text]) => `[${label}]\n${text}`).join('\n\n');
+    navigator.clipboard.writeText(combined);
+    addCopyHistory({ title: '전체 결과', text: combined, source: 'record-result-all' });
+    onCopied?.();
+    showToast('전체 결과를 복사했어요! 📋', 'success');
+  };
+  return (
+    <button onClick={handleCopyAll} style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'var(--gray-800)', color: 'white', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 12 }}>
+      <Copy size={16} /> 결과 전체 복사 ({parts.length})
+    </button>
   );
 }
 
