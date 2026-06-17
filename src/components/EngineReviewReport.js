@@ -96,10 +96,16 @@ export default function EngineReviewReport({ enabled = true }) {
                   {monByKey[t.key].status} · fb {monByKey[t.key].fallbackCount}{monByKey[t.key].switchedAt ? ` · ${fmtDate(monByKey[t.key].switchedAt)}` : ''}
                 </span>
               )}
-              {!isModular && t.key === 'observation' && obsAudit && (obsAudit.speechFail > 0 || obsAudit.fallback > 0) && (
-                <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>
-                  발화 보존 실패 {obsAudit.speechFail}건 · fallback {obsAudit.fallback}건 → 전환 보류
-                </span>
+              {!isModular && t.key === 'observation' && obsAudit && (
+                (obsAudit.speechFail > 0 || obsAudit.fallback > 0) ? (
+                  <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>
+                    발화 보존 실패 {obsAudit.speechFail}건 · fallback {obsAudit.fallback}건 → 전환 보류
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 700 }}>
+                    샘플 {obsAudit.modularPass}/{obsAudit.total} 통과 · 발화실패 0 — 엄격 기준(30건+·factPres 28+) 충족 시 전환
+                  </span>
+                )
               )}
               {isModular ? (
                 <button onClick={() => revert(t.key)} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--gray-100)', color: 'var(--text-primary)' }}>

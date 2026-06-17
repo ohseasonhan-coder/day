@@ -37,18 +37,29 @@ describe('운영 기본 엔진 설정', () => {
   });
 });
 
-describe('관찰일지 전환 보류', () => {
-  test('샘플 감사 기준 미달이라 modular 전환 불가(legacy 유지)', () => {
+describe('관찰일지 전환 기준', () => {
+  test('관찰일지 샘플 감사에서 발화 보존 실패가 0이다(수정 확인)', () => {
     const audit = runSampleAudit('observation');
-    expect(isObservationSwitchEligible(audit)).toBe(false); // 발화 보존 실패 존재
-    expect(audit.speechFail).toBeGreaterThan(0);
+    expect(audit.speechFail).toBe(0);
+    expect(audit.internalLabel).toBe(0);
+    expect(audit.safetyWarnings).toBe(0);
+  });
+
+  test('발화 실패가 1건이라도 있으면 전환 불가로 계산된다', () => {
+    const bad = { total: 20, modularPass: 19, fallback: 1, speechFail: 1, internalLabel: 0, safetyWarnings: 0 };
+    expect(isObservationSwitchEligible(bad)).toBe(false);
     expect(OBSERVATION_SWITCH_CRITERIA.maxSpeechFail).toBe(0);
     expect(OBSERVATION_SWITCH_CRITERIA.successRate).toBe(1.0);
   });
 
-  test('완전 통과한 가상 감사라면 전환 가능으로 계산된다', () => {
+  test('완전 통과한 감사라면 전환 가능으로 계산된다', () => {
     const perfect = { total: 30, modularPass: 30, fallback: 0, speechFail: 0, internalLabel: 0, safetyWarnings: 0 };
     expect(isObservationSwitchEligible(perfect)).toBe(true);
+  });
+
+  test('운영상 관찰일지는 기본 legacy를 유지한다', () => {
+    clearDocumentEnginePrefs();
+    expect(getActiveEngineForDocument('observation')).toBe('legacy');
   });
 });
 

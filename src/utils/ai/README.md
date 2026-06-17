@@ -153,7 +153,8 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - **관찰일지는 legacy 유지** — 샘플 감사에서 발화 보존 실패가 발생(전환 보류). 관리자 패널에 보류 사유 표시.
     - `OBSERVATION_SWITCH_CRITERIA`(엄격) + `isObservationSwitchEligible(audit)`: 관찰일지는 성공률 100%·fallback 0·발화 실패 0·라벨 0·safety 0일 때만 전환 가능.
     - 레거시 회귀 스위트(`ai.test.js`)는 legacy로 핀 고정해 회귀를 검증.
-    - TODO(관찰일지 modular): ① 발화 보존 실패 케이스 원인 분석 ② 따옴표 발화 추출/복원 강화 ③ 입력 발화 100% 보존 시에만 전환.
+    - 관찰일지 발화 보존 강화(2026-06): `createObservation`이 최종 단계에서 입력의 모든 따옴표 발화를 검사해, scene 프레임이 누락한 발화는 원문 문장 그대로 복원(`ensureSpeechPreserved`). 요약/순화/메타문장 없이 원문만. 작은/큰/한국어 따옴표 모두. 샘플 20건 재검수 결과 발화 실패 0·평균 96.1.
+    - 단, 운영 기본값은 여전히 observation=legacy. 엄격 기준(샘플 30건+·factPreservation 28+) 충족 후 관리자 수동 전환.
 
 ## Safety Rules
 
