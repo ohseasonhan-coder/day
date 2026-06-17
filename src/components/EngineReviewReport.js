@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { buildReviewReport, SWITCH_CRITERIA, isLiveConnected, buildFallbackSummary, FALLBACK_REASON_LABELS } from '../utils/ai/engineReviewReport';
+import { buildReviewReport, SWITCH_CRITERIA, isLiveConnected, buildFallbackSummary, FALLBACK_REASON_LABELS, buildEngineMonitor } from '../utils/ai/engineReviewReport';
 import { clearEngineReviews, clearFallbackLog } from '../utils/ai/userCorrectionLearning';
 import { getDocumentEngineSettings, setDocumentEngine } from '../utils/ai/documentEngineSettings';
+import { runSampleAudit } from '../utils/ai/engineSampleRunner';
 import { triggerEnginePrefSync } from '../utils/storage';
 
 const SWITCH_CONFIRM = '이 문서 유형의 기본 문장 엔진을 modular로 전환합니다. 기존 legacy 엔진은 fallback으로 유지됩니다. 계속하시겠습니까?';
+
+const STATUS_STYLE = {
+  '안정': { bg: 'var(--primary-light)', color: 'var(--primary)' },
+  '주의': { bg: 'var(--accent-light)', color: 'var(--accent)' },
+  '되돌리기 권장': { bg: 'var(--accent)', color: 'var(--white)' },
+  legacy: { bg: 'var(--gray-100)', color: 'var(--text-tertiary)' },
+};
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(); } catch { return ''; } };
 
 // 관리자/마스터 전용: 누적된 엔진 검수 데이터 리포트.
 // 일반 사용자에게는 상위(SettingsPage)에서 isMaster로 가려 노출되지 않는다.
@@ -24,17 +33,29 @@ export default function EngineReviewReport({ enabled = true }) {
   const [report, setReport] = useState(() => buildReviewReport());
   const [engines, setEngines] = useState(() => getDocumentEngineSettings());
   const [fallbacks, setFallbacks] = useState(() => buildFallbackSummary());
-  const refresh = () => { setReport(buildReviewReport()); setEngines(getDocumentEngineSettings()); setFallbacks(buildFallbackSummary()); };
+  const [monitor, setMonitor] = useState(() => buildEngineMonitor());
+  const [audit, setAudit] = useState(null);
+  const refresh = () => {
+    setReport(buildReviewReport());
+    setEngines(getDocumentEngineSettings());
+    const fb = buildFallbackSummary();
+    setFallbacks(fb);
+    setMonitor(buildEngineMonitor(fb));
+  };
+  const monByKey = monitor.reduce((m, x) => ({ ...m, [x.key]: x }), {});
+  const runAudit = () => setAudit(runSampleAudit('notice'));
 
   const switchTo = (key) => {
     // eslint-disable-next-line no-alert
     if (typeof window !== 'undefined' && window.confirm && !window.confirm(SWITCH_CONFIRM)) return;
-    setEngines(setDocumentEngine(key, 'modular'));
+    setDocumentEngine(key, 'modular');
     triggerEnginePrefSync(); // 다른 기기로 설정 동기화(본인 드라이브)
+    refresh();
   };
   const revert = (key) => {
-    setEngines(setDocumentEngine(key, 'legacy'));
+    setDocumentEngine(key, 'legacy');
     triggerEnginePrefSync();
+    refresh();
   };
 
   if (!enabled) return null;
@@ -63,6 +84,15 @@ export default function EngineReviewReport({ enabled = true }) {
                 background: isModular ? 'var(--primary-light)' : 'var(--gray-100)',
                 color: isModular ? 'var(--primary)' : 'var(--text-secondary)',
               }}>{engine}</span>
+              {isModular && monByKey[t.key] && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800, borderRadius: 6, padding: '2px 6px',
+                  background: (STATUS_STYLE[monByKey[t.key].status] || STATUS_STYLE.legacy).bg,
+                  color: (STATUS_STYLE[monByKey[t.key].status] || STATUS_STYLE.legacy).color,
+                }}>
+                  {monByKey[t.key].status} · fb {monByKey[t.key].fallbackCount}{monByKey[t.key].switchedAt ? ` · ${fmtDate(monByKey[t.key].switchedAt)}` : ''}
+                </span>
+              )}
               {isModular ? (
                 <button onClick={() => revert(t.key)} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--gray-100)', color: 'var(--text-primary)' }}>
                   legacy로 되돌리기
@@ -87,6 +117,26 @@ export default function EngineReviewReport({ enabled = true }) {
         <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>
           기준(검수 30건·평균 90·선택률 80%·수정률 20%·safety 0·factPres 25)을 모두 충족한 유형만 전환할 수 있어요. 전환해도 modular에 문제가 생기면 자동으로 legacy로 되돌아갑니다.
         </p>
+      </div>
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>전환 후 샘플 점검 (알림장 20개)</span>
+          <button onClick={runAudit} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--primary)', color: 'var(--white)' }}>샘플 20개 실행</button>
+        </div>
+        {!audit ? (
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>알림장 프리셋 20개를 modular로 생성해 품질을 점검합니다. (검수용 — 사용자 출력과 무관)</div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: 'var(--primary-light)', color: 'var(--primary)' }}>modular 성공 {audit.modularPass}/{audit.total}</span>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: audit.fallback ? 'var(--accent-light)' : 'var(--gray-100)', color: audit.fallback ? 'var(--accent)' : 'var(--text-secondary)' }}>fallback {audit.fallback}</span>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: 'var(--gray-100)', color: 'var(--text-secondary)' }}>평균 {audit.avgScore} · 최저 {audit.minScore}</span>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: audit.safetyWarnings ? 'var(--accent)' : 'var(--gray-100)', color: audit.safetyWarnings ? 'var(--white)' : 'var(--text-secondary)' }}>safety경고 {audit.safetyWarnings}</span>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: 'var(--gray-100)', color: 'var(--text-secondary)' }}>90점 미만 {audit.below90}</span>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: audit.internalLabel ? 'var(--accent)' : 'var(--gray-100)', color: audit.internalLabel ? 'var(--white)' : 'var(--text-secondary)' }}>내부라벨 {audit.internalLabel}</span>
+            <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: audit.speechFail ? 'var(--accent)' : 'var(--gray-100)', color: audit.speechFail ? 'var(--white)' : 'var(--text-secondary)' }}>발화보존실패 {audit.speechFail}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>

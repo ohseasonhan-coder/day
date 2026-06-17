@@ -142,6 +142,12 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - 검수/fallback 데이터(`engine_reviews`/`engine_fallbacks`)는 아이 발화·이름이 포함될 수 있어 백업에 **포함하지 않는다**(개인정보 보호).
     - 관리자가 전환/되돌리기 시 `storage.triggerEnginePrefSync()`로 드라이브 동기화 예약(자동 백업·구글 연결 시).
 
+24. 전환 후 운영 모니터링 (알림장부터)
+    - `documentEngineSettings`: 전환 시각 메타(`getEngineSwitchedAt`, 로컬 전용·비동기화).
+    - `engineReviewReport.buildEngineMonitor`/`computeMonitorStatus`: modular 사용 유형의 상태 판정 — 안정(fallback 0~1·위험사유 없음) / 주의(fallback 2+ 또는 low_score) / 되돌리기 권장(safety_warning·speech_not_preserved·internal_label).
+    - `engineSampleRunner.runSampleAudit(documentType)`: 프리셋 20개를 modular로 생성·검수해 요약(성공/fallback/평균·최저 점수/safety/90미만/내부라벨/발화보존실패).
+    - `EngineReviewReport`: 모니터 상태 칩(상태·fallback·전환시각) + '샘플 20개 실행' 버튼. 자동 전환 없음, 일반 사용자 비노출.
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.

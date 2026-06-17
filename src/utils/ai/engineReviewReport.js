@@ -3,6 +3,7 @@
 // 자동 전환은 하지 않는다. 기준 충족 여부만 계산해 '기본 전환 가능' 표시에 사용한다.
 import { getEngineReviews, getFallbackLog } from './userCorrectionLearning';
 import { COMPARE_DOC_TYPES } from './engineComparison';
+import { getDocumentEngineSettings, getEngineSwitchedAt } from './documentEngineSettings';
 
 // fallback 사유 라벨 (관리자 표시용)
 export const FALLBACK_REASON_LABELS = {
@@ -130,6 +131,41 @@ export function buildReviewReport(reviews = getEngineReviews()) {
   });
 
   return { totalCount: reviews.length, types, criteria: SWITCH_CRITERIA };
+}
+
+// ── 전환 후 모니터링 ──────────────────────────────────────────────
+// 즉시 되돌리기를 권장하는 위험 사유(품질·안전 직결).
+export const MONITOR_REVERT_REASONS = ['safety_warning', 'speech_not_preserved', 'internal_label'];
+
+// modular 사용 중인 문서의 안정성 상태를 판정한다.
+//  - 안정: fallback 0~1건, 위험 사유 없음
+//  - 주의: fallback 2건 이상 또는 low_score 발생
+//  - 되돌리기 권장: safety_warning/speech_not_preserved/internal_label 발생
+export function computeMonitorStatus({ engine, fallbackCount = 0, reasonCounts = {} } = {}) {
+  if (engine !== 'modular') return 'legacy';
+  if (MONITOR_REVERT_REASONS.some((r) => (reasonCounts[r] || 0) > 0)) return '되돌리기 권장';
+  if (fallbackCount >= 2 || (reasonCounts.low_score || 0) > 0) return '주의';
+  return '안정';
+}
+
+// 문서 유형별 전환 후 모니터링 상태(엔진·전환 시각·fallback·상태).
+export function buildEngineMonitor(fallback = buildFallbackSummary()) {
+  const engines = getDocumentEngineSettings();
+  const fbByType = fallback.byType.reduce((m, t) => ({ ...m, [t.documentType]: t }), {});
+  return COMPARE_DOC_TYPES.map(({ key, label }) => {
+    const engine = engines[key] === 'modular' ? 'modular' : 'legacy';
+    const fb = fbByType[key] || { count: 0, reasons: {} };
+    return {
+      key,
+      label,
+      engine,
+      switchedAt: getEngineSwitchedAt(key),
+      fallbackCount: fb.count,
+      reasonCounts: fb.reasons,
+      safetyWarnings: fb.reasons.safety_warning || 0,
+      status: computeMonitorStatus({ engine, fallbackCount: fb.count, reasonCounts: fb.reasons }),
+    };
+  });
 }
 
 // fallback 로그 집계: 문서 유형별 건수·사유 분포 + 최근 목록.

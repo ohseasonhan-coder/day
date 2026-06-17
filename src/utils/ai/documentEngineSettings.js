@@ -22,6 +22,22 @@ function currentUid() {
 function prefsKey() {
   return `sw_${currentUid()}_engine_prefs`;
 }
+function metaKey() {
+  return `sw_${currentUid()}_engine_pref_meta`;
+}
+
+// 전환 메타(마지막 전환 시각/방향) — 로컬 전용, 동기화/백업 대상 아님.
+export function getEnginePrefMeta() {
+  try {
+    const v = localStorage.getItem(metaKey());
+    return v ? JSON.parse(v) : {};
+  } catch {
+    return {};
+  }
+}
+export function getEngineSwitchedAt(documentType) {
+  return getEnginePrefMeta()[documentType]?.at || null;
+}
 
 export function getDocumentEngineSettings() {
   try {
@@ -40,9 +56,13 @@ export function getActiveEngineForDocument(documentType) {
 
 export function setDocumentEngine(documentType, engine) {
   if (!ENGINE_DOC_TYPES.includes(documentType)) return getDocumentEngineSettings();
-  const next = { ...getDocumentEngineSettings(), [documentType]: engine === 'modular' ? 'modular' : 'legacy' };
+  const resolved = engine === 'modular' ? 'modular' : 'legacy';
+  const next = { ...getDocumentEngineSettings(), [documentType]: resolved };
   try {
     localStorage.setItem(prefsKey(), JSON.stringify(next));
+    const meta = getEnginePrefMeta();
+    meta[documentType] = { engine: resolved, at: new Date().toISOString() };
+    localStorage.setItem(metaKey(), JSON.stringify(meta));
   } catch {
     /* 저장 실패는 조용히 무시(외부 전송 없음) */
   }
