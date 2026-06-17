@@ -87,3 +87,33 @@ describe('전환 후 샘플 일괄 점검 (알림장 20개)', () => {
     expect(audit.avgScore).toBeGreaterThanOrEqual(90);
   });
 });
+
+describe('샘플 점검 5종 문서 지원', () => {
+  test('모든 문서 유형 감사가 20건을 집계하고 합이 일치한다', () => {
+    ['observation', 'dailyReport', 'notice', 'counseling', 'development'].forEach((dt) => {
+      const a = runSampleAudit(dt);
+      expect(a.documentType).toBe(dt);
+      expect(a.total).toBe(20);
+      expect(a.modularPass + a.fallback).toBe(20);
+      // fallback 건은 사유가 기록되어야 한다(안전망이 이유를 남김)
+      a.rows.filter((r) => !r.ok).forEach((r) => expect(r.reasons.length).toBeGreaterThan(0));
+    });
+  });
+
+  test('전환 준비된 4종(알림장/보육일지/상담/발달)은 라벨 노출·발화 실패가 없다', () => {
+    ['notice', 'dailyReport', 'counseling', 'development'].forEach((dt) => {
+      const a = runSampleAudit(dt);
+      expect(a.internalLabel).toBe(0);
+      expect(a.speechFail).toBe(0);
+      expect(a.avgScore).toBeGreaterThanOrEqual(90);
+    });
+  });
+
+  test('관찰일지는 발화 보존 실패를 안전망이 잡아낸다(fallback로 처리)', () => {
+    const a = runSampleAudit('observation');
+    // 실패가 있으면 그 사유에 speech_not_preserved가 포함된다(legacy fallback 대상)
+    if (a.fallback > 0) {
+      expect(a.speechFail).toBeGreaterThan(0);
+    }
+  });
+});

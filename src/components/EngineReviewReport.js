@@ -35,6 +35,7 @@ export default function EngineReviewReport({ enabled = true }) {
   const [fallbacks, setFallbacks] = useState(() => buildFallbackSummary());
   const [monitor, setMonitor] = useState(() => buildEngineMonitor());
   const [audit, setAudit] = useState(null);
+  const [auditType, setAuditType] = useState('notice');
   const refresh = () => {
     setReport(buildReviewReport());
     setEngines(getDocumentEngineSettings());
@@ -43,7 +44,7 @@ export default function EngineReviewReport({ enabled = true }) {
     setMonitor(buildEngineMonitor(fb));
   };
   const monByKey = monitor.reduce((m, x) => ({ ...m, [x.key]: x }), {});
-  const runAudit = () => setAudit(runSampleAudit('notice'));
+  const runAudit = () => setAudit(runSampleAudit(auditType));
 
   const switchTo = (key) => {
     // eslint-disable-next-line no-alert
@@ -120,12 +121,17 @@ export default function EngineReviewReport({ enabled = true }) {
       </div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>전환 후 샘플 점검 (알림장 20개)</span>
-          <button onClick={runAudit} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--primary)', color: 'var(--white)' }}>샘플 20개 실행</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>전환 후 샘플 점검 (프리셋 20개)</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select value={auditType} onChange={(e) => { setAuditType(e.target.value); setAudit(null); }} style={{ padding: '5px 8px', borderRadius: 8, fontSize: 12, border: '1px solid var(--border)' }}>
+              {report.types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+            <button onClick={runAudit} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--primary)', color: 'var(--white)' }}>실행</button>
+          </div>
         </div>
         {!audit ? (
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>알림장 프리셋 20개를 modular로 생성해 품질을 점검합니다. (검수용 — 사용자 출력과 무관)</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>선택한 문서 유형의 프리셋 20개를 modular로 생성해 품질을 점검합니다. (검수용 — 사용자 출력과 무관)</div>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             <span style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: 'var(--primary-light)', color: 'var(--primary)' }}>modular 성공 {audit.modularPass}/{audit.total}</span>
