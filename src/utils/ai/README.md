@@ -136,6 +136,11 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - 라이브 연결(`LIVE_CONNECTED_DOC_TYPES`, 전 5종): observation/dailyReport/notice는 `processRecord`, counseling은 `generateConsultDoc`(recentGrowth 필드), development는 `generateGrowthSummary`(overall 필드)에서 resolver 적용. 관리자 패널에 '● 라이브 연결됨' 표시.
     - 주의: 커리큘럼 항목 표기는 발화 오인을 막기 위해 작은따옴표가 아닌 「」를 사용한다(speech 보존 검사 오작동 방지).
 
+23. 기기 간 동기화 (본인 구글 드라이브 백업 경유, 외부 서버 없음)
+    - 엔진 전환 설정(`documentEnginePrefs`, legacy/modular 플래그)만 백업 번들(`buildBackupPayload`)에 포함 → 기기 간 동기화. `getEnginePrefsForSync`/`applyEnginePrefsFromSync`로 직렬화/복원, `importBackup`·`importBackupMerge`에서 반영.
+    - 검수/fallback 데이터(`engine_reviews`/`engine_fallbacks`)는 아이 발화·이름이 포함될 수 있어 백업에 **포함하지 않는다**(개인정보 보호).
+    - 관리자가 전환/되돌리기 시 `storage.triggerEnginePrefSync()`로 드라이브 동기화 예약(자동 백업·구글 연결 시).
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { buildReviewReport, SWITCH_CRITERIA, isLiveConnected, buildFallbackSummary, FALLBACK_REASON_LABELS } from '../utils/ai/engineReviewReport';
 import { clearEngineReviews, clearFallbackLog } from '../utils/ai/userCorrectionLearning';
 import { getDocumentEngineSettings, setDocumentEngine } from '../utils/ai/documentEngineSettings';
+import { triggerEnginePrefSync } from '../utils/storage';
 
 const SWITCH_CONFIRM = '이 문서 유형의 기본 문장 엔진을 modular로 전환합니다. 기존 legacy 엔진은 fallback으로 유지됩니다. 계속하시겠습니까?';
 
@@ -29,8 +30,12 @@ export default function EngineReviewReport({ enabled = true }) {
     // eslint-disable-next-line no-alert
     if (typeof window !== 'undefined' && window.confirm && !window.confirm(SWITCH_CONFIRM)) return;
     setEngines(setDocumentEngine(key, 'modular'));
+    triggerEnginePrefSync(); // 다른 기기로 설정 동기화(본인 드라이브)
   };
-  const revert = (key) => setEngines(setDocumentEngine(key, 'legacy'));
+  const revert = (key) => {
+    setEngines(setDocumentEngine(key, 'legacy'));
+    triggerEnginePrefSync();
+  };
 
   if (!enabled) return null;
 

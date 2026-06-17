@@ -1,5 +1,6 @@
 import { scheduleDriveBackup } from './driveBackup';
 import { deletePhotosByRecord } from './photoStore';
+import { getEnginePrefsForSync, applyEnginePrefsFromSync } from './ai/documentEngineSettings';
 
 // ── 사용자별 스토리지 키 분리 ──────────────────────────────────────────────────
 // 로그인한 사용자의 userId를 prefix로 사용 → 멀티 계정 지원
@@ -1088,12 +1089,27 @@ function buildBackupPayload() {
     automationLog: getAutomationLog(),
     copyHistory: getCopyHistory(),
     feedback: getFeedback(),
+    // 문서 유형별 기본 엔진 설정(비민감 — legacy/modular 플래그)만 기기 간 동기화한다.
+    // 검수/fallback 데이터는 개인정보 가능성으로 백업에 포함하지 않는다.
+    documentEnginePrefs: getEnginePrefsForSync(),
   };
 }
 
 // 백업 내용을 JSON 문자열로 반환 (구글 드라이브 업로드 등에 사용)
 export function getBackupJson() {
   return JSON.stringify(buildBackupPayload(), null, 2);
+}
+
+// 엔진 전환 설정 변경 시 즉시 드라이브 동기화를 예약한다(다른 기기로 전파).
+// 자동 백업이 켜져 있고 구글 연결이 된 경우에만 동작한다.
+export function triggerEnginePrefSync() {
+  try {
+    if (!getGoogleClientId()) return;
+    if (!getSettings().driveAutoBackup) return;
+    scheduleDriveBackup(getBackupJson);
+  } catch {
+    /* 무시 */
+  }
 }
 
 export function exportBackup() {
@@ -1129,6 +1145,7 @@ export function importBackup(jsonString) {
     if (data.automationLog) storage.set(KEYS.AUTOMATION_LOG, data.automationLog);
     if (data.copyHistory) storage.set(KEYS.COPY_HISTORY, data.copyHistory);
     if (data.feedback) storage.set(KEYS.FEEDBACK, data.feedback);
+    if (data.documentEnginePrefs) applyEnginePrefsFromSync(data.documentEnginePrefs);
     rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
 
     return {
@@ -1205,6 +1222,7 @@ export function importBackupMerge(jsonString) {
   saveDocuments(docs.merged);
   storage.set(KEYS.ROUTINES, routines.merged);
   saveFormTemplates(forms.merged);
+  if (data.documentEnginePrefs) applyEnginePrefsFromSync(data.documentEnginePrefs);
   rebuildAutomationState(records.merged, children.merged, classes.merged);
 
   return {

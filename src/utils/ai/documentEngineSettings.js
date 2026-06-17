@@ -53,3 +53,24 @@ export function setDocumentEngine(documentType, engine) {
 export function resetDocumentEngine(documentType) {
   return setDocumentEngine(documentType, 'legacy');
 }
+
+// ── 기기 간 동기화용 (백업 번들에 포함되는 비민감 설정) ──
+// 엔진 전환 설정(legacy/modular 플래그)만 동기화한다. 검수/fallback 데이터는 개인정보가
+// 포함될 수 있어 동기화 대상이 아니다.
+export function getEnginePrefsForSync() {
+  return getDocumentEngineSettings();
+}
+export function applyEnginePrefsFromSync(prefs) {
+  if (!prefs || typeof prefs !== 'object') return getDocumentEngineSettings();
+  const clean = {};
+  ENGINE_DOC_TYPES.forEach((k) => {
+    if (prefs[k] === 'modular') clean[k] = 'modular';
+  });
+  const next = { ...DEFAULT_ENGINE_PREFS, ...clean };
+  try {
+    localStorage.setItem(prefsKey(), JSON.stringify(next));
+  } catch {
+    /* 무시 */
+  }
+  return next;
+}
