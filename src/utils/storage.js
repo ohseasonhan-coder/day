@@ -1090,8 +1090,8 @@ function buildBackupPayload() {
     copyHistory: getCopyHistory(),
     feedback: getFeedback(),
     // 문서 유형별 기본 엔진 설정(비민감 — legacy/modular 플래그)만 기기 간 동기화한다.
-    // 검수/fallback 데이터는 개인정보 가능성으로 백업에 포함하지 않는다.
-    documentEnginePrefs: getEnginePrefsForSync(),
+    // 검수/fallback/correction 데이터는 개인정보 가능성으로 백업에 포함하지 않는다.
+    engineSettings: getEnginePrefsForSync(),
   };
 }
 
@@ -1145,7 +1145,10 @@ export function importBackup(jsonString) {
     if (data.automationLog) storage.set(KEYS.AUTOMATION_LOG, data.automationLog);
     if (data.copyHistory) storage.set(KEYS.COPY_HISTORY, data.copyHistory);
     if (data.feedback) storage.set(KEYS.FEEDBACK, data.feedback);
-    if (data.documentEnginePrefs) applyEnginePrefsFromSync(data.documentEnginePrefs);
+    // 엔진 설정만 복원(reviews/fallbacks/corrections는 복원하지 않음). 신/구 키 모두 호환.
+    if (data.engineSettings || data.documentEnginePrefs) {
+      applyEnginePrefsFromSync(data.engineSettings || data.documentEnginePrefs);
+    }
     rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
 
     return {
@@ -1222,7 +1225,9 @@ export function importBackupMerge(jsonString) {
   saveDocuments(docs.merged);
   storage.set(KEYS.ROUTINES, routines.merged);
   saveFormTemplates(forms.merged);
-  if (data.documentEnginePrefs) applyEnginePrefsFromSync(data.documentEnginePrefs);
+  if (data.engineSettings || data.documentEnginePrefs) {
+    applyEnginePrefsFromSync(data.engineSettings || data.documentEnginePrefs);
+  }
   rebuildAutomationState(records.merged, children.merged, classes.merged);
 
   return {

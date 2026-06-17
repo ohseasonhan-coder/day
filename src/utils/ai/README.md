@@ -137,7 +137,8 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - 주의: 커리큘럼 항목 표기는 발화 오인을 막기 위해 작은따옴표가 아닌 「」를 사용한다(speech 보존 검사 오작동 방지).
 
 23. 기기 간 동기화 (본인 구글 드라이브 백업 경유, 외부 서버 없음)
-    - 엔진 전환 설정(`documentEnginePrefs`, legacy/modular 플래그)만 백업 번들(`buildBackupPayload`)에 포함 → 기기 간 동기화. `getEnginePrefsForSync`/`applyEnginePrefsFromSync`로 직렬화/복원, `importBackup`·`importBackupMerge`에서 반영.
+    - 백업 번들에 버전드 `engineSettings: { version, updatedAt, engines:{ docType: 'legacy'|'modular' } }`만 포함 → 기기 간 동기화. `getEnginePrefsForSync`(직렬화)/`applyEnginePrefsFromSync`(복원), `importBackup`·`importBackupMerge`에서 반영(신 `engineSettings`/구 `documentEnginePrefs` 키 모두 호환).
+    - 복원 규칙: 알 수 없는 documentType 무시 · 허용되지 않은 값은 legacy 처리 · `engineSettings` 없으면 기존 설정 유지 · 손상되면 안전하게 legacy.
     - 검수/fallback 데이터(`engine_reviews`/`engine_fallbacks`)는 아이 발화·이름이 포함될 수 있어 백업에 **포함하지 않는다**(개인정보 보호).
     - 관리자가 전환/되돌리기 시 `storage.triggerEnginePrefSync()`로 드라이브 동기화 예약(자동 백업·구글 연결 시).
 

@@ -57,14 +57,27 @@ export function resetDocumentEngine(documentType) {
 // ── 기기 간 동기화용 (백업 번들에 포함되는 비민감 설정) ──
 // 엔진 전환 설정(legacy/modular 플래그)만 동기화한다. 검수/fallback 데이터는 개인정보가
 // 포함될 수 있어 동기화 대상이 아니다.
+export const ENGINE_SETTINGS_VERSION = 1;
+
+// 백업에 넣을 버전드 페이로드: { version, updatedAt, engines: { docType: 'legacy'|'modular' } }
 export function getEnginePrefsForSync() {
-  return getDocumentEngineSettings();
+  return {
+    version: ENGINE_SETTINGS_VERSION,
+    updatedAt: new Date().toISOString(),
+    engines: getDocumentEngineSettings(),
+  };
 }
-export function applyEnginePrefsFromSync(prefs) {
-  if (!prefs || typeof prefs !== 'object') return getDocumentEngineSettings();
+
+// 복원: 버전드 래퍼({engines}) 또는 평면 객체 모두 허용.
+//  - 알 수 없는 documentType은 무시
+//  - 허용되지 않은 값은 legacy로 처리(=modular가 아닌 모든 값)
+//  - 비어 있거나 손상되면 기본값(legacy) 유지
+export function applyEnginePrefsFromSync(payload) {
+  if (!payload || typeof payload !== 'object') return getDocumentEngineSettings();
+  const engines = payload.engines && typeof payload.engines === 'object' ? payload.engines : payload;
   const clean = {};
   ENGINE_DOC_TYPES.forEach((k) => {
-    if (prefs[k] === 'modular') clean[k] = 'modular';
+    if (engines[k] === 'modular') clean[k] = 'modular';
   });
   const next = { ...DEFAULT_ENGINE_PREFS, ...clean };
   try {
