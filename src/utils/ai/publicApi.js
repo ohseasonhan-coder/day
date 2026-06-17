@@ -14,7 +14,7 @@ import {
   createGrowthDraft,
   createRecordDrafts,
 } from './draftComposer';
-import { resolveDocumentEngine } from './documentEngineResolver';
+import { generateWithFallback } from './documentEngineResolver';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
 
@@ -30,12 +30,12 @@ function applyEnginePreferences(guarded, modularDrafts, sourceText) {
   ];
   route.forEach(([documentType, field, modularText]) => {
     if (typeof out[field] !== 'string') return;
-    out[field] = resolveDocumentEngine({
+    out[field] = generateWithFallback({
       documentType,
       input: sourceText,
       legacyText: out[field],
       modularFn: () => modularText,
-    }).text;
+    });
   });
   return out;
 }
@@ -72,12 +72,12 @@ export async function generateGrowthSummary(options = {}) {
   const modular = createGrowthDraft(options);
   const input = modular.analysis?.parsedInput?.rawText || '';
   // 발달평가(전체 요약) 대표 서술 필드에 엔진 설정/검수/legacy fallback을 적용.
-  const overall = resolveDocumentEngine({
+  const overall = generateWithFallback({
     documentType: 'development',
     input,
     legacyText: legacyResult.overall || '',
     modularFn: () => modular.draft,
-  }).text;
+  });
   return {
     ...legacyResult,
     overall,
@@ -91,12 +91,12 @@ export async function generateConsultDoc(options = {}) {
   const modular = createConsultDocumentDraft(options);
   const input = modular.analysis?.parsedInput?.rawText || '';
   // 상담자료(최근 성장 흐름) 대표 서술 필드에 엔진 설정/검수/legacy fallback을 적용.
-  const recentGrowth = resolveDocumentEngine({
+  const recentGrowth = generateWithFallback({
     documentType: 'counseling',
     input,
     legacyText: legacyResult.recentGrowth || '',
     modularFn: () => modular.draft,
-  }).text;
+  });
   return {
     ...legacyResult,
     recentGrowth,
