@@ -16,12 +16,17 @@ const SCORE_KEYS = [
 
 function ScoreRow({ scores }) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-      {SCORE_KEYS.map(([k, label]) => (
-        <span key={k} style={{ fontSize: 11, color: 'var(--text-secondary)', background: 'var(--gray-100)', borderRadius: 6, padding: '2px 6px' }}>
-          {label} {scores[k]}
-        </span>
-      ))}
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+      {SCORE_KEYS.map(([k, label]) => {
+        const isTotal = k === 'totalScore';
+        return (
+          <span key={k} style={{
+            fontSize: 11, fontWeight: isTotal ? 800 : 500, borderRadius: 6, padding: '2px 7px',
+            color: isTotal ? 'var(--primary)' : 'var(--text-secondary)',
+            background: isTotal ? 'var(--primary-light)' : 'var(--gray-100)',
+          }}>{label} {scores[k]}</span>
+        );
+      })}
     </div>
   );
 }
@@ -29,22 +34,21 @@ function ScoreRow({ scores }) {
 function EngineColumn({ side, data, recommended, chosen, onChoose }) {
   const isReco = recommended === side.engineKey;
   const isChosen = chosen === side.engineKey;
+  const border = isChosen ? '2px solid var(--primary)' : isReco ? '2px solid var(--primary-light)' : '1px solid var(--border)';
   return (
-    <div style={{
-      flex: 1, minWidth: 240, border: `2px solid ${isChosen ? 'var(--primary)' : 'var(--border)'}`,
-      borderRadius: 10, padding: 12, background: 'var(--white)',
-    }}>
+    <div style={{ flex: 1, minWidth: 240, border, borderRadius: 10, padding: 12, background: 'var(--white)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <strong style={{ fontSize: 13 }}>{side.label}</strong>
-        {isReco && <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 6, padding: '2px 6px' }}>👍 추천</span>}
+        {isReco && <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 999, padding: '2px 8px' }}>👍 추천</span>}
       </div>
       <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>{data.text || '(생성된 문장 없음)'}</div>
       <ScoreRow scores={data.scores} />
       <button
         onClick={onChoose}
         style={{
-          marginTop: 8, width: '100%', padding: '6px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
-          background: isChosen ? 'var(--primary)' : 'var(--gray-100)', color: isChosen ? 'var(--white)' : 'var(--text-primary)',
+          marginTop: 10, width: '100%', padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
+          background: isChosen ? 'var(--primary)' : isReco ? 'var(--primary-light)' : 'var(--gray-100)',
+          color: isChosen ? 'var(--white)' : isReco ? 'var(--primary)' : 'var(--text-primary)',
         }}
       >
         {isChosen ? '✓ 선택됨' : '이 결과 선택'}
@@ -168,9 +172,17 @@ export default function EngineComparePanel({ enabled = false }) {
 
       {view?.results && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {view.results.filter((r) => docFilter === 'all' || r.key === docFilter).map((r) => (
+          {view.results.filter((r) => docFilter === 'all' || r.key === docFilter).map((r) => {
+            const diff = (r.modular.scores.totalScore || 0) - (r.legacy.scores.totalScore || 0);
+            const recoLabel = r.recommended === 'modular' ? '새 엔진(modular)' : '기존(legacy)';
+            return (
             <div key={r.key}>
-              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>{r.label}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 800 }}>{r.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 999, padding: '2px 8px' }}>
+                  추천: {recoLabel} {diff >= 0 ? `· modular +${diff}` : `· legacy +${-diff}`}
+                </span>
+              </div>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <EngineColumn
                   side={{ engineKey: 'legacy', label: '기존(legacy)' }}
@@ -202,7 +214,8 @@ export default function EngineComparePanel({ enabled = false }) {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
