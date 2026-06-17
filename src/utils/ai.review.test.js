@@ -1,5 +1,5 @@
-import { recordEngineChoice, getEngineReviews, clearEngineReviews } from './ai/userCorrectionLearning';
-import { buildReviewReport, evaluateSwitchReadiness, canAccessReviewReport, canAccessReviewTools, reviewStatusOf, SWITCH_CRITERIA } from './ai/engineReviewReport';
+import { recordEngineChoice, getEngineReviews, clearEngineReviews, recordFallback, clearFallbackLog } from './ai/userCorrectionLearning';
+import { buildReviewReport, evaluateSwitchReadiness, canAccessReviewReport, canAccessReviewTools, reviewStatusOf, buildFallbackSummary, SWITCH_CRITERIA } from './ai/engineReviewReport';
 import { buildEngineComparison } from './ai/engineComparison';
 import { getReviewSamplePresets, REVIEW_SAMPLE_PRESETS } from './ai/reviewSamplePresets';
 
@@ -175,6 +175,30 @@ describe('검수 샘플 입력 도구', () => {
     });
     expect(getEngineReviews()).toHaveLength(1);
     expect(getEngineReviews()[0].documentType).toBe('notice');
+  });
+});
+
+describe('fallback 로그 집계', () => {
+  beforeEach(() => clearFallbackLog());
+
+  test('문서 유형별 건수와 사유 분포가 집계된다', () => {
+    recordFallback({ documentType: 'counseling', reasons: ['low_score'], inputText: '메모1' });
+    recordFallback({ documentType: 'counseling', reasons: ['safety_warning', 'low_score'], inputText: '메모2' });
+    recordFallback({ documentType: 'development', reasons: ['empty'], inputText: '메모3' });
+    const summary = buildFallbackSummary();
+    expect(summary.total).toBe(3);
+    expect(summary.reasonTotals.low_score).toBe(2);
+    expect(summary.reasonTotals.safety_warning).toBe(1);
+    const counseling = summary.byType.find((t) => t.documentType === 'counseling');
+    expect(counseling.count).toBe(2);
+    expect(counseling.reasons.low_score).toBe(2);
+    expect(summary.recent[0].documentType).toBe('development'); // 최신순
+  });
+
+  test('로그가 없으면 빈 집계를 반환한다', () => {
+    const summary = buildFallbackSummary();
+    expect(summary.total).toBe(0);
+    expect(summary.byType).toEqual([]);
   });
 });
 

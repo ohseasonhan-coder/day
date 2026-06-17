@@ -1,8 +1,18 @@
 // 엔진 검수 리포트 + modular 기본 전환 가능 기준 계산 (로컬, 외부 전송 없음).
 // 누적된 검수 데이터(userCorrectionLearning)를 문서 유형별로 집계한다.
 // 자동 전환은 하지 않는다. 기준 충족 여부만 계산해 '기본 전환 가능' 표시에 사용한다.
-import { getEngineReviews } from './userCorrectionLearning';
+import { getEngineReviews, getFallbackLog } from './userCorrectionLearning';
 import { COMPARE_DOC_TYPES } from './engineComparison';
+
+// fallback 사유 라벨 (관리자 표시용)
+export const FALLBACK_REASON_LABELS = {
+  modular_error: '생성 오류',
+  empty: '빈 결과',
+  internal_label: '내부 라벨 포함',
+  speech_not_preserved: '발화 보존 실패',
+  low_score: '점수 미달',
+  safety_warning: 'safety 경고',
+};
 
 // modular 기본 전환 가능 기준
 export const SWITCH_CRITERIA = {
@@ -120,4 +130,23 @@ export function buildReviewReport(reviews = getEngineReviews()) {
   });
 
   return { totalCount: reviews.length, types, criteria: SWITCH_CRITERIA };
+}
+
+// fallback 로그 집계: 문서 유형별 건수·사유 분포 + 최근 목록.
+const DOC_LABELS = COMPARE_DOC_TYPES.reduce((m, d) => ({ ...m, [d.key]: d.label }), {});
+export function buildFallbackSummary(log = getFallbackLog()) {
+  const byType = {};
+  const reasonTotals = {};
+  log.forEach((e) => {
+    const key = e.documentType || 'unknown';
+    const t = byType[key] || { documentType: key, label: DOC_LABELS[key] || key, count: 0, reasons: {} };
+    t.count += 1;
+    (e.reasons || []).forEach((r) => {
+      t.reasons[r] = (t.reasons[r] || 0) + 1;
+      reasonTotals[r] = (reasonTotals[r] || 0) + 1;
+    });
+    byType[key] = t;
+  });
+  const recent = [...log].slice(-10).reverse();
+  return { total: log.length, byType: Object.values(byType), reasonTotals, recent };
 }

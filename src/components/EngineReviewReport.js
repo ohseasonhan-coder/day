@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { buildReviewReport, SWITCH_CRITERIA, isLiveConnected } from '../utils/ai/engineReviewReport';
-import { clearEngineReviews } from '../utils/ai/userCorrectionLearning';
+import { buildReviewReport, SWITCH_CRITERIA, isLiveConnected, buildFallbackSummary, FALLBACK_REASON_LABELS } from '../utils/ai/engineReviewReport';
+import { clearEngineReviews, clearFallbackLog } from '../utils/ai/userCorrectionLearning';
 import { getDocumentEngineSettings, setDocumentEngine } from '../utils/ai/documentEngineSettings';
 
 const SWITCH_CONFIRM = '이 문서 유형의 기본 문장 엔진을 modular로 전환합니다. 기존 legacy 엔진은 fallback으로 유지됩니다. 계속하시겠습니까?';
@@ -22,7 +22,8 @@ function StatChip({ label, value, ok }) {
 export default function EngineReviewReport({ enabled = true }) {
   const [report, setReport] = useState(() => buildReviewReport());
   const [engines, setEngines] = useState(() => getDocumentEngineSettings());
-  const refresh = () => { setReport(buildReviewReport()); setEngines(getDocumentEngineSettings()); };
+  const [fallbacks, setFallbacks] = useState(() => buildFallbackSummary());
+  const refresh = () => { setReport(buildReviewReport()); setEngines(getDocumentEngineSettings()); setFallbacks(buildFallbackSummary()); };
 
   const switchTo = (key) => {
     // eslint-disable-next-line no-alert
@@ -81,6 +82,31 @@ export default function EngineReviewReport({ enabled = true }) {
         <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>
           기준(검수 30건·평균 90·선택률 80%·수정률 20%·safety 0·factPres 25)을 모두 충족한 유형만 전환할 수 있어요. 전환해도 modular에 문제가 생기면 자동으로 legacy로 되돌아갑니다.
         </p>
+      </div>
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>fallback 로그 <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>· 총 {fallbacks.total}건</span></span>
+          <button onClick={() => { clearFallbackLog(); setFallbacks(buildFallbackSummary()); }} style={{ padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: 'var(--gray-100)', color: 'var(--text-primary)' }}>로그 비우기</button>
+        </div>
+        {fallbacks.total === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>modular 전환 후 legacy로 되돌아간 사례가 아직 없습니다.</div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+              {Object.entries(fallbacks.reasonTotals).map(([code, n]) => (
+                <span key={code} style={{ fontSize: 11, borderRadius: 6, padding: '2px 6px', background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                  {FALLBACK_REASON_LABELS[code] || code} {n}
+                </span>
+              ))}
+            </div>
+            {fallbacks.byType.map((t) => (
+              <div key={t.documentType} style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '2px 0' }}>
+                {t.label}: {t.count}건 ({Object.entries(t.reasons).map(([c, n]) => `${FALLBACK_REASON_LABELS[c] || c} ${n}`).join(', ')})
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {report.totalCount === 0 && (
