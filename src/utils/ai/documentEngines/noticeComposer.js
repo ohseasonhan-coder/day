@@ -111,7 +111,7 @@ export function composeNotice({ childName, input, categories, curriculum } = {})
 
   if (curriculum?.item && !body.includes(curriculum.item)) {
     const item = String(curriculum.item).replace(/[.。]\s*$/, '');
-    body += ` 오늘의 경험은 '${item}'과도 이어집니다.`;
+    body += ` 오늘의 경험은 「${item}」 내용과도 이어집니다.`;
   }
   return body.replace(/\s+/g, ' ').trim();
 }

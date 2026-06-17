@@ -89,7 +89,7 @@ export function composeCounseling({ childName, input, categories, curriculum } =
 
   if (curriculum?.item && !body.includes(curriculum.item)) {
     const item = String(curriculum.item).replace(/[.。]\s*$/, '');
-    body += ` 원에서는 '${item}'과 관련한 경험을 함께 지원하고 있습니다.`;
+    body += ` 원에서는 「${item}」 관련 경험을 함께 지원하고 있습니다.`;
   }
   return body.replace(/\s+/g, ' ').trim();
 }
@@ -146,7 +146,7 @@ export function composeDevelopment({ childName, input, categories, curriculum } 
 
   if (curriculum?.item && !body.includes(curriculum.item)) {
     const item = String(curriculum.item).replace(/[.。]\s*$/, '');
-    body += ` 이는 ${curriculum.source || '표준보육과정'}의 '${item}' 발달 경험과 연결됩니다.`;
+    body += ` 이는 ${curriculum.source || '표준보육과정'}의 「${item}」 발달 경험과 연결됩니다.`;
   }
   return body.replace(/\s+/g, ' ').trim();
 }

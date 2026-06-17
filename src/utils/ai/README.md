@@ -133,6 +133,8 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `documentEngineResolver.js`: `resolveDocumentEngine({ documentType, input, legacyText, modularFn })` — 설정이 legacy면 legacy, modular면 modular 생성→검수→통과 시 modular, 실패 시 legacy fallback(+`recordFallback` 로그). `validateModularOutput` fallback 사유: empty·internal_label·speech_not_preserved·low_score(<85)·safety_warning·modular_error. `generateWithFallback`는 텍스트만 반환(엔진/점수 비노출).
     - `publicApi.processRecord`가 observation/dailyReport/notice 필드에 resolver 적용(기본 legacy → 기존 동작 동일). 사용자에겐 결과 텍스트만 노출.
     - 관리자 UI(`EngineReviewReport`): 문서 유형별 현재 엔진 표시 + 기준 충족 시에만 'modular 기본 전환' 버튼 활성(확인창), 전환 후 'legacy로 되돌리기'. 자동 전환 없음.
+    - 라이브 연결(`LIVE_CONNECTED_DOC_TYPES`, 전 5종): observation/dailyReport/notice는 `processRecord`, counseling은 `generateConsultDoc`(recentGrowth 필드), development는 `generateGrowthSummary`(overall 필드)에서 resolver 적용. 관리자 패널에 '● 라이브 연결됨' 표시.
+    - 주의: 커리큘럼 항목 표기는 발화 오인을 막기 위해 작은따옴표가 아닌 「」를 사용한다(speech 보존 검사 오작동 방지).
 
 ## Safety Rules
 

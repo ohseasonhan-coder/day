@@ -223,7 +223,7 @@ export function composeEvaluation({ childName, input, categories, curriculum } =
 
   if (curriculum?.item && !body.includes(curriculum.item)) {
     const item = String(curriculum.item).replace(/[.。]\s*$/, '');
-    body += ` 이는 ${curriculum.source || '표준보육과정'}의 '${item}' 내용과 연결지어 볼 수 있다.`;
+    body += ` 이는 ${curriculum.source || '표준보육과정'}의 「${item}」 내용과 연결지어 볼 수 있다.`;
   }
   return body.replace(/\s+/g, ' ').trim();
 }

@@ -70,8 +70,17 @@ export async function generateDailyJournal(options = {}) {
 export async function generateGrowthSummary(options = {}) {
   const legacyResult = await legacyGenerateGrowthSummary(options);
   const modular = createGrowthDraft(options);
+  const input = modular.analysis?.parsedInput?.rawText || '';
+  // 발달평가(전체 요약) 대표 서술 필드에 엔진 설정/검수/legacy fallback을 적용.
+  const overall = resolveDocumentEngine({
+    documentType: 'development',
+    input,
+    legacyText: legacyResult.overall || '',
+    modularFn: () => modular.draft,
+  }).text;
   return {
     ...legacyResult,
+    overall,
     aiAnalysis: modular.analysis,
     modularDraft: modular.draft,
   };
@@ -80,8 +89,17 @@ export async function generateGrowthSummary(options = {}) {
 export async function generateConsultDoc(options = {}) {
   const legacyResult = await legacyGenerateConsultDoc(options);
   const modular = createConsultDocumentDraft(options);
+  const input = modular.analysis?.parsedInput?.rawText || '';
+  // 상담자료(최근 성장 흐름) 대표 서술 필드에 엔진 설정/검수/legacy fallback을 적용.
+  const recentGrowth = resolveDocumentEngine({
+    documentType: 'counseling',
+    input,
+    legacyText: legacyResult.recentGrowth || '',
+    modularFn: () => modular.draft,
+  }).text;
   return {
     ...legacyResult,
+    recentGrowth,
     aiAnalysis: modular.analysis,
     modularDraft: modular.draft,
   };

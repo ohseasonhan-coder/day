@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { buildReviewReport, SWITCH_CRITERIA } from '../utils/ai/engineReviewReport';
+import { buildReviewReport, SWITCH_CRITERIA, isLiveConnected } from '../utils/ai/engineReviewReport';
 import { clearEngineReviews } from '../utils/ai/userCorrectionLearning';
 import { getDocumentEngineSettings, setDocumentEngine } from '../utils/ai/documentEngineSettings';
 
@@ -49,6 +49,9 @@ export default function EngineReviewReport({ enabled = true }) {
           return (
             <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, minWidth: 120 }}>{t.label}</span>
+              <span style={{ fontSize: 10, color: isLiveConnected(t.key) ? 'var(--primary)' : 'var(--text-tertiary)' }}>
+                {isLiveConnected(t.key) ? '● 라이브 연결됨' : '○ 설정 가능'}
+              </span>
               <span style={{
                 fontSize: 11, fontWeight: 800, borderRadius: 6, padding: '2px 8px',
                 background: isModular ? 'var(--primary-light)' : 'var(--gray-100)',

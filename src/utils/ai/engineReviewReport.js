@@ -27,6 +27,13 @@ export function canAccessReviewTools({ isMaster = false } = {}) {
   return Boolean(isMaster);
 }
 
+// 실제 생성 흐름에 resolver가 연결된(라이브) 문서 유형.
+// observation/dailyReport/notice: processRecord, counseling: generateConsultDoc, development: generateGrowthSummary
+export const LIVE_CONNECTED_DOC_TYPES = ['observation', 'dailyReport', 'notice', 'counseling', 'development'];
+export function isLiveConnected(documentType) {
+  return LIVE_CONNECTED_DOC_TYPES.includes(documentType);
+}
+
 // 문서 유형별 검수 진행 상태 라벨.
 export function reviewStatusOf(stat) {
   if (stat.count < SWITCH_CRITERIA.minCount) return '검수 부족';

@@ -6,7 +6,8 @@ import {
   resolveDocumentEngine, validateModularOutput, generateWithFallback, FALLBACK_MIN_SCORE,
 } from './ai/documentEngineResolver';
 import { getFallbackLog, clearFallbackLog } from './ai/userCorrectionLearning';
-import { processRecord } from './ai/index';
+import { isLiveConnected, LIVE_CONNECTED_DOC_TYPES } from './ai/engineReviewReport';
+import { processRecord, generateConsultDoc, generateGrowthSummary } from './ai/index';
 
 const goodScore = () => ({ totalScore: 92, detail: { safety: 15, factPreservation: 27, naturalness: 20, documentFit: 19 } });
 const lowScore = () => ({ totalScore: 70, detail: { safety: 15, factPreservation: 20, naturalness: 18, documentFit: 16 } });
@@ -146,5 +147,71 @@ describe('processRecord 통합 — 일반 사용자 비노출 + 기본 legacy', 
     expect(typeof r.observation).toBe('string');
     expect(r.observation).toContain('"같이 만들래?"');
     expect(r.observation).not.toMatch(/놀이 흐름:|교사 지원:/);
+  });
+});
+
+describe('상담자료·발달평가 라이브 연결 + fallback', () => {
+  beforeEach(resetAll);
+  const RECORDS = [{ rawText: '미술 활동에서 윤재가 물감을 처음 써 보며 "초록 됐다!"라고 말하고 친구에게 보여주었다.' }];
+  const BANNED = /문제행동|산만|공격적|고집|발달지연|발달 지연|못한다|부족하|ADHD|자폐|장애|지능/;
+
+  test('5종 문서가 모두 라이브 연결됨으로 표시된다', () => {
+    expect(LIVE_CONNECTED_DOC_TYPES).toHaveLength(5);
+    ['observation', 'dailyReport', 'notice', 'counseling', 'development'].forEach((t) => {
+      expect(isLiveConnected(t)).toBe(true);
+    });
+  });
+
+  test('counseling/development 기본값은 legacy다', () => {
+    expect(getActiveEngineForDocument('counseling')).toBe('legacy');
+    expect(getActiveEngineForDocument('development')).toBe('legacy');
+  });
+
+  test('counseling을 modular로 전환하면 상담자료가 modular 출력을 사용한다', async () => {
+    setDocumentEngine('counseling', 'modular');
+    const consult = await generateConsultDoc({ childName: '윤재', records: RECORDS, childAge: '4' });
+    expect(typeof consult.recentGrowth).toBe('string');
+    expect(consult.recentGrowth).toBe(consult.modularDraft); // 검수 통과 → modular 사용
+    expect(consult.recentGrowth).toContain('"초록 됐다!"'); // 발화 원문 보존
+    expect(consult.recentGrowth).not.toMatch(BANNED);
+  });
+
+  test('development를 modular로 전환하면 발달평가가 modular 출력을 사용한다', async () => {
+    setDocumentEngine('development', 'modular');
+    const growth = await generateGrowthSummary({ childName: '윤재', records: RECORDS, period: '6월', childAge: '4' });
+    expect(typeof growth.overall).toBe('string');
+    expect(growth.overall).toBe(growth.modularDraft);
+    expect(growth.overall).not.toMatch(BANNED);
+  });
+
+  test('modular 검수 실패 시 counseling은 legacy로 fallback되고 로그가 남는다', () => {
+    setDocumentEngine('counseling', 'modular');
+    const r = resolveDocumentEngine({ documentType: 'counseling', input: '메모', legacyText: '기존 상담 문장', modularFn: () => '   ', scoreFn: goodScore });
+    expect(r.engine).toBe('legacy');
+    expect(r.text).toBe('기존 상담 문장');
+    expect(r.reasons).toContain('empty');
+    expect(getFallbackLog().some((e) => e.documentType === 'counseling')).toBe(true);
+  });
+
+  test('modular 검수 실패 시 development는 legacy로 fallback되고 로그가 남는다', () => {
+    setDocumentEngine('development', 'modular');
+    // 실제 scorer 사용: '발달이 늦/부족' → safety 감점·저점수로 fallback
+    const r = resolveDocumentEngine({ documentType: 'development', input: '메모', legacyText: '기존 발달평가', modularFn: () => '발달이 늦고 부족하다.' });
+    expect(r.engine).toBe('legacy');
+    expect(r.text).toBe('기존 발달평가');
+    expect(r.reasons.length).toBeGreaterThan(0);
+    expect(getFallbackLog().some((e) => e.documentType === 'development')).toBe(true);
+  });
+
+  test('기본 상태에서 상담/발달 결과에 엔진/점수/fallback 정보가 노출되지 않는다', async () => {
+    const consult = await generateConsultDoc({ childName: '윤재', records: RECORDS, childAge: '4' });
+    const growth = await generateGrowthSummary({ childName: '윤재', records: RECORDS, period: '6월', childAge: '4' });
+    [consult, growth].forEach((res) => {
+      expect(res.engine).toBeUndefined();
+      expect(res.qualityScore).toBeUndefined();
+      expect(res.fellBack).toBeUndefined();
+    });
+    expect(typeof consult.recentGrowth).toBe('string');
+    expect(typeof growth.overall).toBe('string');
   });
 });
