@@ -146,7 +146,14 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `documentEngineSettings`: 전환 시각 메타(`getEngineSwitchedAt`, 로컬 전용·비동기화).
     - `engineReviewReport.buildEngineMonitor`/`computeMonitorStatus`: modular 사용 유형의 상태 판정 — 안정(fallback 0~1·위험사유 없음) / 주의(fallback 2+ 또는 low_score) / 되돌리기 권장(safety_warning·speech_not_preserved·internal_label).
     - `engineSampleRunner.runSampleAudit(documentType)`: 프리셋 20개를 modular로 생성·검수해 요약(성공/fallback/평균·최저 점수/safety/90미만/내부라벨/발화보존실패).
-    - `EngineReviewReport`: 모니터 상태 칩(상태·fallback·전환시각) + '샘플 20개 실행' 버튼. 자동 전환 없음, 일반 사용자 비노출.
+    - `EngineReviewReport`: 모니터 상태 칩(상태·fallback·전환시각) + 문서유형별 '샘플 20개 실행'. 자동 전환 없음, 일반 사용자 비노출.
+
+25. 운영 기본 전환 (2026-06)
+    - `DEFAULT_ENGINE_PREFS` = { observation:legacy, dailyReport:modular, notice:modular, counseling:modular, development:modular }. 4종은 modular 기본, fallback 항상 작동.
+    - **관찰일지는 legacy 유지** — 샘플 감사에서 발화 보존 실패가 발생(전환 보류). 관리자 패널에 보류 사유 표시.
+    - `OBSERVATION_SWITCH_CRITERIA`(엄격) + `isObservationSwitchEligible(audit)`: 관찰일지는 성공률 100%·fallback 0·발화 실패 0·라벨 0·safety 0일 때만 전환 가능.
+    - 레거시 회귀 스위트(`ai.test.js`)는 legacy로 핀 고정해 회귀를 검증.
+    - TODO(관찰일지 modular): ① 발화 보존 실패 케이스 원인 분석 ② 따옴표 발화 추출/복원 강화 ③ 입력 발화 100% 보존 시에만 전환.
 
 ## Safety Rules
 

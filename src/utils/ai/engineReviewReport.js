@@ -133,6 +133,29 @@ export function buildReviewReport(reviews = getEngineReviews()) {
   return { totalCount: reviews.length, types, criteria: SWITCH_CRITERIA };
 }
 
+// 관찰일지는 사실·발화 보존이 최우선이라 다른 문서보다 엄격한 전환 기준을 적용한다.
+export const OBSERVATION_SWITCH_CRITERIA = {
+  minCount: 30,
+  successRate: 1.0,          // modular 성공률 100%
+  maxFallback: 0,
+  maxSpeechFail: 0,
+  maxInternalLabel: 0,
+  maxSafety: 0,
+  minFactPreservation: 28,   // 권장
+};
+
+// 관찰일지 modular 전환 가능 여부(샘플 감사 결과 기준). 하나라도 어기면 전환 보류.
+export function isObservationSwitchEligible(audit) {
+  if (!audit || audit.total === 0) return false;
+  return (
+    audit.modularPass === audit.total &&
+    audit.fallback === 0 &&
+    audit.speechFail === 0 &&
+    audit.internalLabel === 0 &&
+    audit.safetyWarnings === 0
+  );
+}
+
 // ── 전환 후 모니터링 ──────────────────────────────────────────────
 // 즉시 되돌리기를 권장하는 위험 사유(품질·안전 직결).
 export const MONITOR_REVERT_REASONS = ['safety_warning', 'speech_not_preserved', 'internal_label'];

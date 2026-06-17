@@ -3,12 +3,14 @@
 // storage.js(드라이브/사진 의존) import를 피하기 위해 localStorage를 직접 사용한다.
 export const ENGINE_DOC_TYPES = ['observation', 'dailyReport', 'notice', 'counseling', 'development'];
 
+// 운영 전환 적용(2026-06): 검수 통과한 4종은 modular 기본, 관찰일지는 발화 보존 보장
+// 전까지 legacy 유지. fallback은 항상 작동하므로 modular 실패 시 자동 legacy.
 export const DEFAULT_ENGINE_PREFS = {
-  observation: 'legacy',
-  dailyReport: 'legacy',
-  notice: 'legacy',
-  counseling: 'legacy',
-  development: 'legacy',
+  observation: 'legacy',   // 발화 보존 실패 케이스 존재 → 전환 보류(엄격 기준 충족 시 전환)
+  dailyReport: 'modular',
+  notice: 'modular',
+  counseling: 'modular',
+  development: 'modular',
 };
 
 function currentUid() {
@@ -95,15 +97,27 @@ export function getEnginePrefsForSync() {
 export function applyEnginePrefsFromSync(payload) {
   if (!payload || typeof payload !== 'object') return getDocumentEngineSettings();
   const engines = payload.engines && typeof payload.engines === 'object' ? payload.engines : payload;
-  const clean = {};
+  // 각 키를 백업 값으로 명시적으로 설정한다(modular면 modular, 그 외/누락은 legacy).
+  // 기본값에 의존하지 않으므로 'all legacy' 백업도 정확히 복원된다.
+  const next = {};
   ENGINE_DOC_TYPES.forEach((k) => {
-    if (engines[k] === 'modular') clean[k] = 'modular';
+    next[k] = engines[k] === 'modular' ? 'modular' : 'legacy';
   });
-  const next = { ...DEFAULT_ENGINE_PREFS, ...clean };
   try {
     localStorage.setItem(prefsKey(), JSON.stringify(next));
   } catch {
     /* 무시 */
   }
   return next;
+}
+
+// 엔진 설정 초기화(기본값으로 되돌림). 테스트/재설정용.
+export function clearDocumentEnginePrefs() {
+  try {
+    localStorage.removeItem(prefsKey());
+    localStorage.removeItem(metaKey());
+  } catch {
+    /* 무시 */
+  }
+  return getDocumentEngineSettings();
 }

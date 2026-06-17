@@ -1,6 +1,6 @@
 import {
   getDocumentEngineSettings, getActiveEngineForDocument, setDocumentEngine, resetDocumentEngine,
-  ENGINE_DOC_TYPES, DEFAULT_ENGINE_PREFS,
+  clearDocumentEnginePrefs, ENGINE_DOC_TYPES, DEFAULT_ENGINE_PREFS,
 } from './ai/documentEngineSettings';
 import {
   resolveDocumentEngine, validateModularOutput, generateWithFallback, FALLBACK_MIN_SCORE,
@@ -21,11 +21,20 @@ function resetAll() {
 describe('문서 유형별 엔진 설정', () => {
   beforeEach(resetAll);
 
-  test('기본값은 모든 문서 유형이 legacy다', () => {
+  test('resetDocumentEngine로 모든 유형을 legacy로 둘 수 있다', () => {
     const prefs = getDocumentEngineSettings();
     ENGINE_DOC_TYPES.forEach((t) => expect(prefs[t]).toBe('legacy'));
-    expect(prefs).toEqual(DEFAULT_ENGINE_PREFS);
     ENGINE_DOC_TYPES.forEach((t) => expect(getActiveEngineForDocument(t)).toBe('legacy'));
+  });
+
+  test('운영 기본값: 관찰일지만 legacy, 나머지 4종은 modular다', () => {
+    clearDocumentEnginePrefs();
+    expect(getActiveEngineForDocument('observation')).toBe('legacy');
+    ['dailyReport', 'notice', 'counseling', 'development'].forEach((t) => {
+      expect(getActiveEngineForDocument(t)).toBe('modular');
+    });
+    expect(DEFAULT_ENGINE_PREFS.observation).toBe('legacy');
+    expect(DEFAULT_ENGINE_PREFS.notice).toBe('modular');
   });
 
   test('승인 시 해당 문서 유형만 modular로 저장된다', () => {

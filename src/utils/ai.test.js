@@ -2,6 +2,11 @@
 // 과거에 실제로 발생했던 변환 버그가 다시 생기지 않는지 확인합니다.
 // ai.js를 수정한 뒤에는 반드시 `npm test`로 이 테스트가 통과하는지 확인하세요.
 import { processRecord } from './ai';
+import { resetDocumentEngine, ENGINE_DOC_TYPES } from './ai/documentEngineSettings';
+
+// 이 스위트는 legacy 엔진의 변환 동작을 고정 검증한다.
+// 운영 기본값이 일부 modular라도, 여기서는 모든 유형을 legacy로 고정해 회귀를 본다.
+beforeEach(() => ENGINE_DOC_TYPES.forEach((t) => resetDocumentEngine(t)));
 
 const run = (rawText, childName = '하준') =>
   processRecord({ childName, rawText, classAge: '4', recordType: 'observe' });

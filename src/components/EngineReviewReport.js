@@ -36,6 +36,8 @@ export default function EngineReviewReport({ enabled = true }) {
   const [monitor, setMonitor] = useState(() => buildEngineMonitor());
   const [audit, setAudit] = useState(null);
   const [auditType, setAuditType] = useState('notice');
+  // 관찰일지 전환 보류 사유 표시용(발화 보존 실패 건수). 마운트 시 1회 산정.
+  const [obsAudit] = useState(() => { try { return runSampleAudit('observation'); } catch { return null; } });
   const refresh = () => {
     setReport(buildReviewReport());
     setEngines(getDocumentEngineSettings());
@@ -92,6 +94,11 @@ export default function EngineReviewReport({ enabled = true }) {
                   color: (STATUS_STYLE[monByKey[t.key].status] || STATUS_STYLE.legacy).color,
                 }}>
                   {monByKey[t.key].status} · fb {monByKey[t.key].fallbackCount}{monByKey[t.key].switchedAt ? ` · ${fmtDate(monByKey[t.key].switchedAt)}` : ''}
+                </span>
+              )}
+              {!isModular && t.key === 'observation' && obsAudit && (obsAudit.speechFail > 0 || obsAudit.fallback > 0) && (
+                <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>
+                  발화 보존 실패 {obsAudit.speechFail}건 · fallback {obsAudit.fallback}건 → 전환 보류
                 </span>
               )}
               {isModular ? (
