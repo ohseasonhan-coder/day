@@ -22,6 +22,16 @@ const scoreOf = (s, key = 'totalScore') => (s && typeof s[key] === 'number' ? s[
 export function canAccessReviewReport({ isMaster = false, compareEnabled = false } = {}) {
   return Boolean(isMaster) || Boolean(compareEnabled && isMaster);
 }
+// 검수 샘플 입력 도구도 마스터 전용.
+export function canAccessReviewTools({ isMaster = false } = {}) {
+  return Boolean(isMaster);
+}
+
+// 문서 유형별 검수 진행 상태 라벨.
+export function reviewStatusOf(stat) {
+  if (stat.count < SWITCH_CRITERIA.minCount) return '검수 부족';
+  return stat.switchReadiness?.ready ? '기본 전환 가능' : '개선 필요';
+}
 
 export function evaluateSwitchReadiness(stat) {
   const checks = {
@@ -97,6 +107,8 @@ export function buildReviewReport(reviews = getEngineReviews()) {
       legacyChosenCases: t.legacyChosenCases,
     };
     stat.switchReadiness = evaluateSwitchReadiness(stat);
+    stat.progress = `${stat.count}/${SWITCH_CRITERIA.minCount}`;
+    stat.status = reviewStatusOf(stat);
     return stat;
   });
 

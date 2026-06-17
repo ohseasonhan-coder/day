@@ -41,12 +41,13 @@ export default function EngineReviewReport({ enabled = true }) {
         return (
           <div key={t.key} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <strong style={{ fontSize: 14 }}>{t.label} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>· {t.count}건</span></strong>
+              <strong style={{ fontSize: 14 }}>{t.label} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>· 검수 {t.progress}</span></strong>
               <span style={{
                 fontSize: 11, fontWeight: 800, borderRadius: 6, padding: '3px 8px',
-                background: sr.ready ? 'var(--primary)' : 'var(--gray-200)', color: sr.ready ? 'var(--white)' : 'var(--text-secondary)',
+                background: t.status === '기본 전환 가능' ? 'var(--primary)' : t.status === '개선 필요' ? 'var(--accent-light)' : 'var(--gray-200)',
+                color: t.status === '기본 전환 가능' ? 'var(--white)' : t.status === '개선 필요' ? 'var(--accent)' : 'var(--text-secondary)',
               }}>
-                {sr.ready ? '✅ 기본 전환 가능' : '검토 누적 중'}
+                {t.status === '기본 전환 가능' ? '✅ ' : ''}{t.status}
               </span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>

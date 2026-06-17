@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { getComparisonView } from '../utils/ai/engineComparison';
+import { getComparisonView, COMPARE_DOC_TYPES } from '../utils/ai/engineComparison';
 import { recordEngineChoice } from '../utils/ai/userCorrectionLearning';
+import { REVIEW_SAMPLE_PRESETS } from '../utils/ai/reviewSamplePresets';
 
 // 개발자/검수 전용: legacy ↔ modular 문장 엔진 비교 패널.
 // enabled가 false면 아무것도 렌더링하지 않는다(일반 사용자 화면 영향 없음).
@@ -60,8 +61,14 @@ export default function EngineComparePanel({ enabled = false }) {
   const [chosen, setChosen] = useState({});
   const [edits, setEdits] = useState({});
   const [saved, setSaved] = useState({});
+  const [docFilter, setDocFilter] = useState('all');
 
   if (!enabled) return null;
+
+  const loadPreset = (id) => {
+    const preset = REVIEW_SAMPLE_PRESETS.find((p) => p.id === id);
+    if (preset) setRawText(preset.rawText);
+  };
 
   const runCompare = async () => {
     if (!rawText.trim()) return;
@@ -113,6 +120,28 @@ export default function EngineComparePanel({ enabled = false }) {
         검수용 도구입니다. 기존 출력(legacy)과 새 문장 엔진(modular)을 5종 문서로 비교합니다.
         점수가 높은 쪽이 추천되며, 자동 적용되지 않습니다. 일반 사용자 화면에는 영향을 주지 않습니다.
       </p>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <select
+          onChange={(e) => loadPreset(e.target.value)}
+          defaultValue=""
+          style={{ flex: 1, minWidth: 160, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }}
+        >
+          <option value="" disabled>검수 샘플 불러오기…</option>
+          {REVIEW_SAMPLE_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>{p.label}</option>
+          ))}
+        </select>
+        <select
+          value={docFilter}
+          onChange={(e) => setDocFilter(e.target.value)}
+          style={{ minWidth: 130, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }}
+        >
+          <option value="all">전체 문서</option>
+          {COMPARE_DOC_TYPES.map((dt) => (
+            <option key={dt.key} value={dt.key}>{dt.label}</option>
+          ))}
+        </select>
+      </div>
       <input
         value={childName}
         onChange={(e) => setChildName(e.target.value)}
@@ -139,7 +168,7 @@ export default function EngineComparePanel({ enabled = false }) {
 
       {view?.results && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {view.results.map((r) => (
+          {view.results.filter((r) => docFilter === 'all' || r.key === docFilter).map((r) => (
             <div key={r.key}>
               <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>{r.label}</div>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
