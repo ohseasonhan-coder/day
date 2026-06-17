@@ -71,8 +71,8 @@ export async function buildEngineComparison({ childName, rawText, classAge } = {
       key,
       label,
       documentType,
-      legacy: { engine: 'legacy', text: lText, scores: pickScores(legacyScore) },
-      modular: { engine: 'modular', text: mText, scores: pickScores(modularScore) },
+      legacy: { engine: 'legacy', text: lText, scores: pickScores(legacyScore), warnings: legacyScore.warnings },
+      modular: { engine: 'modular', text: mText, scores: pickScores(modularScore), warnings: modularScore.warnings },
       recommended: pickRecommended(legacyScore, modularScore),
     };
   });

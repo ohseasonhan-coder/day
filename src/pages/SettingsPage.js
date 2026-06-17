@@ -14,6 +14,7 @@ import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, A
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
 import { extractDocxText, extractHwpxText, classifyFormFile } from '../utils/docxImport';
 import EngineComparePanel from '../components/EngineComparePanel';
+import EngineReviewReport from '../components/EngineReviewReport';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -644,6 +645,15 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   </button>
                 </div>
                 <EngineComparePanel enabled={!!settings.engineCompareMode} />
+              </SettingCard>
+            )}
+
+            {isMaster() && (
+              <SettingCard title="📊 엔진 검수 리포트 (관리자)">
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+                  비교 모드에서 선택·수정한 검수 데이터를 문서 유형별로 집계합니다. 모든 데이터는 이 기기에만 저장되며 외부로 전송되지 않습니다. 기준을 만족하면 “기본 전환 가능”만 표시하고 자동 전환은 하지 않습니다.
+                </p>
+                <EngineReviewReport enabled />
               </SettingCard>
             )}
 

@@ -58,6 +58,8 @@ export default function EngineComparePanel({ enabled = false }) {
   const [view, setView] = useState(null);
   const [busy, setBusy] = useState(false);
   const [chosen, setChosen] = useState({});
+  const [edits, setEdits] = useState({});
+  const [saved, setSaved] = useState({});
 
   if (!enabled) return null;
 
@@ -68,20 +70,41 @@ export default function EngineComparePanel({ enabled = false }) {
       const result = await getComparisonView({ enabled: true, childName: childName.trim(), rawText: rawText.trim(), classAge: '4' });
       setView(result);
       setChosen({});
+      setEdits({});
+      setSaved({});
     } finally {
       setBusy(false);
     }
   };
 
-  const choose = (r, engineKey) => {
-    setChosen((prev) => ({ ...prev, [r.key]: engineKey }));
+  const persist = (r, engineKey, userEditedText) => {
     recordEngineChoice({
-      docType: r.key,
-      chosenEngine: engineKey,
+      documentType: r.key,
+      inputText: rawText.trim(),
       legacyText: r.legacy.text,
       modularText: r.modular.text,
-      input: rawText.trim(),
+      legacyScore: r.legacy.scores,
+      modularScore: r.modular.scores,
+      recommendedEngine: r.recommended,
+      selectedEngine: engineKey,
+      userEditedText,
+      warnings: r.modular.warnings || [],
     });
+    setSaved((p) => ({ ...p, [r.key]: true }));
+    setTimeout(() => setSaved((p) => ({ ...p, [r.key]: false })), 1500);
+  };
+
+  const choose = (r, engineKey) => {
+    setChosen((prev) => ({ ...prev, [r.key]: engineKey }));
+    const base = engineKey === 'modular' ? r.modular.text : r.legacy.text;
+    setEdits((prev) => ({ ...prev, [r.key]: base }));
+    persist(r, engineKey);
+  };
+
+  const saveEdit = (r) => {
+    const engineKey = chosen[r.key];
+    if (!engineKey) return;
+    persist(r, engineKey, edits[r.key]);
   };
 
   return (
@@ -135,6 +158,20 @@ export default function EngineComparePanel({ enabled = false }) {
                   onChoose={() => choose(r, 'modular')}
                 />
               </div>
+              {chosen[r.key] && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>선택한 문장 수정(검수용 — 일반 출력에는 반영되지 않음)</div>
+                  <textarea
+                    value={edits[r.key] ?? ''}
+                    onChange={(e) => setEdits((p) => ({ ...p, [r.key]: e.target.value }))}
+                    rows={3}
+                    style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, lineHeight: 1.6, resize: 'vertical' }}
+                  />
+                  <button onClick={() => saveEdit(r)} style={{ marginTop: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--gray-100)', color: 'var(--text-primary)' }}>
+                    {saved[r.key] ? '✓ 저장됨' : '수정 반영 저장'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

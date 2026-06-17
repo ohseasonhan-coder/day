@@ -122,6 +122,12 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `userCorrectionLearning.recordEngineChoice(...)`: 선택/수정 데이터를 받아 두는 스텁(TODO, 로컬 전용). 저장은 미구현.
     - `EngineComparePanel`: SettingsPage에 마스터 전용 토글(`engineCompareMode`)로 장착. 일반 사용자 화면·legacy 출력은 그대로 유지.
 
+21. 검수 데이터 누적 + 리포트 (로컬, 외부 전송 없음)
+    - `userCorrectionLearning.recordEngineChoice(...)`: 선택/수정 검수 데이터를 사용자별 localStorage(`sw_<uid>_engine_reviews`)에 저장. 저장 항목: recordId·inputText·documentType·legacyText·modularText·legacyScore·modularScore·recommendedEngine·selectedEngine·userEditedText·finalText·edited·tags·category·warnings·selectedAt. 드라이브 백업 대상 키가 아니라 외부로 나가지 않는다. `getEngineReviews`/`clearEngineReviews`.
+    - `engineReviewReport.buildReviewReport()`: 문서 유형별 건수·modular 추천/선택률·legacy 선택률·수정률·평균 legacy/modular 점수·점수차·90점 미만 modular 목록·legacy 선택 사례를 집계.
+    - `evaluateSwitchReadiness` + `SWITCH_CRITERIA`: 기본 전환 가능 기준(건수≥30, modular 평균≥90, 선택률≥0.8, 수정률≤0.2, safety 경고 0, factPreservation≥25) 충족 여부만 계산. 자동 전환 없음.
+    - `canAccessReviewReport({ isMaster })`: 마스터만 접근. `EngineReviewReport` 컴포넌트는 SettingsPage 마스터 전용 카드에 장착.
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.
