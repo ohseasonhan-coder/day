@@ -28,6 +28,7 @@ import {
   getSettings,
 } from '../utils/storage';
 import { processRecord } from '../utils/ai';
+import { buildCombinedCopy, QUICK_EXAMPLES } from '../utils/recordCopy';
 import { compressImage, savePhotos, getPhotosByRecord, deletePhoto } from '../utils/photoStore';
 import CurriculumModal from '../components/CurriculumModal';
 import { ageKeyForClassAge } from '../utils/standardCurriculum';
@@ -241,16 +242,23 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   }, [rawText, records, selectedChild]);
 
   const handleProcess = async () => {
-    if (!selectedChild) return setError('위에서 아이를 먼저 선택해 주세요.');
-    if (!rawText.trim())  return setError('기록 내용을 입력해 주세요.');
+    if (!selectedChild) return setError('아이를 선택하면 아이별 기록으로 저장할 수 있어요.');
+    if (!rawText.trim())  return setError('아이의 모습을 한두 문장으로 적어주세요.');
     setError(''); setLoading(true); setResult(null); setSaved(false);
     try {
       const res = await processRecord({ childName: selectedChild.name, rawText: rawText.trim(), classAge: cl?.age, recordType, tone: getSettings().tone });
+      if (!res || !String(res.observation || '').trim()) {
+        setError('문장을 만들지 못했어요. 입력 내용을 조금 더 구체적으로 적어주세요.');
+        return;
+      }
       setResult({ ...res, recordType });
-    } catch (e) {
-      setError(e.message || '기록을 정리하는 중 오류가 발생했어요.');
+    } catch {
+      setError('문장을 만들지 못했어요. 입력 내용을 조금 더 구체적으로 적어주세요.');
     } finally { setLoading(false); }
   };
+
+  // 결과 카드에서 직접 수정한 내용을 결과 상태에 반영(저장 시 함께 저장됨).
+  const handleEditResult = (field, value) => setResult(r => (r ? { ...r, [field]: value } : r));
 
   const handleAddPhotos = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -436,13 +444,13 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               </div>
             )}
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
-            <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
-            <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
+            <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
+            <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
             <CurriculumBasisCard basis={result.curriculumBasis} />
-            <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
-            <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
-            <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
-            <ResultSection title="원문 순화본"          text={result.softened} onCopied={refreshCopyHistory} />
+            <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
+            <ResultSection title="교사 지원계획" field="support" text={result.support} defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
+            <ResultSection title="문서작성 준비 상태" text={result.documentReadyText} defaultOpen={false} optional onCopied={refreshCopyHistory} />
+            <ResultSection title="원문 순화본" text={result.softened} defaultOpen={false} optional onCopied={refreshCopyHistory} />
           </div>
         </div>
       </div>
@@ -531,6 +539,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               </div>
             )}
+            {children.length > 0 && !selectedChild && (
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+                아이를 선택하면 아이별 기록으로 저장할 수 있어요.
+              </div>
+            )}
           </StepSection>
 
           {/* STEP 2: 기록 유형 */}
@@ -595,6 +608,12 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               onFocus={e => { if (!isListening) e.target.style.borderColor = 'var(--primary)'; }}
               onBlur={e  => { if (!isListening) e.target.style.borderColor = 'var(--border)'; }}
             />
+            {/* 빠른 예시 — 누르면 입력창에 자연스럽게 추가 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {QUICK_EXAMPLES.map((ex) => (
+                <button key={ex} onClick={() => insertTextAtCursor(ex)} style={{ minHeight: 38, padding: '8px 13px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--gray-100)', border: '1.5px solid var(--border)' }}>+ {ex}</button>
+              ))}
+            </div>
             <WritingCoach
               rawText={rawText}
               selectedChild={selectedChild}
@@ -712,13 +731,13 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               )}
               <CopyAllButton result={result} onCopied={refreshCopyHistory} />
-              <ResultSection title="관찰일지 문장"        text={result.observation} onCopied={refreshCopyHistory} />
-              <ResultSection title="관찰일지 평가"        text={result.evaluation}  onCopied={refreshCopyHistory} />
+              <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
+              <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
               <CurriculumBasisCard basis={result.curriculumBasis} />
-              <ResultSection title="부모상담/알림장 문장" text={result.parent}      accent onCopied={refreshCopyHistory} />
-              <ResultSection title="교사 지원계획"        text={result.support} onCopied={refreshCopyHistory} />
-              <ResultSection title="문서작성 준비 상태"   text={result.documentReadyText} onCopied={refreshCopyHistory} />
-              <ResultSection title="원문 순화본"          text={result.softened} onCopied={refreshCopyHistory} />
+              <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
+              <ResultSection title="교사 지원계획" field="support" text={result.support} defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
+              <ResultSection title="문서작성 준비 상태" text={result.documentReadyText} defaultOpen={false} optional onCopied={refreshCopyHistory} />
+              <ResultSection title="원문 순화본" text={result.softened} defaultOpen={false} optional onCopied={refreshCopyHistory} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>
                 <button onClick={handleReset} style={{ padding: '15px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--white)', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   <RotateCcw size={15} /> 다시 입력
@@ -1948,46 +1967,77 @@ function CurriculumBasisCard({ basis }) {
 
 function CopyAllButton({ result, onCopied }) {
   const showToast = useToast();
-  if (!result) return null;
-  const parts = [
-    ['관찰일지 문장', result.observation],
-    ['관찰일지 평가', result.evaluation],
-    ['부모상담/알림장 문장', result.parent],
-    ['교사 지원계획', result.support],
-  ].filter(([, t]) => t && String(t).trim());
-  if (parts.length === 0) return null;
-  const handleCopyAll = () => {
-    const combined = parts.map(([label, text]) => `[${label}]\n${text}`).join('\n\n');
-    navigator.clipboard.writeText(combined);
-    addCopyHistory({ title: '전체 결과', text: combined, source: 'record-result-all' });
-    onCopied?.();
-    showToast('전체 결과를 복사했어요! 📋', 'success');
+  const combined = buildCombinedCopy(result);
+  if (!combined) return null;
+  const count = combined.split('\n\n').length;
+  const handleCopyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(combined);
+      addCopyHistory({ title: '전체 결과', text: combined, source: 'record-result-all' });
+      onCopied?.();
+      showToast('전체 결과를 복사했어요! 📋', 'success');
+    } catch {
+      showToast('복사하지 못했어요. 문장을 길게 눌러 직접 복사해주세요.', 'error');
+    }
   };
   return (
-    <button onClick={handleCopyAll} style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'var(--gray-800)', color: 'white', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 12 }}>
-      <Copy size={16} /> 결과 전체 복사 ({parts.length})
+    <button onClick={handleCopyAll} style={{ width: '100%', minHeight: 50, padding: '14px', borderRadius: 14, border: 'none', background: 'var(--gray-800)', color: 'white', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
+      <Copy size={17} /> 결과 전체 복사 ({count})
     </button>
   );
 }
 
-function ResultSection({ title, text, accent, onCopied }) {
+function ResultSection({ title, text, field, accent, defaultOpen = true, optional = false, onCopied, onChange }) {
   const showToast = useToast();
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text || '');
-    addCopyHistory({ title, text, source: 'record-result' });
-    onCopied?.();
-    showToast('복사했어요! 📋', 'success');
+  const [open, setOpen] = useState(defaultOpen);
+  const [editing, setEditing] = useState(false);
+  const isEmpty = !text || !String(text).trim();
+  if (isEmpty && optional) return null;
+
+  const handleCopy = async (e) => {
+    e?.stopPropagation?.();
+    if (isEmpty) return;
+    try {
+      await navigator.clipboard.writeText(text || '');
+      addCopyHistory({ title, text, source: 'record-result' });
+      onCopied?.();
+      showToast('복사했어요! 📋', 'success');
+    } catch {
+      showToast('복사하지 못했어요. 문장을 길게 눌러 직접 복사해주세요.', 'error');
+    }
   };
-  if (!text) return null;
+
+  const headerColor = accent ? 'var(--primary)' : 'var(--text-secondary)';
   return (
-    <div style={{ background: accent ? 'var(--primary-light)' : 'white', border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 15, padding: 16, marginBottom: 12, boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: accent ? 'var(--primary)' : 'var(--text-secondary)' }}>{title}</span>
-        <button onClick={handleCopy} style={{ minWidth: 64, minHeight: 34, padding: '7px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', fontSize: 13, color: accent ? 'var(--primary)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 900 }}>
-          <Copy size={14} /> 복사
-        </button>
-      </div>
-      <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
+    <div style={{ background: accent ? 'var(--primary-light)' : 'white', border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 15, marginBottom: 12, boxShadow: accent ? '0 8px 18px rgba(79,127,255,0.08)' : 'var(--shadow-sm)', overflow: 'hidden' }}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: headerColor }}>
+          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />} {title}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {!isEmpty && onChange && (
+            <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setOpen(true); setEditing(v => !v); }} style={{ minHeight: 36, padding: '8px 11px', borderRadius: 10, background: editing ? 'var(--primary)' : 'var(--gray-100)', color: editing ? 'white' : 'var(--text-secondary)', fontSize: 13, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Pencil size={13} /> {editing ? '완료' : '편집'}
+            </span>
+          )}
+          {!isEmpty && (
+            <span role="button" tabIndex={0} onClick={handleCopy} style={{ minHeight: 36, padding: '8px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', color: accent ? 'var(--primary)' : 'var(--text-secondary)', fontSize: 13, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Copy size={14} /> 복사
+            </span>
+          )}
+        </span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 16px 16px' }}>
+          {isEmpty ? (
+            <div style={{ fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.7 }}>아직 생성된 문장이 없어요. 입력을 조금 더 구체적으로 적어 보세요.</div>
+          ) : (editing && onChange) ? (
+            <textarea value={text} onChange={(e) => onChange(field, e.target.value)} rows={4} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1.5px solid var(--primary)', fontSize: 14, lineHeight: 1.9, resize: 'vertical', fontFamily: 'inherit', color: 'var(--text-primary)', background: 'var(--white)' }} />
+          ) : (
+            <div style={{ fontSize: 14, lineHeight: 1.95, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{text}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
