@@ -128,6 +128,12 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - `evaluateSwitchReadiness` + `SWITCH_CRITERIA`: 기본 전환 가능 기준(건수≥30, modular 평균≥90, 선택률≥0.8, 수정률≤0.2, safety 경고 0, factPreservation≥25) 충족 여부만 계산. 자동 전환 없음.
     - `canAccessReviewReport({ isMaster })`: 마스터만 접근. `EngineReviewReport` 컴포넌트는 SettingsPage 마스터 전용 카드에 장착.
 
+22. 문서 유형별 기본 전환(수동 승인) + fallback
+    - `documentEngineSettings.js`: 문서 유형별 기본 엔진 설정(`sw_<uid>_engine_prefs`, 기본값 전부 legacy). `getActiveEngineForDocument`/`setDocumentEngine`/`resetDocumentEngine`.
+    - `documentEngineResolver.js`: `resolveDocumentEngine({ documentType, input, legacyText, modularFn })` — 설정이 legacy면 legacy, modular면 modular 생성→검수→통과 시 modular, 실패 시 legacy fallback(+`recordFallback` 로그). `validateModularOutput` fallback 사유: empty·internal_label·speech_not_preserved·low_score(<85)·safety_warning·modular_error. `generateWithFallback`는 텍스트만 반환(엔진/점수 비노출).
+    - `publicApi.processRecord`가 observation/dailyReport/notice 필드에 resolver 적용(기본 legacy → 기존 동작 동일). 사용자에겐 결과 텍스트만 노출.
+    - 관리자 UI(`EngineReviewReport`): 문서 유형별 현재 엔진 표시 + 기준 충족 시에만 'modular 기본 전환' 버튼 활성(확인창), 전환 후 'legacy로 되돌리기'. 자동 전환 없음.
+
 ## Safety Rules
 
 - Do not add OpenAI, Gemini, Claude, or other external API calls.

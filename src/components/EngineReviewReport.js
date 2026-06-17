@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { buildReviewReport, SWITCH_CRITERIA } from '../utils/ai/engineReviewReport';
 import { clearEngineReviews } from '../utils/ai/userCorrectionLearning';
+import { getDocumentEngineSettings, setDocumentEngine } from '../utils/ai/documentEngineSettings';
+
+const SWITCH_CONFIRM = '이 문서 유형의 기본 문장 엔진을 modular로 전환합니다. 기존 legacy 엔진은 fallback으로 유지됩니다. 계속하시겠습니까?';
 
 // 관리자/마스터 전용: 누적된 엔진 검수 데이터 리포트.
 // 일반 사용자에게는 상위(SettingsPage)에서 isMaster로 가려 노출되지 않는다.
@@ -18,7 +21,15 @@ function StatChip({ label, value, ok }) {
 
 export default function EngineReviewReport({ enabled = true }) {
   const [report, setReport] = useState(() => buildReviewReport());
-  const refresh = () => setReport(buildReviewReport());
+  const [engines, setEngines] = useState(() => getDocumentEngineSettings());
+  const refresh = () => { setReport(buildReviewReport()); setEngines(getDocumentEngineSettings()); };
+
+  const switchTo = (key) => {
+    // eslint-disable-next-line no-alert
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(SWITCH_CONFIRM)) return;
+    setEngines(setDocumentEngine(key, 'modular'));
+  };
+  const revert = (key) => setEngines(setDocumentEngine(key, 'legacy'));
 
   if (!enabled) return null;
 
@@ -28,6 +39,45 @@ export default function EngineReviewReport({ enabled = true }) {
         <button onClick={refresh} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--primary)', color: 'var(--white)' }}>새로고침</button>
         <button onClick={() => { clearEngineReviews(); refresh(); }} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--gray-100)', color: 'var(--text-primary)' }}>검수 데이터 비우기</button>
         <span style={{ alignSelf: 'center', fontSize: 12, color: 'var(--text-secondary)' }}>총 검수 {report.totalCount}건</span>
+      </div>
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>현재 기본 엔진 (문서 유형별)</div>
+        {report.types.map((t) => {
+          const engine = engines[t.key] || 'legacy';
+          const isModular = engine === 'modular';
+          return (
+            <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, minWidth: 120 }}>{t.label}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 800, borderRadius: 6, padding: '2px 8px',
+                background: isModular ? 'var(--primary-light)' : 'var(--gray-100)',
+                color: isModular ? 'var(--primary)' : 'var(--text-secondary)',
+              }}>{engine}</span>
+              {isModular ? (
+                <button onClick={() => revert(t.key)} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--gray-100)', color: 'var(--text-primary)' }}>
+                  legacy로 되돌리기
+                </button>
+              ) : (
+                <button
+                  onClick={() => switchTo(t.key)}
+                  disabled={!t.switchReadiness.ready}
+                  title={t.switchReadiness.ready ? '' : `전환 기준 미충족 (${t.status})`}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    background: t.switchReadiness.ready ? 'var(--primary)' : 'var(--gray-300)',
+                    color: 'var(--white)', cursor: t.switchReadiness.ready ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {t.switchReadiness.ready ? 'modular 기본 전환' : t.status}
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>
+          기준(검수 30건·평균 90·선택률 80%·수정률 20%·safety 0·factPres 25)을 모두 충족한 유형만 전환할 수 있어요. 전환해도 modular에 문제가 생기면 자동으로 legacy로 되돌아갑니다.
+        </p>
       </div>
 
       {report.totalCount === 0 && (

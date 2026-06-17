@@ -82,6 +82,41 @@ export function clearEngineReviews() {
   writeAll([]);
 }
 
+// ── fallback 로그 (modular → legacy 되돌아간 사유 누적, 로컬 전용) ──
+function fallbackKey() {
+  return `sw_${currentUid()}_engine_fallbacks`;
+}
+function readFallbacks() {
+  try {
+    const v = localStorage.getItem(fallbackKey());
+    return v ? JSON.parse(v) : [];
+  } catch {
+    return [];
+  }
+}
+export function recordFallback({ documentType, reasons = [], inputText = '', at } = {}) {
+  const entry = { id: genId(), documentType, reasons, inputText, at: at || new Date().toISOString() };
+  try {
+    const list = readFallbacks();
+    list.push(entry);
+    // 최근 200건만 보관(저장 한도 보호)
+    localStorage.setItem(fallbackKey(), JSON.stringify(list.slice(-200)));
+  } catch {
+    /* 무시 */
+  }
+  return entry;
+}
+export function getFallbackLog() {
+  return readFallbacks();
+}
+export function clearFallbackLog() {
+  try {
+    localStorage.setItem(fallbackKey(), JSON.stringify([]));
+  } catch {
+    /* 무시 */
+  }
+}
+
 // 구버전 호환 별칭 (이전 인메모리 API를 쓰던 코드/테스트 대비)
 export const getPendingCorrections = getEngineReviews;
 export const clearPendingCorrections = clearEngineReviews;

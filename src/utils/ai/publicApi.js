@@ -14,16 +14,41 @@ import {
   createGrowthDraft,
   createRecordDrafts,
 } from './draftComposer';
+import { resolveDocumentEngine } from './documentEngineResolver';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
+
+// 문서 유형별 기본 엔진 설정에 따라 최종 출력을 결정한다.
+// 기본값은 모두 legacy이므로 평상시 동작은 기존과 동일하며,
+// 관리자가 modular로 전환한 유형만 검수(fallback 포함)를 거쳐 modular 출력을 사용한다.
+function applyEnginePreferences(guarded, modularDrafts, sourceText) {
+  const out = { ...guarded };
+  const route = [
+    ['observation', 'observation', modularDrafts.observation],
+    ['dailyReport', 'evaluation', modularDrafts.dailyReport],
+    ['notice', 'parent', modularDrafts.notice],
+  ];
+  route.forEach(([documentType, field, modularText]) => {
+    if (typeof out[field] !== 'string') return;
+    out[field] = resolveDocumentEngine({
+      documentType,
+      input: sourceText,
+      legacyText: out[field],
+      modularFn: () => modularText,
+    }).text;
+  });
+  return out;
+}
 
 export async function processRecord(options = {}) {
   const analysis = analyzeRecordInput(options);
   const legacyResult = await legacyProcessRecord(options);
+  const guarded = guardRecordResult(legacyResult, { sourceText: options.rawText });
+  const modularDrafts = createRecordDrafts({ analysis, tone: options.tone });
   return {
-    ...guardRecordResult(legacyResult, { sourceText: options.rawText }),
+    ...applyEnginePreferences(guarded, modularDrafts, options.rawText),
     aiAnalysis: analysis,
-    modularDrafts: createRecordDrafts({ analysis, tone: options.tone }),
+    modularDrafts,
   };
 }
 
