@@ -65,7 +65,7 @@ const NAV_GROUPS = [
   {
     title: '아이 · 평가', emoji: '🌱', color: '#4CAF50',
     items: [
-      { id: 'children',  label: '아이기록',  icon: Users },
+      { id: 'children',  label: '원아기록',  icon: Users },
       { id: 'checklist', label: '발달 체크', icon: ClipboardList },
       { id: 'check',     label: '점검',      icon: CheckSquare },
       { id: 'stats',     label: '통계',      icon: BarChart3 },
@@ -85,7 +85,7 @@ const NAV_GROUPS = [
 
 const PAGE_TITLES = {
   today: '오늘', record: '오늘기록', aiwrite: 'AI 문서작성', note: '알림장',
-  children: '아이기록', docs: '문서함', check: '점검', stats: '통계',
+  children: '원아기록', docs: '문서함', check: '점검', stats: '통계',
   internal: '원내문서', automation: '자동화 작업',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
   coach: 'AI 코칭', events: '행사 캘린더', consult: '상담 관리', checklist: '발달 체크리스트',
@@ -584,7 +584,7 @@ export default function App() {
       )}
       {showMore && (
         <div onClick={() => setShowMore(false)} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(10,20,50,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--white)', borderRadius: '20px 20px 0 0', padding: '18px 18px calc(var(--bottom-nav) + 18px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--white)', borderRadius: '20px 20px 0 0', padding: '18px 18px calc(var(--bottom-nav) + 18px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', maxHeight: '70vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <span style={{ fontSize: 15, fontWeight: 900 }}>더보기</span>
               <button onClick={() => setShowMore(false)} style={{ fontSize: 20, lineHeight: 1, color: 'var(--text-tertiary)', background: 'transparent' }}>×</button>

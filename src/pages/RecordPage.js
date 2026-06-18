@@ -1348,7 +1348,7 @@ function RecordsWorkspace({
                 <button key={k} onClick={() => setExportRange(k)} style={{ padding:'8px 16px', borderRadius:100, fontSize:13, fontWeight:800, background: exportRange===k ? 'var(--primary)' : 'var(--gray-100)', color: exportRange===k ? 'white' : 'var(--text-secondary)' }}>{v}</button>
               ))}
             </div>
-            <div style={{ fontSize:13, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>아이 선택</div>
+            <div style={{ fontSize:13, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>원아 선택</div>
             <select value={exportChildId} onChange={e => setExportChildId(e.target.value)} style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:'1.5px solid var(--border)', fontSize:14, marginBottom:16, fontFamily:'inherit' }}>
               <option value="all">전체 아이</option>
               {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

@@ -5,7 +5,7 @@ export const NAV_ITEMS = [
   { id: 'record',   label: '오늘기록', group: 'core' },
   { id: 'aiwrite',  label: 'AI작성',   group: 'core' },
   { id: 'docs',     label: '문서함',   group: 'core' },
-  { id: 'children', label: '아이기록', group: 'core' },
+  { id: 'children', label: '원아기록', group: 'core' },
   { id: 'settings', label: '설정',     group: 'core' },
   // 고급 — '더보기' 영역(삭제하지 않음)
   { id: 'today',      label: '오늘',       group: 'more' },
