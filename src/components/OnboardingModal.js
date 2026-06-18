@@ -2,40 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { setOnboardingDone } from '../utils/storage';
 import { Zap } from 'lucide-react';
 
-const SLIDES = [
+// 첫 사용자에게 핵심 사용 흐름을 3단계로 짧게 안내한다.
+export const ONBOARDING_SLIDES = [
   {
-    emoji: '👋',
-    title: '쌤워크에 오신 것을 환영해요',
-    desc: '짧은 관찰 기록이 관찰일지, 상담자료, 보육일지로 자동 정리됩니다.',
+    emoji: '👶',
+    title: '1. 아이를 등록해요',
+    desc: '설정에서 아이를 등록하면 기록을 아이별로 모아볼 수 있어요.',
     logo: true,
   },
   {
     emoji: '✍️',
-    title: '기록은 짧게 남기면 됩니다',
-    desc: '아이와 상황을 선택하고 관찰 내용을 적으면 카테고리, 발달영역, 태그가 자동으로 정리됩니다.',
+    title: '2. 오늘의 모습을 한두 문장으로 적어요',
+    desc: '있었던 상황을 짧게 적으면 카테고리·발달영역·태그가 자동으로 정리돼요.',
   },
   {
-    emoji: '📄',
-    title: '문서 초안이 쌓입니다',
-    desc: '보육일지, 발달평가, 부모상담자료 등 실무 문서를 기록 기반으로 생성할 수 있습니다.',
-  },
-  {
-    emoji: '🧾',
-    title: '우리 원 서식도 준비할 수 있어요',
-    desc: 'PDF 양식을 등록하면 생성한 문서를 서식에 맞춰 인쇄하는 흐름으로 확장할 수 있습니다.',
-  },
-  {
-    emoji: '☁️',
-    title: '백업은 자동이에요',
-    desc: '기록이 바뀔 때마다 본인 구글 드라이브에 자동 백업됩니다.\n아이 기록은 이 기기와 내 드라이브에만 저장되고, 외부 서버로 가지 않아요.',
-  },
-  {
-    emoji: '🚀',
-    title: '바로 시작해볼까요?',
-    desc: '아이를 등록하고 첫 기록을 남기면 문서 자동화가 시작됩니다.',
+    emoji: '📋',
+    title: '3. 문장을 복사해 사용해요',
+    desc: '관찰일지·알림장·보육일지 평가 문장을 카드에서 복사해 바로 쓸 수 있어요.\n아이 기록은 이 기기와 내 구글 드라이브에만 저장되고, 외부 서버로 가지 않아요.',
     isLast: true,
   },
 ];
+const SLIDES = ONBOARDING_SLIDES;
 
 export default function OnboardingModal({ onDone }) {
   const [step, setStep] = useState(0);
@@ -136,6 +123,13 @@ export default function OnboardingModal({ onDone }) {
             </button>
           )}
         </div>
+
+        <button
+          onClick={handleDone}
+          style={{ marginTop: 14, padding: '8px', background: 'transparent', border: 'none', fontSize: 13, fontWeight: 700, color: 'var(--text-tertiary)' }}
+        >
+          다시 보지 않기
+        </button>
       </div>
     </div>
   );

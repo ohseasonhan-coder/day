@@ -466,7 +466,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
           <Zap size={13} /> 3분 기록 자동화
         </div>
         <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.7px', marginBottom: 4 }}>짧게 쓰면 문서가 만들어져요</div>
-        <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.65 }}>교사는 상황만 남기고, 앱이 관찰일지·부모상담·지원계획으로 정리합니다.</div>
+        <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.65 }}>짧게 기록하면 관찰일지·알림장·보육일지 문장으로 정리해드려요.</div>
       </div>
 
       {/* ── 탭 ─── */}
@@ -520,7 +520,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             {children.length === 0 ? (
               <div style={{ padding: '18px 16px', background: 'var(--gray-50)', borderRadius: 14, textAlign: 'center' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>👶</div>
-                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 10 }}>등록된 아이가 없어요</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.6 }}>아직 등록된 아이가 없어요.<br />아이를 등록하면 기록을 아이별로 모아볼 수 있어요.</div>
                 <button onClick={() => onNavigate('settings')} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 800, background: 'var(--primary-light)', borderRadius: 100, padding: '7px 14px' }}>설정에서 아이 추가하기 →</button>
               </div>
             ) : (
@@ -1094,7 +1094,13 @@ function DuplicateWarning({ items, onOpen, onInsert }) {
 
 function CopyHistoryPanel({ items, onInsert, onDelete, onClear }) {
   const showToast = useToast();
-  if (!items.length) return null;
+  if (!items.length) {
+    return (
+      <div style={{ marginTop: 10, background: 'var(--white)', border: '1px dashed var(--border)', borderRadius: 14, padding: '14px 12px', textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+        복사한 문장이 여기에 표시돼요.
+      </div>
+    );
+  }
   const handleCopy = (item) => {
     navigator.clipboard.writeText(item.text || '');
     showToast('다시 복사했어요! 📋', 'success');

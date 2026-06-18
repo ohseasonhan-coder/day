@@ -680,7 +680,7 @@ export default function DocsPage({ onNavigate, isDesktop, context, initialTab })
         </div>
       )}
       {historyDocs.length === 0 ? (
-        <EmptyState emoji="📂" title="생성된 문서가 없어요" desc="문서함에서 보육일지, 발달평가 등을 생성해보세요" actionLabel="새 문서 만들기" onAction={() => setMainTab('new')} />
+        <EmptyState emoji="📂" title="아직 저장된 문서가 없어요" desc="오늘기록에서 문장을 생성하고 저장해보세요." actionLabel="새 문서 만들기" onAction={() => setMainTab('new')} />
       ) : displayedHistoryDocs.length === 0 ? (
         <div style={{ textAlign:'center', padding:'32px 20px', color:'var(--text-secondary)', fontSize:14 }}>즐겨찾기한 문서가 없어요.</div>
       ) : (
