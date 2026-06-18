@@ -1236,7 +1236,7 @@ function QuickTemplatePanel({ templates, customTemplates, onInsert, onAdd, onDel
             <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="이름 (예: 낮잠)" maxLength={10}
               style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, background: 'var(--white)' }} />
           </div>
-          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="삽입될 문구 내용을 써주세요. {child}는 아이 이름으로 자동 치환돼요."
+          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="삽입될 문구 내용을 써주세요. {child}는 원아 이름으로 자동 치환돼요."
             style={{ width: '100%', minHeight: 72, padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, lineHeight: 1.7, fontFamily: 'inherit', resize: 'none', background: 'var(--white)', marginBottom: 8 }} />
           {addError && <div style={{ fontSize: 12, color: 'var(--accent)', marginBottom: 6 }}>⚠️ {addError}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1350,7 +1350,7 @@ function RecordsWorkspace({
             </div>
             <div style={{ fontSize:13, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>원아 선택</div>
             <select value={exportChildId} onChange={e => setExportChildId(e.target.value)} style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:'1.5px solid var(--border)', fontSize:14, marginBottom:16, fontFamily:'inherit' }}>
-              <option value="all">전체 아이</option>
+              <option value="all">전체 원아</option>
               {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <div style={{ fontSize:12, color:'var(--text-tertiary)', marginBottom:16, lineHeight:1.6 }}>
@@ -1413,7 +1413,7 @@ function RecordsWorkspace({
             ))}
           </select>
           <select value={filterChildId} onChange={e => setFilterChildId(e.target.value)} style={selectStyle}>
-            <option value="all">전체 아이</option>
+            <option value="all">전체 원아</option>
             {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={selectStyle}>

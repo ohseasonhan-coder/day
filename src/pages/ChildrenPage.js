@@ -326,7 +326,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 100, padding: '5px 10px', fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
             <Sparkles size={13} /> 아이별 개인화
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.7px' }}>아이들</div>
+          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.7px' }}>원아 관리</div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{children.length}명 · 기록 기반 성장관리</div>
         </div>
         <button onClick={() => setShowAddChild(!showAddChild)} style={{
@@ -340,7 +340,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
       {showAddChild && (
         <div style={{ background: 'var(--primary-light)', borderRadius: 14, padding: 16, marginBottom: 16 }} className="slide-up">
-          <div style={{ fontSize:13, fontWeight:900, color:'var(--primary)', marginBottom:10 }}>새 아이 추가</div>
+          <div style={{ fontSize:13, fontWeight:900, color:'var(--primary)', marginBottom:10 }}>새 원아 추가</div>
           <div style={{ display: 'flex', gap: 8, marginBottom:8 }}>
             <input value={newChildName} onChange={e => setNewChildName(e.target.value)} placeholder="이름 *" onKeyDown={e => e.key === 'Enter' && handleAddChild()}
               style={{ flex: 2, padding: '11px 14px', borderRadius: 12, border: '1.5px solid var(--primary)', fontSize: 14, outline: 'none', fontFamily: 'inherit', background:'white' }} />
@@ -358,7 +358,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
 
       <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: 14, marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          <DashboardStat label="전체 아이" value={`${children.length}명`} />
+          <DashboardStat label="전체 원아" value={`${children.length}명`} />
           <DashboardStat label="누적 기록" value={`${children.reduce((sum, c) => sum + getRecordsByChild(c.id).length, 0)}건`} />
           <DashboardStat label="자동 문서" value="상담·평가" />
         </div>
@@ -369,7 +369,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="아이 이름으로 검색"
+          placeholder="원아 이름으로 검색"
           style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: 14, border: '1.5px solid var(--border)', fontSize: 14, fontFamily: 'inherit', outline: 'none', background: 'var(--white)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }}
         />
       </div>
@@ -461,7 +461,7 @@ export default function ChildrenPage({ onNavigate, isDesktop }) {
       })}
 
       {filtered.length === 0 && children.length === 0 && (
-        <EmptyState emoji="👶" title="등록된 아이가 없어요" desc="설정에서 아이를 추가하거나 아래 버튼으로 바로 추가해요" actionLabel="아이 추가하기" onAction={() => setShowAddChild(true)} />
+        <EmptyState emoji="👶" title="등록된 원아가 없어요" desc="설정에서 원아를 추가하거나 아래 버튼으로 바로 추가해요" actionLabel="원아 추가하기" onAction={() => setShowAddChild(true)} />
       )}
       {filtered.length === 0 && children.length > 0 && (
         <EmptyState emoji="🔍" title="검색 결과가 없어요" desc="다른 이름으로 검색해보세요" />

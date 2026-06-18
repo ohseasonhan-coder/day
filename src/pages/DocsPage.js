@@ -651,7 +651,7 @@ export default function DocsPage({ onNavigate, isDesktop, context, initialTab })
           <input
             value={historySearch}
             onChange={e => setHistorySearch(e.target.value)}
-            placeholder="문서 제목, 내용, 아이 이름으로 검색"
+            placeholder="문서 제목, 내용, 원아 이름으로 검색"
             style={{ width: '100%', padding: '11px 13px', borderRadius: 11, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', marginBottom: 10, boxSizing: 'border-box' }}
           />
           <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr auto' : '1fr', gap: 8 }}>
@@ -660,7 +660,7 @@ export default function DocsPage({ onNavigate, isDesktop, context, initialTab })
               {DOC_TYPES.map(t => <option key={t.key} value={t.key}>{t.icon} {t.label}</option>)}
             </select>
             <select value={historyChildFilter} onChange={e => setHistoryChildFilter(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, background: 'var(--white)' }}>
-              <option value="all">전체 아이/반</option>
+              <option value="all">전체 원아/반</option>
               {children.map(child => <option key={child.id} value={child.id}>{child.name}</option>)}
             </select>
             <button onClick={() => setShowPinnedOnly(v => !v)} style={{

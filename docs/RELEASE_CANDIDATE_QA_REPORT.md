@@ -81,6 +81,12 @@
 
 ---
 
+## 9. RC1 후속 변경 (원아 용어 통일 + 기기 간 동기화 1차)
+- **원아 용어 통일**: 관리/선택/빈 상태 문구를 "원아"로 통일(부모 전달 문장·"아이별"·생성 문체 유지). `studentWording.test.js`로 검증.
+- **기기 간 동기화 1차**: 같은 계정으로 PC↔모바일 이어 쓰기. 기존 Drive 백업 구조 재사용(외부 서버/LLM 없음). 동기화 메타데이터(deviceId/dataUpdatedAt/checksum 등)·충돌 시 사용자 선택·복원 전 안전 백업 추가. 검수/fallback/세션/비밀번호 해시 등 **민감값 동기화 제외 유지**. 상세 `docs/DEVICE_SYNC_POLICY.md`.
+- **영향 없음 재확인**: AI 생성 로직·modular/legacy·fallback·문장 엔진·메뉴 구조·인증 구조 무변경. 일반 사용자에게 관리자/검수 정보 비노출 유지(`adminExposure.test.js`).
+- 자동화: **전체 250 테스트 통과 / CI 빌드 성공 / 운영 소스맵 없음 / `saem2026`·`dev-master` 0건.**
+
 ## 자동화 결과 (이번 점검 시점)
-- `npm test -- --watchAll=false`: **전체 통과**
+- `npm test -- --watchAll=false`: **전체 통과** (보안 단계 232 → 동기화·용어 후속 250)
 - `npm run build`(CI=true): **성공**

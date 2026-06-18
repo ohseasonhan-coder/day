@@ -5,8 +5,10 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   addBackupRecord, seedSampleData, clearSampleData, clearRecordsAndDocuments, clearDocumentsOnly,
   getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId,
   getTrash, restoreFromTrash, purgeTrashItem, emptyTrash, formatDate, hashPin,
-  promoteToNewYear, getArchivedChildren, restoreArchivedChild, getStorageUsage } from '../utils/storage';
+  promoteToNewYear, getArchivedChildren, restoreArchivedChild, getStorageUsage,
+  getDeviceName, setDeviceName, getSyncState, getDataUpdatedAt, restoreLocalSafetyBackup } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
+import { checkDriveStatus, pullFromDrive, pushToDrive } from '../utils/deviceSync';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
   isMaster, adminUpdateAccount, adminDeleteAccount, getAccountDataStats } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
@@ -326,6 +328,63 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     }
   };
 
+  // ── 기기 간 동기화 ──────────────────────────────────────────────────────────
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);     // { ok, text }
+  const [syncStatus, setSyncStatus] = useState(null); // checkDriveStatus 결과
+  const [deviceNameDraft, setDeviceNameDraft] = useState(() => getDeviceName());
+  const [syncTick, setSyncTick] = useState(0);       // 동기화 시간 표시 갱신용
+
+  const ACTION_LABEL = {
+    'pull': 'Drive 데이터가 더 최신이에요. 가져오면 이 기기가 최신 내용으로 맞춰져요.',
+    'push': '이 기기 데이터가 더 최신이에요. 지금 백업하면 Drive가 최신으로 맞춰져요.',
+    'conflict': '이 기기와 Drive 양쪽이 마지막 동기화 이후 모두 바뀌었어요. 자동으로 덮어쓰지 않아요. 아래에서 선택해 주세요.',
+    'in-sync': '이미 최신 상태예요. 추가로 할 일은 없어요.',
+  };
+
+  const handleSaveDeviceName = () => {
+    setDeviceName(deviceNameDraft);
+    setDeviceNameDraft(getDeviceName());
+    setSyncMsg({ ok: true, text: '기기 이름을 저장했어요.' });
+  };
+
+  const handleSyncCheck = async () => {
+    const clientId = googleClientId.trim();
+    if (!clientId) { setSyncMsg({ ok: false, text: '먼저 구글 로그인 설정이 필요해요.' }); return; }
+    setSyncBusy(true); setSyncMsg(null); setSyncStatus(null);
+    const res = await checkDriveStatus(clientId);
+    if (!res.ok) { setSyncMsg({ ok: false, text: `확인하지 못했어요. ${res.error || '인터넷 연결 또는 Google 로그인을 확인해주세요.'}` }); setSyncBusy(false); return; }
+    setSyncStatus(res);
+    setSyncMsg({ ok: true, text: ACTION_LABEL[res.action] || '최신 상태를 확인했어요.' });
+    setSyncBusy(false);
+  };
+
+  const handleSyncPush = async () => {
+    const clientId = googleClientId.trim();
+    if (!clientId) { setSyncMsg({ ok: false, text: '먼저 구글 로그인 설정이 필요해요.' }); return; }
+    setSyncBusy(true); setSyncMsg(null);
+    const res = await pushToDrive(clientId);
+    if (res.ok) { addBackupRecord(); setSyncStatus(null); setSyncMsg({ ok: true, text: '이 기기 데이터를 Drive에 백업했어요.' }); setSyncTick(t => t + 1); }
+    else setSyncMsg({ ok: false, text: `동기화하지 못했어요. ${res.error || '인터넷 연결 또는 Google 로그인을 확인해주세요.'}` });
+    setSyncBusy(false);
+  };
+
+  const handleSyncPull = async () => {
+    const clientId = googleClientId.trim();
+    if (!clientId) { setSyncMsg({ ok: false, text: '먼저 구글 로그인 설정이 필요해요.' }); return; }
+    setSyncBusy(true); setSyncMsg(null);
+    const res = await pullFromDrive(clientId, syncStatus?._json ? { json: syncStatus._json } : {});
+    if (res.ok) { setSyncStatus(null); setSyncMsg({ ok: true, text: 'Drive 데이터를 가져왔어요. (가져오기 전 현재 데이터는 이 기기에 안전 보관됨)' }); setSyncTick(t => t + 1); }
+    else setSyncMsg({ ok: false, text: `가져오지 못했어요. ${res.error || '인터넷 연결 또는 Google 로그인을 확인해주세요.'} 기존 데이터는 그대로 유지됐어요.` });
+    setSyncBusy(false);
+  };
+
+  const handleRestoreSafety = () => {
+    const res = restoreLocalSafetyBackup();
+    if (res.ok) { setSyncMsg({ ok: true, text: '직전 안전 백업으로 되돌렸어요.' }); setSyncTick(t => t + 1); }
+    else setSyncMsg({ ok: false, text: res.error || '되돌릴 안전 백업이 없어요.' });
+  };
+
   // 백업/복구
   const [backupMsg, setBackupMsg] = useState(null); // { ok, text }
   const fileRef = useRef(null);
@@ -495,7 +554,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     ['general',  '⚙️ 일반'],
     ['routines', '🔄 반복일정'],
     ['forms',    '📋 원 양식'],
-    ['children', '👶 아이 관리'],
+    ['children', '👶 원아 관리'],
     ['backup',   '💾 백업/복구'],
     ['account',  '👤 계정'],
     ...(isMaster(currentUser) ? [['admin', '👑 관리자']] : []),
@@ -916,7 +975,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
           </div>
         )}
 
-        {/* ── 아이 관리 ─────────────────────────────────────── */}
+        {/* ── 원아 관리 ─────────────────────────────────────── */}
         {activeTab === 'children' && (
           <div>
             {/* 반 목록 및 활성 반 선택 */}
@@ -1141,7 +1200,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
 
             <SettingCard title="데이터 백업">
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 16 }}>
-                지금까지 기록한 모든 데이터(아이 정보, 관찰기록, 문서, 설정)를 JSON 파일로 내보냅니다. 기기 변경이나 앱 초기화 전에 백업해 두세요.
+                지금까지 기록한 모든 데이터(원아 정보, 관찰기록, 문서, 설정)를 JSON 파일로 내보냅니다. 기기 변경이나 앱 초기화 전에 백업해 두세요.
                 <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}><br />※ 기록에 첨부한 사진은 용량 문제로 백업 파일에 포함되지 않아요 (이 기기에만 저장).</span>
               </div>
               <button onClick={handleExport} style={{
@@ -1219,6 +1278,72 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   마지막 드라이브 백업: {new Date(getDriveMeta().lastBackupAt).toLocaleString('ko-KR')}
                 </div>
               )}
+            </SettingCard>
+
+            <SettingCard title="🔁 기기 간 동기화">
+              {(() => {
+                void syncTick; // 동기화 후 갱신 표시용
+                const st = getSyncState();
+                const lastAt = st.lastSyncedAt ? new Date(st.lastSyncedAt).toLocaleString('ko-KR') : '없음';
+                const dataAt = getDataUpdatedAt() ? new Date(getDataUpdatedAt()).toLocaleString('ko-KR') : '없음';
+                return (
+                  <>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+                      같은 Google 계정으로 로그인하면 PC와 모바일에서 기록을 이어서 사용할 수 있습니다.
+                      데이터는 사용자 본인의 Google Drive에 저장되며 외부 서버로 전송되지 않습니다.
+                    </div>
+
+                    {/* 기기 이름 */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', flexShrink: 0 }}>이 기기 이름</span>
+                      <input value={deviceNameDraft} onChange={e => setDeviceNameDraft(e.target.value)}
+                        style={{ flex: 1, padding: '8px 11px', borderRadius: 9, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'inherit', minWidth: 0 }} />
+                      <button onClick={handleSaveDeviceName} style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--gray-100)', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>저장</button>
+                    </div>
+
+                    <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginBottom: 12, lineHeight: 1.7 }}>
+                      마지막 동기화: {lastAt}<br />
+                      이 기기 데이터 변경: {dataAt}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                      <button onClick={handleSyncCheck} disabled={syncBusy} style={{
+                        padding: '12px', borderRadius: 11, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 900, opacity: syncBusy ? 0.6 : 1, gridColumn: '1 / -1',
+                      }}>{syncBusy ? '확인 중…' : 'Drive 최신 데이터 확인'}</button>
+                      <button onClick={handleSyncPush} disabled={syncBusy} style={{
+                        padding: '12px', borderRadius: 11, background: 'var(--white)', border: '2px solid var(--border)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 900, opacity: syncBusy ? 0.6 : 1,
+                      }}>지금 백업하기</button>
+                      <button onClick={handleSyncPull} disabled={syncBusy} style={{
+                        padding: '12px', borderRadius: 11, background: 'var(--white)', border: '2px solid var(--border)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 900, opacity: syncBusy ? 0.6 : 1,
+                      }}>Drive에서 가져오기</button>
+                    </div>
+
+                    {/* 충돌 시 선택 안내 */}
+                    {syncStatus?.action === 'conflict' && (
+                      <div style={{ background: '#FFF7E6', border: '1px solid #FFE0A3', borderRadius: 10, padding: '11px 12px', marginTop: 6 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#8A5A00', marginBottom: 8, lineHeight: 1.6 }}>
+                          이 기기와 Drive가 모두 바뀌었어요. 자동으로 덮어쓰지 않아요. 하나를 선택해 주세요.
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <button onClick={handleSyncPush} disabled={syncBusy} style={{ padding: '10px', borderRadius: 9, background: 'var(--white)', border: '1.5px solid var(--border)', fontSize: 12.5, fontWeight: 800 }}>① 이 기기 데이터 유지 (Drive에 백업)</button>
+                          <button onClick={handleSyncPull} disabled={syncBusy} style={{ padding: '10px', borderRadius: 9, background: 'var(--white)', border: '1.5px solid var(--border)', fontSize: 12.5, fontWeight: 800 }}>② Drive 데이터로 복원</button>
+                          <button onClick={handleSyncPull} disabled={syncBusy} style={{ padding: '10px', borderRadius: 9, background: 'var(--white)', border: '1.5px solid var(--border)', fontSize: 12.5, fontWeight: 800 }}>③ 현재 데이터 안전 보관 후 Drive 데이터 가져오기</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {syncMsg && (
+                      <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: syncMsg.ok ? 'var(--primary)' : '#C62828', lineHeight: 1.6 }}>
+                        {syncMsg.text}
+                      </div>
+                    )}
+
+                    <button onClick={handleRestoreSafety} style={{ marginTop: 10, fontSize: 11.5, color: 'var(--text-tertiary)', textDecoration: 'underline' }}>
+                      방금 가져오기 전으로 되돌리기 (안전 백업)
+                    </button>
+                  </>
+                );
+              })()}
             </SettingCard>
 
             <SettingCard title="데이터 가져오기 (복구·기기 이동)">

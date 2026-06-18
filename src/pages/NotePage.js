@@ -300,7 +300,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
       {filteredChildren.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-tertiary)' }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>👶</div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>등록된 아이가 없어요</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>등록된 원아가 없어요</div>
         </div>
       ) : (
         <div style={isDesktop

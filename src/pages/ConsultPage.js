@@ -215,9 +215,9 @@ export default function ConsultPage({ onNavigate, isDesktop }) {
               <button onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
 
-            <FormField label="아이 선택 *">
+            <FormField label="원아 선택 *">
               <select value={formChildId} onChange={e => setFormChildId(e.target.value)} style={inputStyle}>
-                {children.length === 0 && <option value="">아이가 없어요</option>}
+                {children.length === 0 && <option value="">원아가 없어요</option>}
                 {children.map(child => <option key={child.id} value={child.id}>{child.name}</option>)}
               </select>
             </FormField>

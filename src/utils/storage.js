@@ -39,7 +39,56 @@ const KEYS = {
   get TRASH()           { return `sw_${_getUid()}_trash`; },
   get ARCHIVED_CHILDREN() { return `sw_${_getUid()}_archived_children`; },
   get INTERNAL_DOCS()   { return `sw_${_getUid()}_internal_docs`; },
+  // 기기 간 동기화 보조 키(개인 데이터 아님 — 동기화 시각/상태/안전백업)
+  get DATA_UPDATED_AT() { return `sw_${_getUid()}_data_updated_at`; },
+  get SYNC_STATE()      { return `sw_${_getUid()}_sync_state`; },
+  get SAFETY_BACKUP()   { return `sw_${_getUid()}_safety_backup`; },
 };
+
+// 기기 식별자/이름 — 계정과 무관한 "이 기기" 식별용(개인정보 아님, 전역 1개)
+const DEVICE_ID_KEY = 'sw_device_id';
+const DEVICE_NAME_KEY = 'sw_device_name';
+// 동기화 스키마/앱 버전(백업 메타용)
+export const SYNC_SCHEMA_VERSION = 1;
+export const APP_BUILD_VERSION = 'rc1';
+// 동기화 제외 키(문서화·검증용) — 검수/디버그/인증 민감값은 절대 백업/동기화하지 않음
+export const SYNC_EXCLUDED_KEYS = [
+  'engine_reviews', 'engine_fallbacks', 'user_corrections', 'review_samples',
+  'admin_report', 'debug', 'sw_session', 'password', 'passwordHash', 'passwordSalt',
+  'accessToken', 'sw_drive_backup_meta',
+];
+
+export function getDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = `dev_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch { return 'dev_unknown'; }
+}
+
+function guessDeviceName() {
+  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+  if (/iPad|Tablet/i.test(ua)) return '내 태블릿';
+  if (/iPhone|Android.*Mobile|Mobile/i.test(ua)) return '내 모바일';
+  return '내 PC';
+}
+export function getDeviceName() {
+  try { return localStorage.getItem(DEVICE_NAME_KEY) || guessDeviceName(); }
+  catch { return guessDeviceName(); }
+}
+export function setDeviceName(name) {
+  try { localStorage.setItem(DEVICE_NAME_KEY, String(name || '').trim().slice(0, 40) || guessDeviceName()); } catch {}
+}
+
+// 로컬 데이터 마지막 변경 시각(동기화 충돌 판정용)
+export const getDataUpdatedAt = () => storage.get(KEYS.DATA_UPDATED_AT) || null;
+
+// 동기화 상태(마지막 동기화 시각/그때의 데이터 시각/동기화 카운터)
+export const getSyncState = () => storage.get(KEYS.SYNC_STATE) || { lastSyncedAt: null, lastSyncedDataAt: null, syncVersion: 0 };
+export const setSyncState = (patch) => storage.set(KEYS.SYNC_STATE, { ...getSyncState(), ...patch });
 
 // ── 저장 공간 사용량 ──────────────────────────────────────────────────────────
 // localStorage 한도는 브라우저당 약 5MB. 80%를 넘으면 경고를 띄운다.
@@ -141,6 +190,7 @@ export const storage = {
   },
   set: (key, value) => {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    markDataChangedForKey(key);
     maybeScheduleDriveBackup(key);
   },
   remove: (key) => {
@@ -156,6 +206,16 @@ const AUTO_BACKUP_KEY_SUFFIXES = [
   '_medicines', '_accidents', '_newsletters', '_routines',
   '_form_templates', '_events', '_templates',
 ];
+
+// 실제 자료가 바뀌면 dataUpdatedAt을 갱신한다(동기화 충돌 판정 근거).
+// 동기화 보조 키(_data_updated_at/_sync_state/_safety_backup)는 제외 → 무한 루프 방지.
+function markDataChangedForKey(key) {
+  try {
+    const k = String(key);
+    if (!AUTO_BACKUP_KEY_SUFFIXES.some(suffix => k.endsWith(suffix))) return;
+    localStorage.setItem(KEYS.DATA_UPDATED_AT, JSON.stringify(new Date().toISOString()));
+  } catch {}
+}
 
 function maybeScheduleDriveBackup(key) {
   try {
@@ -1072,12 +1132,19 @@ export const deleteFormTemplate = (id) => {
 };
 
 // ── 백업 / 복구 ──────────────────────────────────────────────────────────────
+// 데이터 무결성 점검용 가벼운 체크섬(암호학적 아님 — 변경 감지용)
+function computeChecksum(obj) {
+  try {
+    const s = JSON.stringify(obj);
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return String(h >>> 0);
+  } catch { return ''; }
+}
+
 function buildBackupPayload() {
-  return {
-    version: 2,
-    appName: '쌤워크',
-    userId: _getUid(),
-    exportedAt: new Date().toISOString(),
+  // 동기화 대상 자료(개인정보 포함 — 사용자 본인 드라이브에만 저장됨)
+  const data = {
     classes: getClasses(),
     children: getChildren(),
     records: getRecords(),
@@ -1089,10 +1156,42 @@ function buildBackupPayload() {
     automationLog: getAutomationLog(),
     copyHistory: getCopyHistory(),
     feedback: getFeedback(),
+    onboardingDone: isOnboardingDone(),
     // 문서 유형별 기본 엔진 설정(비민감 — legacy/modular 플래그)만 기기 간 동기화한다.
     // 검수/fallback/correction 데이터는 개인정보 가능성으로 백업에 포함하지 않는다.
     engineSettings: getEnginePrefsForSync(),
   };
+  const st = getSyncState();
+  return {
+    version: 2,                       // 백업 파일 호환 버전(backupVersion)
+    appName: '쌤워크',
+    schemaVersion: SYNC_SCHEMA_VERSION,
+    appVersion: APP_BUILD_VERSION,
+    userId: _getUid(),
+    deviceId: getDeviceId(),
+    deviceName: getDeviceName(),
+    syncVersion: st.syncVersion || 0,
+    exportedAt: new Date().toISOString(),
+    dataUpdatedAt: getDataUpdatedAt() || new Date().toISOString(),
+    // 동기화 제외 항목은 payload에 키 이름을 담지 않는다(민감 키워드 노출 방지).
+    // 문서화·검증용 목록은 export 상수 SYNC_EXCLUDED_KEYS 참고.
+    checksum: computeChecksum(data),
+    ...data,
+  };
+}
+
+// 복원 전 현재 데이터를 로컬에 1회 안전 보관(되돌리기 대비)
+export function saveLocalSafetyBackup() {
+  try {
+    storage.set(KEYS.SAFETY_BACKUP, { savedAt: new Date().toISOString(), payload: buildBackupPayload() });
+    return true;
+  } catch { return false; }
+}
+export const getLocalSafetyBackup = () => storage.get(KEYS.SAFETY_BACKUP) || null;
+export function restoreLocalSafetyBackup() {
+  const sb = getLocalSafetyBackup();
+  if (!sb || !sb.payload) return { ok: false, error: '안전 백업이 없어요.' };
+  return importBackup(JSON.stringify(sb.payload));
 }
 
 // 백업 내용을 JSON 문자열로 반환 (구글 드라이브 업로드 등에 사용)
@@ -1149,6 +1248,8 @@ export function importBackup(jsonString) {
     if (data.engineSettings || data.documentEnginePrefs) {
       applyEnginePrefsFromSync(data.engineSettings || data.documentEnginePrefs);
     }
+    // 온보딩 완료 여부는 true일 때만 반영(다른 기기에서 끝낸 온보딩을 다시 띄우지 않음)
+    if (data.onboardingDone === true) setOnboardingDone();
     rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
 
     return {
@@ -1228,6 +1329,7 @@ export function importBackupMerge(jsonString) {
   if (data.engineSettings || data.documentEnginePrefs) {
     applyEnginePrefsFromSync(data.engineSettings || data.documentEnginePrefs);
   }
+  if (data.onboardingDone === true) setOnboardingDone();
   rebuildAutomationState(records.merged, children.merged, classes.merged);
 
   return {

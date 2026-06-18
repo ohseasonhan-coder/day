@@ -148,7 +148,7 @@ export default function AccidentPage({ isDesktop }) {
               <div style={{ fontWeight: 900, fontSize: 18 }}>새 사고 기록</div>
               <button onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
-            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>아이 선택</label>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>원아 선택</label>
             <select value={form.childId} onChange={e => setForm(p => ({...p, childId: e.target.value}))} style={inputStyle}>
               <option value="">-- 선택 --</option>
               {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

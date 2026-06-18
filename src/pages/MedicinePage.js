@@ -165,7 +165,7 @@ export default function MedicinePage({ isDesktop }) {
               <div style={{ fontWeight: 900, fontSize: 18 }}>투약 의뢰 등록</div>
               <button onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
-            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>아이 선택</label>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>원아 선택</label>
             <select value={form.childId} onChange={e => setForm(p => ({...p, childId: e.target.value}))}
               style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 14, marginBottom: 14, background: 'var(--white)' }}>
               <option value="">-- 선택 --</option>

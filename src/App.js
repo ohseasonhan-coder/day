@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './index.css';
 import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId } from './utils/storage';
 import { backupToDrive, getDriveMeta } from './utils/driveBackup';
+import { autoSyncOnStart } from './utils/deviceSync';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
@@ -238,6 +239,20 @@ export default function App() {
     backupToDrive(clientId, getBackupJson(), { silent: true })
       .then(() => addBackupRecord())
       .catch(() => {}); // 조용히 실패 — 설정 > 백업/복구에서 수동 백업 가능
+  }, [user]);
+
+  // 앱 시작 시 보수적 자동 동기화(1회): 자동 백업을 켠 경우에만, 원격이 명백히 최신이면 가져오기.
+  // 충돌이거나 로컬이 최신이면 자동으로 데이터를 바꾸지 않는다(설정 화면에서 수동 선택).
+  useEffect(() => {
+    if (!user) return;
+    try { if (sessionStorage.getItem('sw_autosync_done')) return; } catch {}
+    const settings = getSettings();
+    const clientId = (getGoogleClientId() || settings.driveClientId || '').trim();
+    if (!settings.driveAutoBackup || !clientId) return;
+    try { sessionStorage.setItem('sw_autosync_done', '1'); } catch {}
+    autoSyncOnStart(clientId, { enabled: true })
+      .then(r => { if (r && r.applied === 'pull') window.location.reload(); }) // 가져온 데이터 반영
+      .catch(() => {}); // 조용히 실패 — 설정 화면에서 상태 확인/수동 동기화 가능
   }, [user]);
 
   useEffect(() => {

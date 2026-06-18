@@ -166,7 +166,7 @@ export default function StatsPage({ onNavigate, isDesktop }) {
       },
       {
         title: '아이별 기록 현황',
-        content: childData.length === 0 ? '등록된 아이가 없습니다.'
+        content: childData.length === 0 ? '등록된 원아가 없습니다.'
           : childData.map(c => `· ${c.name}: 누적 ${c.total}건 / 이번 달 ${c.thisMonth}건${c.last?.date ? ` / 최근 기록 ${c.last.date}` : ' / 기록 없음'}`).join('\n'),
       },
       {
@@ -365,7 +365,7 @@ export default function StatsPage({ onNavigate, isDesktop }) {
         <div>
           <StatCard title="아이별 누적 기록" icon={<Users size={15} color="var(--cat-play)" />}>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {childData.length === 0 && <div style={{ color:'var(--text-tertiary)', fontSize:14, textAlign:'center', padding:'20px 0' }}>등록된 아이가 없어요</div>}
+              {childData.length === 0 && <div style={{ color:'var(--text-tertiary)', fontSize:14, textAlign:'center', padding:'20px 0' }}>등록된 원아가 없어요</div>}
               {childData.map(c => {
                 const color = getAvatarColor(c.name);
                 const pct   = Math.max(4, Math.round((c.total/maxChildCount)*100));

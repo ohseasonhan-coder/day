@@ -244,8 +244,8 @@ export default function ChecklistPage() {
     return (
       <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', marginTop: 60 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>👶</div>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>등록된 아이가 없어요</div>
-        <div style={{ fontSize: 13 }}>아이 관리 메뉴에서 먼저 아이를 추가해 주세요.</div>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>등록된 원아가 없어요</div>
+        <div style={{ fontSize: 13 }}>원아 관리 메뉴에서 먼저 원아를 추가해 주세요.</div>
       </div>
     );
   }

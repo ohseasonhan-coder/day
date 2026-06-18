@@ -154,7 +154,7 @@ export default function SetupPage({ onComplete }) {
           </div>
           {children.length === 0 && (
             <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 14, padding: '20px 0' }}>
-              아직 등록된 아이가 없어요
+              아직 등록된 원아가 없어요
             </div>
           )}
         </div>
