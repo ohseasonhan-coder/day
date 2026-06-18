@@ -624,6 +624,12 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               ))}
             </SettingCard>
 
+            <SettingCard title="🔒 개인정보 저장 안내">
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장되며, 외부 서버로 전송되지 않습니다.
+              </div>
+            </SettingCard>
+
             {isMaster() && (
               <SettingCard title="🔬 문장 엔진 비교 (개발자/검수)">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>

@@ -6,8 +6,8 @@ import { Zap } from 'lucide-react';
 export const ONBOARDING_SLIDES = [
   {
     emoji: '👶',
-    title: '1. 아이를 등록해요',
-    desc: '설정에서 아이를 등록하면 기록을 아이별로 모아볼 수 있어요.',
+    title: '1. 원아를 등록해요',
+    desc: '설정에서 원아를 등록하면 기록을 아이별로 모아볼 수 있어요.',
     logo: true,
   },
   {

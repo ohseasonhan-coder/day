@@ -28,18 +28,26 @@ import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
 import LockScreen from './components/LockScreen';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles, MoreHorizontal } from 'lucide-react';
+import { MOBILE_PRIMARY, MORE_MENU_ITEMS } from './utils/navConfig';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
 
-// 모바일 하단 탭 (핵심 5개)
+// 메뉴 id → 아이콘
+const NAV_ICONS = {
+  today: Home, record: PenLine, aiwrite: Zap, docs: FolderOpen, children: Users,
+  settings: Settings, internal: ClipboardList, consult: MessageSquare, checklist: ClipboardList,
+  check: CheckSquare, stats: BarChart3, newsletter: Newspaper, note: BookOpen,
+  medicine: Pill, accident: AlertTriangle, automation: Sparkles,
+};
+
+// 모바일 하단 탭 — 핵심 4개 + 더보기 (설정은 상단 기어)
 const MOBILE_NAV = [
-  { id: 'record',   label: '오늘기록', icon: PenLine },
-  { id: 'aiwrite',  label: 'AI작성',   icon: Zap },
-  { id: 'internal', label: '원내문서', icon: ClipboardList },
-  { id: 'children', label: '아이기록', icon: Users },
-  { id: 'docs',     label: '문서함',   icon: FolderOpen },
+  ...MOBILE_PRIMARY.filter((i) => i.id !== 'settings').map((i) => ({ id: i.id, label: i.label, icon: NAV_ICONS[i.id] })),
+  { id: 'more', label: '더보기', icon: MoreHorizontal },
 ];
+// 더보기 시트에 노출할 고급 기능(삭제하지 않고 이동)
+const MORE_MENU = MORE_MENU_ITEMS.map((i) => ({ id: i.id, label: i.label, icon: NAV_ICONS[i.id] }));
 
 // 데스크톱 사이드바 — 카테고리로 묶어 접을 수 있게 구성
 const NAV_GROUPS = [
@@ -108,6 +116,7 @@ export default function App() {
   const [automationContext, setAutomationContext] = useState(null);
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   // 사이드바 그룹 접기 상태 — 기본은 모두 접힘 (현재 페이지가 속한 그룹만 자동으로 펼침)
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     const init = {};
@@ -521,10 +530,10 @@ export default function App() {
         zIndex: 200, boxShadow: '0 -4px 24px rgba(79,127,255,0.06)',
       }}>
         {MOBILE_NAV.map(({ id, label, icon: Icon }) => {
-          const active = page === id || (id === 'docs' && page === 'note');
+          const active = id === 'more' ? showMore : (page === id || (id === 'docs' && page === 'note'));
           const badge  = (id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
           return (
-            <button key={id} onClick={() => handleNavigate(id)} style={{
+            <button key={id} onClick={() => (id === 'more' ? setShowMore(true) : handleNavigate(id))} style={{
               flex: 1, position: 'relative',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 4px',
               borderRadius: 'var(--radius-md)',
@@ -571,6 +580,28 @@ export default function App() {
             <b>Safari 하단 공유 버튼</b> <span style={{ display: 'inline-block', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 4, padding: '0 5px', fontSize: 11 }}>⬆</span> → <b>"홈 화면에 추가"</b>를 누르세요
           </span>
           <button onClick={dismissIosGuide} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+      )}
+      {showMore && (
+        <div onClick={() => setShowMore(false)} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(10,20,50,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--white)', borderRadius: '20px 20px 0 0', padding: '18px 18px calc(var(--bottom-nav) + 18px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <span style={{ fontSize: 15, fontWeight: 900 }}>더보기</span>
+              <button onClick={() => setShowMore(false)} style={{ fontSize: 20, lineHeight: 1, color: 'var(--text-tertiary)', background: 'transparent' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {MORE_MENU.map(({ id, label, icon: Icon }) => (
+                <button key={id} onClick={() => { setShowMore(false); handleNavigate(id); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 14, background: 'var(--gray-50, var(--gray-100))', minHeight: 74 }}>
+                  {Icon && <Icon size={20} color="var(--primary)" />}
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
+                </button>
+              ))}
+              <button onClick={() => { setShowMore(false); setShowSettings(true); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 14, background: 'var(--gray-50, var(--gray-100))', minHeight: 74 }}>
+                <Settings size={20} color="var(--primary)" />
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>설정</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />

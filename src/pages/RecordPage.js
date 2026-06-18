@@ -520,8 +520,8 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             {children.length === 0 ? (
               <div style={{ padding: '18px 16px', background: 'var(--gray-50)', borderRadius: 14, textAlign: 'center' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>👶</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.6 }}>아직 등록된 아이가 없어요.<br />아이를 등록하면 기록을 아이별로 모아볼 수 있어요.</div>
-                <button onClick={() => onNavigate('settings')} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 800, background: 'var(--primary-light)', borderRadius: 100, padding: '7px 14px' }}>설정에서 아이 추가하기 →</button>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.6 }}>아직 등록된 원아가 없어요.<br />원아를 등록하면 기록을 아이별로 모아볼 수 있어요.</div>
+                <button onClick={() => onNavigate('settings')} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 800, background: 'var(--primary-light)', borderRadius: 100, padding: '7px 14px' }}>설정에서 원아 추가하기 →</button>
               </div>
             ) : (
               <div className="avatar-scroll" style={{ marginLeft: -20, marginRight: -20, paddingLeft: 20, paddingRight: 20, paddingBottom: 6 }}>

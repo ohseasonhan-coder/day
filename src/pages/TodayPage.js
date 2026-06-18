@@ -403,6 +403,23 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     </div>
   );
 
+  // 첫 화면 핵심 흐름 안내 (3단계)
+  const FlowHint = (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '14px 16px', marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.6, marginBottom: 10 }}>아이의 모습을 짧게 적으면 관찰일지·알림장·보육일지 문장으로 정리해드려요.</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
+        {[['1', '아이 선택'], ['2', '기록 입력'], ['3', '문장 복사']].map(([n, label], i, arr) => (
+          <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 12, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
+            {i < arr.length - 1 && <span style={{ margin: '0 4px', color: 'var(--text-tertiary)' }}>›</span>}
+          </span>
+        ))}
+      </div>
+      <button onClick={() => onNavigate('record')} style={{ width: '100%', minHeight: 44, padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800, border: 'none' }}>오늘기록 시작하기</button>
+    </div>
+  );
+
   const UnrecordedSection = unrecordedChildren.length > 0 ? (
     <div style={{
       background: '#FFF5F5', border: '1px solid rgba(255,107,107,0.25)',
@@ -689,6 +706,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         {/* 왼쪽 메인 */}
         <div>
           {HeroCard}
+          {FlowHint}
           {TimingNotice}
           {StorageWarning}
           {BackupBanner}
@@ -748,6 +766,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   return (
     <div style={{ padding: '20px 20px 0' }}>
       {HeroCard}
+      {FlowHint}
       {TimingNotice}
       {StorageWarning}
       {BackupBanner}

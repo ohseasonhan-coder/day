@@ -16,7 +16,7 @@ describe('첫 사용자 온보딩', () => {
 
   test('온보딩은 3단계 핵심 흐름이고 마지막에 시작하기가 있다', () => {
     expect(ONBOARDING_SLIDES).toHaveLength(3);
-    expect(ONBOARDING_SLIDES[0].title).toContain('아이');
+    expect(ONBOARDING_SLIDES[0].title).toContain('원아');
     expect(ONBOARDING_SLIDES[1].title).toContain('문장');
     expect(ONBOARDING_SLIDES[2].title).toContain('복사');
     expect(ONBOARDING_SLIDES[ONBOARDING_SLIDES.length - 1].isLast).toBe(true);
@@ -36,7 +36,7 @@ describe('MVP QA 체크리스트 문서', () => {
     const file = path.join(__dirname, '..', '..', 'docs', 'MVP_QA_CHECKLIST.md');
     expect(fs.existsSync(file)).toBe(true);
     const md = fs.readFileSync(file, 'utf8');
-    ['온보딩', '아이 등록', '기록 입력', '예시 버튼', '문장 생성', '접기/펼치기', '복사', '전체 복사', '문서 저장', '모바일', '관리자', '백업'].forEach((kw) => {
+    ['온보딩', '원아 등록', '기록 입력', '예시 버튼', '문장 생성', '접기/펼치기', '복사', '전체 복사', '문서 저장', '모바일', '관리자', '백업', '출시 전 필수 시나리오'].forEach((kw) => {
       expect(md).toContain(kw);
     });
   });
