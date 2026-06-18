@@ -358,18 +358,18 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     setChildren(updated);
   };
 
-  const handleChangePassword = () => {
-    const res = changePassword(currentUser?.userId, oldPw, newPw);
-    if (!res.ok) { setPwMsg({ ok: false, text: res.error }); return; }
+  const handleChangePassword = async () => {
     if (newPw !== newPw2) { setPwMsg({ ok: false, text: '새 비밀번호가 일치하지 않아요.' }); return; }
+    const res = await changePassword(currentUser?.userId, oldPw, newPw);
+    if (!res.ok) { setPwMsg({ ok: false, text: res.error }); return; }
     setPwMsg({ ok: true, text: '비밀번호가 변경됐어요.' });
     setOldPw(''); setNewPw(''); setNewPw2('');
     setTimeout(() => setPwMsg(null), 3000);
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (!window.confirm('정말로 계정을 삭제할까요? 모든 데이터가 지워지고 되돌릴 수 없어요.')) return;
-    const res = deleteAccount(currentUser?.userId, deletePw);
+    const res = await deleteAccount(currentUser?.userId, deletePw);
     if (!res.ok) { setDeleteMsg(res.error); return; }
     onLogout();
   };
@@ -627,6 +627,12 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
             <SettingCard title="🔒 개인정보 저장 안내">
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                 기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장되며, 외부 서버로 전송되지 않습니다.
+              </div>
+            </SettingCard>
+
+            <SettingCard title="📵 공용 기기 사용 주의">
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                공용 기기에서는 사용 후 로그아웃하고, 브라우저 저장 데이터를 삭제해주세요. 이 앱은 기록을 기본적으로 기기에 저장합니다.
               </div>
             </SettingCard>
 

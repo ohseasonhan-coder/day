@@ -1,6 +1,7 @@
 // ─── 인증 유틸리티 ────────────────────────────────────────────────────────────
 // 백엔드 없이 localStorage 기반 멀티 계정 관리
 // 계정 목록: 'sw_accounts' / 현재 세션: 'sw_session'
+/* global globalThis */
 import { getSettings, saveSettings } from './storage';
 
 const ACCOUNTS_KEY = 'sw_accounts';
@@ -10,9 +11,52 @@ function safeJson(str) {
   try { return str ? JSON.parse(str) : null; } catch { return null; }
 }
 
+// ── 비밀번호 해시 (salt + SHA-256, 평문 저장 방지) ──────────────────────────
+// 로컬 앱이므로 서버 인증 수준의 보안은 아니며, 목적은 평문 비밀번호 노출을 줄이는 것.
+export const PASSWORD_VERSION = 2;
+
+function randomSalt() {
+  const c = globalThis.crypto;
+  const a = new Uint8Array(16);
+  if (c?.getRandomValues) c.getRandomValues(a);
+  else for (let i = 0; i < 16; i++) a[i] = Math.floor(Math.random() * 256);
+  return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function sha256Hex(text) {
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle) {
+    const buf = await subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // 폴백: Web Crypto가 없는 환경 — 암호학적 강도는 낮지만 평문 저장은 피한다.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (`00000000${(h >>> 0).toString(16)}`).slice(-8);
+}
+
+async function hashPassword(password, salt) {
+  return sha256Hex(`sw-pw-v${PASSWORD_VERSION}:${salt}:${password}`);
+}
+
+// 계정에서 평문 password를 salt+hash 구조로 변환(평문 필드 제거).
+async function migratePlaintext(accounts, account, plainPassword) {
+  const idx = accounts.findIndex(a => a.userId === account.userId);
+  if (idx === -1) return account;
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(plainPassword, salt);
+  const { password, ...rest } = accounts[idx]; // eslint-disable-line no-unused-vars
+  accounts[idx] = { ...rest, passwordHash, passwordSalt: salt, passwordVersion: PASSWORD_VERSION };
+  saveAccountsInternal(accounts);
+  return accounts[idx];
+}
+
 // ── 계정 목록 ────────────────────────────────────────────────────────────────
 export function getAccounts() {
-  return safeJson(localStorage.getItem(ACCOUNTS_KEY)) || [];
+  const raw = safeJson(localStorage.getItem(ACCOUNTS_KEY));
+  if (!Array.isArray(raw)) return [];
+  // 손상된 항목(null·비객체·userId 없음)은 앱이 깨지지 않도록 걸러낸다.
+  return raw.filter(a => a && typeof a === 'object' && typeof a.userId === 'string');
 }
 function saveAccountsInternal(list) {
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
@@ -46,7 +90,7 @@ export function isVip(user) {
 
 // ── 회원가입 ─────────────────────────────────────────────────────────────────
 // 반환값: { ok: true, user } | { ok: false, error: string }
-export function register(userId, password, displayName, plan = PLANS.FREE) {
+export async function register(userId, password, displayName, plan = PLANS.FREE) {
   const userId2 = userId.trim().toLowerCase();
   if (!userId2)       return { ok: false, error: '아이디를 입력해 주세요.' };
   if (userId2.length < 3) return { ok: false, error: '아이디는 3자 이상이어야 해요.' };
@@ -61,9 +105,13 @@ export function register(userId, password, displayName, plan = PLANS.FREE) {
   if (accounts.find(a => a.userId === userId2))
     return { ok: false, error: '이미 사용 중인 아이디예요.' };
 
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(password, salt);
   const user = {
     userId: userId2,
-    password,
+    passwordHash,
+    passwordSalt: salt,
+    passwordVersion: PASSWORD_VERSION,
     displayName: displayName.trim(),
     plan,
     createdAt: new Date().toISOString(),
@@ -77,9 +125,23 @@ export function register(userId, password, displayName, plan = PLANS.FREE) {
 // 이미 존재하는 계정은 건드리지 않음 (idempotent)
 // 마스터(관리자) 계정 — 이 기기에 있는 회원·데이터를 관리할 수 있다.
 // 일반 사용자는 구글 로그인만 사용한다.
-const SEED_ACCOUNTS = [
-  { userId: 'master', password: 'saem2026!', displayName: '관리자', plan: PLANS.VIP, role: 'master' },
-];
+//
+// 운영 빌드에는 하드코딩된 비밀번호를 넣지 않는다. 운영에서는 마스터 계정이
+// mustSetPassword 상태로만 시드되어, 최초 로그인 화면에서 관리자가 직접
+// 비밀번호를 설정하게 한다. 개발/테스트 빌드에서만 편의용 비밀번호를 시드하며,
+// 이 분기(및 'dev-master' 리터럴)는 운영 빌드 번들에서 제거된다.
+export const PROD_MASTER_SEED = {
+  userId: 'master', displayName: '관리자', plan: PLANS.VIP, role: 'master', mustSetPassword: true,
+};
+
+function buildSeedAccounts() {
+  if (process.env.NODE_ENV === 'production') {
+    return [PROD_MASTER_SEED];
+  }
+  return [
+    { userId: 'master', password: 'dev-master', displayName: '관리자', plan: PLANS.VIP, role: 'master' },
+  ];
+}
 
 export function isMaster(user) {
   return user?.role === 'master' || user?.userId === 'master';
@@ -88,7 +150,7 @@ export function isMaster(user) {
 export function seedSpecialAccounts() {
   const accounts = getAccounts();
   let changed = false;
-  SEED_ACCOUNTS.forEach(seed => {
+  buildSeedAccounts().forEach(seed => {
     if (!accounts.find(a => a.userId === seed.userId)) {
       accounts.push({ ...seed, createdAt: new Date().toISOString() });
       changed = true;
@@ -98,13 +160,54 @@ export function seedSpecialAccounts() {
 }
 
 // ── 로그인 ────────────────────────────────────────────────────────────────────
-export function login(userId, password) {
-  const userId2 = userId.trim().toLowerCase();
+// 비밀번호 검증은 salt+hash로 한다. 기존 평문(password) 계정은 로그인 성공 시
+// 해시 구조로 즉시 마이그레이션하고 평문 필드를 제거한다.
+export async function login(userId, password) {
+  const userId2 = String(userId || '').trim().toLowerCase();
   const accounts = getAccounts();
-  const account = accounts.find(a => a.userId === userId2 && a.password === password);
+  const account = accounts.find(a => a.userId === userId2);
   if (!account) return { ok: false, error: '아이디 또는 비밀번호가 올바르지 않아요.' };
-  setSession(account);
-  return { ok: true, user: account };
+
+  // 운영에서 비밀번호가 아직 설정되지 않은 마스터 계정 → 최초 설정 안내
+  if (account.mustSetPassword && !account.passwordHash && typeof account.password !== 'string') {
+    return { ok: false, error: '관리자 비밀번호를 먼저 설정해 주세요.', needsSetup: true };
+  }
+
+  let valid = false;
+  let finalAccount = account;
+  if (account.passwordHash) {
+    const h = await hashPassword(password, account.passwordSalt || '');
+    valid = (h === account.passwordHash);
+  } else if (typeof account.password === 'string') {
+    // 레거시 평문 계정: 검증 후 해시로 마이그레이션
+    valid = (account.password === password);
+    if (valid) {
+      try { finalAccount = await migratePlaintext(accounts, account, password); }
+      catch { finalAccount = account; } // 마이그레이션 실패해도 로그인은 진행
+    }
+  }
+
+  if (!valid) return { ok: false, error: '아이디 또는 비밀번호가 올바르지 않아요.' };
+  setSession(finalAccount);
+  return { ok: true, user: finalAccount };
+}
+
+// 운영에서 mustSetPassword 상태의 마스터가 최초 비밀번호를 설정한다.
+export async function setInitialPassword(userId, newPw) {
+  if (!newPw || newPw.length < 4)
+    return { ok: false, error: '비밀번호는 4자 이상이어야 해요.' };
+  const userId2 = String(userId || '').trim().toLowerCase();
+  const accounts = getAccounts();
+  const idx = accounts.findIndex(a => a.userId === userId2);
+  if (idx === -1) return { ok: false, error: '계정을 찾을 수 없어요.' };
+  if (!accounts[idx].mustSetPassword)
+    return { ok: false, error: '이미 비밀번호가 설정된 계정이에요.' };
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(newPw, salt);
+  const { password, mustSetPassword, ...rest } = accounts[idx]; // eslint-disable-line no-unused-vars
+  accounts[idx] = { ...rest, passwordHash, passwordSalt: salt, passwordVersion: PASSWORD_VERSION };
+  saveAccountsInternal(accounts);
+  return { ok: true };
 }
 
 // ── 구글 계정으로 로그인/가입 ────────────────────────────────────────────────
@@ -220,35 +323,49 @@ export function logout() {
   localStorage.removeItem(SESSION_KEY);
 }
 
+// ── 비밀번호 일치 확인 (해시 또는 레거시 평문) ───────────────────────────────
+async function verifyPassword(account, password) {
+  if (account?.passwordHash) {
+    const h = await hashPassword(password, account.passwordSalt || '');
+    return h === account.passwordHash;
+  }
+  if (typeof account?.password === 'string') return account.password === password;
+  return false;
+}
+
 // ── 비밀번호 변경 ─────────────────────────────────────────────────────────────
-export function changePassword(userId, oldPw, newPw) {
+export async function changePassword(userId, oldPw, newPw) {
   if (!newPw || newPw.length < 4)
     return { ok: false, error: '새 비밀번호는 4자 이상이어야 해요.' };
   const accounts = getAccounts();
-  const idx = accounts.findIndex(a => a.userId === userId && a.password === oldPw);
+  const idx = accounts.findIndex(a => a.userId === userId);
   if (idx === -1) return { ok: false, error: '현재 비밀번호가 올바르지 않아요.' };
-  accounts[idx] = { ...accounts[idx], password: newPw };
+  if (!(await verifyPassword(accounts[idx], oldPw)))
+    return { ok: false, error: '현재 비밀번호가 올바르지 않아요.' };
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(newPw, salt);
+  const { password, ...rest } = accounts[idx]; // eslint-disable-line no-unused-vars
+  accounts[idx] = { ...rest, passwordHash, passwordSalt: salt, passwordVersion: PASSWORD_VERSION };
   saveAccountsInternal(accounts);
   setSession(accounts[idx]);
   return { ok: true };
 }
 
 // ── 계정 삭제 ─────────────────────────────────────────────────────────────────
-export function deleteAccount(userId, password) {
+export async function deleteAccount(userId, password) {
   const accounts = getAccounts();
+  const account = accounts.find(a => a.userId === userId);
   // 구글 계정은 비밀번호가 없으므로 userId 일치만 확인 (UI에서 확인창을 거침)
-  const idx = accounts.findIndex(a =>
-    a.userId === userId && (a.provider === 'google' || a.password === password)
-  );
-  if (idx === -1) return { ok: false, error: '비밀번호가 올바르지 않아요.' };
-  saveAccountsInternal(accounts.filter((_, i) => i !== idx));
+  const ok = !!account && (account.provider === 'google' || await verifyPassword(account, password));
+  if (!ok) return { ok: false, error: '비밀번호가 올바르지 않아요.' };
+  saveAccountsInternal(accounts.filter(a => a.userId !== userId));
   logout();
   return { ok: true };
 }
 
 // ── 내부 헬퍼 ─────────────────────────────────────────────────────────────────
 function setSession(user) {
-  // 비밀번호는 세션에 포함하지 않음
-  const { password: _pw, ...safe } = user; // eslint-disable-line no-unused-vars
+  // 비밀번호/해시/솔트는 세션에 포함하지 않음
+  const { password, passwordHash, passwordSalt, ...safe } = user; // eslint-disable-line no-unused-vars
   localStorage.setItem(SESSION_KEY, JSON.stringify(safe));
 }

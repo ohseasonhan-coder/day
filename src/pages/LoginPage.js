@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { login, loginWithGoogle } from '../utils/auth';
+import { login, loginWithGoogle, setInitialPassword } from '../utils/auth';
 import { renderGoogleSignInButton, googleSignInWithAccountChooser, isElectron } from '../utils/driveBackup';
 import { getGoogleClientId, setGoogleClientId } from '../utils/storage';
 import { Zap, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
@@ -65,10 +65,17 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
-  const handleAdminSubmit = (e) => {
+  const handleAdminSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const res = login(adminId, adminPw);
+    let res = await login(adminId, adminPw);
+    // 운영 빌드: 관리자 비밀번호 미설정 상태면, 입력한 값으로 최초 설정 후 로그인
+    if (!res.ok && res.needsSetup) {
+      if (!adminPw || adminPw.length < 4) { setError('관리자 비밀번호는 4자 이상으로 설정해 주세요.'); return; }
+      const set = await setInitialPassword(adminId, adminPw);
+      if (!set.ok) { setError(set.error); return; }
+      res = await login(adminId, adminPw);
+    }
     if (!res.ok) { setError(res.error); return; }
     onLogin(res.user);
   };
