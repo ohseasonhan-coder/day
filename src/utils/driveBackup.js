@@ -23,6 +23,14 @@ const setDriveMeta = (patch) => {
 let accessToken = null;
 let tokenExpiry = 0;
 
+// 동기화 상태를 앱 상단 표시(알약)에 알린다. phase: 'syncing'|'synced'|'error'
+export function emitSyncEvent(phase, at) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function')
+      window.dispatchEvent(new CustomEvent('sw:sync', { detail: { phase, at } }));
+  } catch {}
+}
+
 function loadGsi() {
   return new Promise((resolve, reject) => {
     if (window.google?.accounts?.oauth2) return resolve();
@@ -133,6 +141,8 @@ export async function requestDriveToken(clientId, { silent = false } = {}) {
 
 // 백업 JSON 업로드 — 기존 파일이 있으면 덮어쓰고, 없으면 새로 만듭니다
 export async function backupToDrive(clientId, jsonString, { silent = false } = {}) {
+  emitSyncEvent('syncing');
+  try {
   const token = await requestDriveToken(clientId, { silent });
   const boundary = 'sw_boundary_' + Date.now();
   const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
@@ -170,7 +180,12 @@ export async function backupToDrive(clientId, jsonString, { silent = false } = {
   const json = await res.json();
   const at = new Date().toISOString();
   setDriveMeta({ fileId: json.id, lastBackupAt: at });
+  emitSyncEvent('synced', at);
   return { fileId: json.id, at };
+  } catch (e) {
+    emitSyncEvent('error');
+    throw e;
+  }
 }
 
 // ── 변경 시 자동 백업 스케줄러 ───────────────────────────────────────────────

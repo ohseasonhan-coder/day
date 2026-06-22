@@ -6,6 +6,7 @@ jest.mock('./driveBackup', () => ({
   scheduleDriveBackup: jest.fn(),
   isElectron: () => false,
   getDriveMeta: () => ({}),
+  emitSyncEvent: jest.fn(),
   DRIVE_FILE_NAME: 'saemwork_backup.json',
 }));
 

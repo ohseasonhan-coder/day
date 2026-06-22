@@ -2,7 +2,7 @@
 // 같은 사용자 계정으로 PC/모바일에서 기록을 이어 쓰기 위한 "안전한 백업/복원 기반 동기화".
 // 실시간 동기화가 아니며, 기존 Google Drive 백업 구조(driveBackup.js)를 그대로 활용한다.
 // 데이터는 사용자 본인의 Google Drive에만 저장되고 외부 서버를 거치지 않는다.
-import { restoreFromDrive, backupToDrive } from './driveBackup';
+import { restoreFromDrive, backupToDrive, emitSyncEvent } from './driveBackup';
 import {
   getBackupJson, parseBackup, importBackup,
   saveLocalSafetyBackup, getDataUpdatedAt,
@@ -79,8 +79,10 @@ export async function pullFromDrive(clientId, { json } = {}) {
       lastSyncedAt: new Date().toISOString(),
       lastSyncedDataAt: parsed.ok ? remoteDataAtOf(parsed.data) : getDataUpdatedAt(),
     });
+    emitSyncEvent('synced', new Date().toISOString());
     return { ok: true, summary: res.summary, modifiedTime };
   } catch (e) {
+    emitSyncEvent('error');
     return { ok: false, error: e.message || 'Drive 데이터를 가져오지 못했어요.' };
   }
 }

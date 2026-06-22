@@ -3,6 +3,8 @@ import './index.css';
 import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId } from './utils/storage';
 import { backupToDrive, getDriveMeta } from './utils/driveBackup';
 import { autoSyncOnStart } from './utils/deviceSync';
+import { emitSyncEvent } from './utils/driveBackup';
+import SyncStatusPill from './components/SyncStatusPill';
 import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils/auth';
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
@@ -251,7 +253,10 @@ export default function App() {
     if (!settings.driveAutoBackup || !clientId) return;
     try { sessionStorage.setItem('sw_autosync_done', '1'); } catch {}
     autoSyncOnStart(clientId, { enabled: true })
-      .then(r => { if (r && r.applied === 'pull') window.location.reload(); }) // 가져온 데이터 반영
+      .then(r => {
+        if (r && r.applied === 'pull') { window.location.reload(); return; } // 가져온 데이터 반영
+        if (r && r.action === 'conflict') emitSyncEvent('conflict'); // 상단 표시로 알림(자동 변경 안 함)
+      })
       .catch(() => {}); // 조용히 실패 — 설정 화면에서 상태 확인/수동 동기화 가능
   }, [user]);
 
@@ -441,6 +446,7 @@ export default function App() {
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <SyncStatusPill onClick={() => setShowSettings(true)} />
               <button
                 onClick={() => setShowSearch(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--gray-100)', color: 'var(--text-secondary)', padding: '9px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700 }}
@@ -516,6 +522,7 @@ export default function App() {
           <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--primary)', letterSpacing: '-0.5px' }}>쌤워크</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SyncStatusPill compact onClick={() => setShowSettings(true)} />
           <button
             onClick={() => setShowSearch(true)}
             style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-600)' }}
