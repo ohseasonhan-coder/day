@@ -86,10 +86,11 @@ export async function pullFromDrive(clientId, { json } = {}) {
 }
 
 // ── 현재 데이터를 Drive에 백업(업로드) ────────────────────────────────────────
-export async function pushToDrive(clientId) {
+// silent=true면 동의창 없이 조용히 시도(앱 시작 자동 동기화용).
+export async function pushToDrive(clientId, { silent = false } = {}) {
   try {
     const json = getBackupJson();
-    await backupToDrive(clientId, json, { silent: false });
+    await backupToDrive(clientId, json, { silent });
     const st = getSyncState();
     setSyncState({
       lastSyncedAt: new Date().toISOString(),
@@ -113,9 +114,15 @@ export async function autoSyncOnStart(clientId, { enabled }) {
   const status = await checkDriveStatus(clientId);
   if (!status.ok) return status;
   if (status.action === 'pull') {
+    // 원격이 명확히 최신 + 로컬 그대로 → 자동 가져오기
     const pulled = await pullFromDrive(clientId, { json: status._json });
     return { ok: pulled.ok, applied: pulled.ok ? 'pull' : null, action: status.action, error: pulled.error };
   }
-  // push/conflict/in-sync는 자동으로 데이터를 바꾸지 않는다(상태만 알림)
+  if (status.action === 'push') {
+    // 로컬이 최신 + 원격 그대로(또는 원격 없음) → 조용히 자동 백업(데이터 손실 없음)
+    const pushed = await pushToDrive(clientId, { silent: true });
+    return { ok: pushed.ok, applied: pushed.ok ? 'push' : null, action: status.action, error: pushed.error };
+  }
+  // conflict/in-sync는 자동으로 데이터를 바꾸지 않는다(상태만 알림 — 설정 화면에서 선택)
   return { ok: true, applied: null, action: status.action };
 }

@@ -9,11 +9,12 @@ jest.mock('./driveBackup', () => ({
   DRIVE_FILE_NAME: 'saemwork_backup.json',
 }));
 
-import { decideSyncAction, pullFromDrive, pushToDrive } from './deviceSync';
+import { decideSyncAction, pullFromDrive, pushToDrive, autoSyncOnStart } from './deviceSync';
+import { restoreFromDrive, backupToDrive } from './driveBackup';
 import {
   getDeviceId, getDeviceName, getBackupJson, getLocalSafetyBackup,
   saveChildren, getChildren, saveDocuments,
-  getSyncState, getDataUpdatedAt, isOnboardingDone, setOnboardingDone, importBackup,
+  getSyncState, setSyncState, getDataUpdatedAt, isOnboardingDone, setOnboardingDone, importBackup,
   SYNC_EXCLUDED_KEYS,
 } from './storage';
 
@@ -156,5 +157,41 @@ describe('push: 업로드 후 syncState 갱신', () => {
     expect(res.ok).toBe(true);
     expect(getSyncState().syncVersion).toBe(v0 + 1);
     expect(getSyncState().lastSyncedAt).toBeTruthy();
+  });
+});
+
+describe('autoSyncOnStart: 자동 동기화 강화(조용히 push/pull)', () => {
+  afterEach(() => { restoreFromDrive.mockReset(); backupToDrive.mockClear(); });
+
+  test('비활성/오프라인이면 건너뛴다', async () => {
+    const off = await autoSyncOnStart('client', { enabled: false });
+    expect(off.skipped).toBe(true);
+  });
+
+  test('로컬이 최신이면 조용히 자동 백업(push)', async () => {
+    // 마지막 동기화 시점=원격 시각(과거), 로컬은 그 이후 변경 → push (원격은 그대로)
+    setSyncState({ lastSyncedDataAt: '2000-01-01T00:00:00Z' });
+    saveChildren([{ id: 'c1', name: '하나' }]); // dataUpdatedAt = 현재(2000 이후)
+    restoreFromDrive.mockResolvedValue({
+      json: JSON.stringify({ version: 2, appName: '쌤워크', dataUpdatedAt: '2000-01-01T00:00:00Z', children: [] }),
+      modifiedTime: '2000-01-01T00:00:00Z',
+    });
+    backupToDrive.mockResolvedValue({ fileId: 'x', at: 'now' });
+    const r = await autoSyncOnStart('client', { enabled: true });
+    expect(r.applied).toBe('push');
+    expect(backupToDrive).toHaveBeenCalled();
+  });
+
+  test('원격이 최신 + 로컬 그대로면 자동 가져오기(pull)', async () => {
+    // 로컬을 원격과 동기화된 상태로 만들고, 원격만 더 최신으로
+    saveChildren([{ id: 'c1', name: '하나' }]);
+    const remote = JSON.parse(getBackupJson());
+    remote.dataUpdatedAt = '2999-01-01T00:00:00Z';
+    remote.children = [{ id: 'r9', name: '원격최신' }];
+    setSyncState({ lastSyncedDataAt: getDataUpdatedAt() }); // 로컬은 마지막 동기화 이후 그대로
+    restoreFromDrive.mockResolvedValue({ json: JSON.stringify(remote), modifiedTime: '2999-01-01T00:00:00Z' });
+    const r = await autoSyncOnStart('client', { enabled: true });
+    expect(r.applied).toBe('pull');
+    expect(getChildren().some(c => c.id === 'r9')).toBe(true);
   });
 });

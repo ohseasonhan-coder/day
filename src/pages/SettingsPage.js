@@ -1292,11 +1292,44 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 const st = getSyncState();
                 const lastAt = st.lastSyncedAt ? new Date(st.lastSyncedAt).toLocaleString('ko-KR') : '없음';
                 const dataAt = getDataUpdatedAt() ? new Date(getDataUpdatedAt()).toLocaleString('ko-KR') : '없음';
+                const DOT = {
+                  'in-sync': ['🟢', '모든 기기가 같은 내용이에요'],
+                  'push':    ['🟡', '이 기기에 새 기록이 있어요 — 백업하면 다른 기기와 맞춰져요'],
+                  'pull':    ['🟡', 'Drive에 더 최신 내용이 있어요 — 가져오면 이 기기가 맞춰져요'],
+                  'conflict':['🔴', '두 기기 내용이 달라요 — 아래에서 선택해 주세요'],
+                };
+                const [dot, label] = (syncStatus && DOT[syncStatus.action]) ? DOT[syncStatus.action]
+                  : ['⚪', st.lastSyncedAt ? '"지금 확인"을 누르면 최신 상태를 알려드려요' : '아직 동기화 전이에요 — "지금 확인"을 눌러보세요'];
                 return (
                   <>
                     <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
                       같은 Google 계정으로 로그인하면 PC와 모바일에서 기록을 이어서 사용할 수 있습니다.
                       데이터는 사용자 본인의 Google Drive에 저장되며 외부 서버로 전송되지 않습니다.
+                    </div>
+
+                    {/* 한눈에 보는 동기화 상태 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+                      <span style={{ fontSize: 20, lineHeight: 1 }}>{dot}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.5 }}>{label}</span>
+                    </div>
+
+                    {/* 연결 안내 — 별도 설정 없이 첫 사용 시 구글 로그인 1회 */}
+                    <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 12 }}>
+                      구글 계정으로 로그인하면 자동으로 연결돼요. 처음 백업/가져오기 때 <b>구글 로그인 창이 한 번</b> 뜨고, 이후에는 바로 동기화됩니다.
+                    </div>
+
+                    {/* 자동 동기화 토글 (앱 열 때 자동 맞춤 + 기록 후 자동 백업) */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+                      <div style={{ paddingRight: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800 }}>자동 동기화</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.6 }}>앱을 열 때 최신으로 맞추고, 기록 후 잠시 뒤 자동 백업해요. (충돌일 땐 자동으로 덮어쓰지 않아요)</div>
+                      </div>
+                      <button onClick={() => saveDriveSetting({ driveAutoBackup: !settings.driveAutoBackup })} style={{
+                        width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                        background: settings.driveAutoBackup ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
+                      }}>
+                        <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: settings.driveAutoBackup ? 23 : 3, transition: 'left 0.2s' }} />
+                      </button>
                     </div>
 
                     {/* 기기 이름 */}
@@ -1315,7 +1348,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                       <button onClick={handleSyncCheck} disabled={syncBusy} style={{
                         padding: '12px', borderRadius: 11, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 900, opacity: syncBusy ? 0.6 : 1, gridColumn: '1 / -1',
-                      }}>{syncBusy ? '확인 중…' : 'Drive 최신 데이터 확인'}</button>
+                      }}>{syncBusy ? '확인 중…' : '🔄 지금 확인 (최신 상태 보기)'}</button>
                       <button onClick={handleSyncPush} disabled={syncBusy} style={{
                         padding: '12px', borderRadius: 11, background: 'var(--white)', border: '2px solid var(--border)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 900, opacity: syncBusy ? 0.6 : 1,
                       }}>지금 백업하기</button>
