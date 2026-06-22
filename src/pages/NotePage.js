@@ -258,7 +258,7 @@ export default function NotePage({ onNavigate, isDesktop }) {
           </div>
           <div style={{ background:'var(--white)', border:'1px solid var(--border)', borderRadius:16, padding:16, marginBottom:14, boxShadow:'var(--shadow-sm)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-              <div style={{ fontSize:14, fontWeight:900 }}>대상 아이 선택</div>
+              <div style={{ fontSize:14, fontWeight:900 }}>대상 원아 선택</div>
               <button onClick={() => { const all = {}; children.forEach(c => { all[c.id] = true; }); setBulkChecked(all); }} style={{ fontSize:12, color:'var(--primary)', fontWeight:800 }}>전체 선택</button>
             </div>
             {children.map(child => (

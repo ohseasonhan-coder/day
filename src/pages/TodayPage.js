@@ -675,7 +675,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         <QuickLinkBtn icon={<Pill size={18} />} label="오늘 투약" sub={`${todayMedicineCount}건`} color="#7C4DFF" onClick={() => onNavigate('medicine')} />
         <QuickLinkBtn icon={<AlertTriangle size={18} />} label="사고 기록" sub="" color="var(--accent)" onClick={() => onNavigate('accident')} />
         <QuickLinkBtn icon={<Newspaper size={18} />} label="가정통신문" sub="" color="var(--cat-comm)" onClick={() => onNavigate('newsletter')} />
-        <QuickLinkBtn icon={<Users size={18} />} label="아이 포트폴리오" sub="" color="var(--cat-peer)" onClick={() => onNavigate('children')} />
+        <QuickLinkBtn icon={<Users size={18} />} label="원아 포트폴리오" sub="" color="var(--cat-peer)" onClick={() => onNavigate('children')} />
       </div>
     </div>
   );

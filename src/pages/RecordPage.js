@@ -242,7 +242,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   }, [rawText, records, selectedChild]);
 
   const handleProcess = async () => {
-    if (!selectedChild) return setError('아이를 선택하면 아이별 기록으로 저장할 수 있어요.');
+    if (!selectedChild) return setError('원아를 선택하면 아이별 기록으로 저장할 수 있어요.');
     if (!rawText.trim())  return setError('아이의 모습을 한두 문장으로 적어주세요.');
     setError(''); setLoading(true); setResult(null); setSaved(false);
     try {
@@ -541,7 +541,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             )}
             {children.length > 0 && !selectedChild && (
               <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-                아이를 선택하면 아이별 기록으로 저장할 수 있어요.
+                원아를 선택하면 아이별 기록으로 저장할 수 있어요.
               </div>
             )}
           </StepSection>
@@ -788,7 +788,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
 function getWritingTips(rawText, selectedChild, recordType) {
   const text = String(rawText || '').trim();
   const tips = [];
-  if (!selectedChild) tips.push({ key: 'child', level: 'warn', text: '아이를 먼저 선택하면 이름과 조사가 자연스럽게 들어가요.' });
+  if (!selectedChild) tips.push({ key: 'child', level: 'warn', text: '원아를 먼저 선택하면 이름과 조사가 자연스럽게 들어가요.' });
   if (!text) {
     tips.push({ key: 'empty', level: 'info', text: '상황, 아이 반응, 교사 지원을 한 문장씩만 적어도 문서 품질이 좋아져요.' });
     return tips;
@@ -1973,6 +1973,7 @@ function CurriculumBasisCard({ basis }) {
 
 function CopyAllButton({ result, onCopied }) {
   const showToast = useToast();
+  const [copied, setCopied] = useState(false);
   const combined = buildCombinedCopy(result);
   if (!combined) return null;
   const count = combined.split('\n\n').length;
@@ -1981,14 +1982,16 @@ function CopyAllButton({ result, onCopied }) {
       await navigator.clipboard.writeText(combined);
       addCopyHistory({ title: '전체 결과', text: combined, source: 'record-result-all' });
       onCopied?.();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
       showToast('전체 결과를 복사했어요! 📋', 'success');
     } catch {
       showToast('복사하지 못했어요. 문장을 길게 눌러 직접 복사해주세요.', 'error');
     }
   };
   return (
-    <button onClick={handleCopyAll} style={{ width: '100%', minHeight: 50, padding: '14px', borderRadius: 14, border: 'none', background: 'var(--gray-800)', color: 'white', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
-      <Copy size={17} /> 결과 전체 복사 ({count})
+    <button onClick={handleCopyAll} style={{ width: '100%', minHeight: 50, padding: '14px', borderRadius: 14, border: 'none', background: copied ? 'var(--cat-play)' : 'var(--gray-800)', color: 'white', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14, transition: 'background 0.2s' }}>
+      {copied ? <><Check size={17} /> 복사됨!</> : <><Copy size={17} /> 결과 전체 복사 ({count})</>}
     </button>
   );
 }
@@ -1997,6 +2000,7 @@ function ResultSection({ title, text, field, accent, defaultOpen = true, optiona
   const showToast = useToast();
   const [open, setOpen] = useState(defaultOpen);
   const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
   const isEmpty = !text || !String(text).trim();
   if (isEmpty && optional) return null;
 
@@ -2007,6 +2011,8 @@ function ResultSection({ title, text, field, accent, defaultOpen = true, optiona
       await navigator.clipboard.writeText(text || '');
       addCopyHistory({ title, text, source: 'record-result' });
       onCopied?.();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
       showToast('복사했어요! 📋', 'success');
     } catch {
       showToast('복사하지 못했어요. 문장을 길게 눌러 직접 복사해주세요.', 'error');
@@ -2027,8 +2033,8 @@ function ResultSection({ title, text, field, accent, defaultOpen = true, optiona
             </span>
           )}
           {!isEmpty && (
-            <span role="button" tabIndex={0} onClick={handleCopy} style={{ minHeight: 36, padding: '8px 12px', borderRadius: 10, background: accent ? 'var(--white)' : 'var(--gray-100)', color: accent ? 'var(--primary)' : 'var(--text-secondary)', fontSize: 13, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Copy size={14} /> 복사
+            <span role="button" tabIndex={0} onClick={handleCopy} style={{ minHeight: 36, padding: '8px 12px', borderRadius: 10, background: copied ? 'var(--cat-play)' : (accent ? 'var(--white)' : 'var(--gray-100)'), color: copied ? 'white' : (accent ? 'var(--primary)' : 'var(--text-secondary)'), fontSize: 13, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'background 0.2s' }}>
+              {copied ? <><Check size={14} /> 복사됨</> : <><Copy size={14} /> 복사</>}
             </span>
           )}
         </span>

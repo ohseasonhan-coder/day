@@ -806,7 +806,7 @@ export default function DocsPage({ onNavigate, isDesktop, context, initialTab })
           </div>
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-            보육일지부터 발달평가, 부모상담자료까지. 아이 선택 + 기간 조합으로 맞춤 문서를 만들어보세요.
+            보육일지부터 발달평가, 부모상담자료까지. 원아 선택 + 기간 조합으로 맞춤 문서를 만들어보세요.
           </div>
         </div>
 
@@ -850,7 +850,7 @@ export default function DocsPage({ onNavigate, isDesktop, context, initialTab })
         </div>
         <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.7px' }}>기록을 문서로 바꾸는 곳</div>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          아이를 선택하거나 전체 반 단위로 문서를 만들어보세요.
+          원아를 선택하거나 전체 반 단위로 문서를 만들어보세요.
         </div>
       </div>
 
