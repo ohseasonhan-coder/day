@@ -161,6 +161,42 @@ button:active:not(:disabled) {
   }
 }
 
+/* ─── 공통 UX 폴리시 (전 화면 일관 적용) ─────────────────────────── */
+/* 탭 지연(300ms) 제거 — 모바일에서 버튼이 즉각 반응 */
+button, a, input, textarea, select, label, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* 입력 요소 공통 포커스 링 — 인라인 테두리는 그대로 두고 은은한 링만 추가 */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 127, 255, 0.16);
+}
+
+/* 키보드 포커스 접근성(마우스 클릭에는 안 보이고 키보드 탐색에만) */
+button:focus-visible, a:focus-visible,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 비활성 버튼 일관 처리 */
+button:disabled { cursor: not-allowed; }
+
+/* 텍스트 선택색을 브랜드 톤으로 */
+::selection { background: rgba(79, 127, 255, 0.22); }
+
+/* 부드러운 스크롤 + 모바일 당김 격리(상위 스크롤 전파 방지) */
+html { scroll-behavior: smooth; }
+body { overscroll-behavior-y: contain; }
+
+/* iOS: 입력 포커스 시 화면 자동 확대 방지 (인라인 폰트 크기가 없는 입력에 한해) */
+@media (max-width: 768px) {
+  input:not([style*="font-size"]),
+  textarea:not([style*="font-size"]),
+  select:not([style*="font-size"]) { font-size: 16px; }
+}
+
 /* Toast */
 .toast {
   position: fixed;
