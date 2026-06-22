@@ -1226,41 +1226,78 @@ export function exportBackup() {
   URL.revokeObjectURL(url);
 }
 
+// 백업 데이터의 체크섬을 재계산해 무결성을 확인한다.
+// 반환: true(일치) | false(불일치) | null(체크섬 없음 — 구버전 백업, 검증 불가)
+export function verifyBackupChecksum(data) {
+  try {
+    if (!data || typeof data.checksum !== 'string' || !data.checksum) return null;
+    // buildBackupPayload의 data 객체와 동일한 키 순서로 재구성해야 한다.
+    const subset = {
+      classes: data.classes, children: data.children, records: data.records,
+      documents: data.documents, settings: data.settings, routines: data.routines,
+      formTemplates: data.formTemplates, automationState: data.automationState,
+      automationLog: data.automationLog, copyHistory: data.copyHistory,
+      feedback: data.feedback, onboardingDone: data.onboardingDone,
+      engineSettings: data.engineSettings,
+    };
+    return computeChecksum(subset) === data.checksum;
+  } catch { return null; }
+}
+
 // 복구: 파일 내용(string) → 현재 사용자의 데이터에 덮어씀
+// 안전성: 잘못된 타입의 필드는 건너뛰어 기존 데이터를 보존한다(부분 손상 방지).
 // 반환값: { ok: true, summary } | { ok: false, error: string }
 export function importBackup(jsonString) {
   try {
     const data = JSON.parse(jsonString);
-    if (!data.version || !data.appName)
+    if (!data || typeof data !== 'object' || !data.version || !data.appName)
       return { ok: false, error: '쌤워크 백업 파일이 아니에요.' };
 
-    if (data.classes)   saveClasses(data.classes);
-    if (data.children)  saveChildren(data.children);
-    if (data.records)   saveRecords(data.records);
-    if (data.documents) saveDocuments(data.documents);
-    if (data.settings)  saveSettings(data.settings);
-    if (data.routines)  storage.set(KEYS.ROUTINES, data.routines);
-    if (data.formTemplates) saveFormTemplates(data.formTemplates);
-    if (data.automationLog) storage.set(KEYS.AUTOMATION_LOG, data.automationLog);
-    if (data.copyHistory) storage.set(KEYS.COPY_HISTORY, data.copyHistory);
-    if (data.feedback) storage.set(KEYS.FEEDBACK, data.feedback);
+    const skipped = [];
+    // 배열 필드: 배열일 때만 저장, 아니면 기존 데이터 유지(skip)
+    const saveArr = (val, save, name) => {
+      if (val == null) return;                  // 없으면 건드리지 않음
+      if (Array.isArray(val)) save(val);
+      else skipped.push(name);                  // 타입 이상 → 덮어쓰지 않음
+    };
+    saveArr(data.classes, saveClasses, 'classes');
+    saveArr(data.children, saveChildren, 'children');
+    saveArr(data.records, saveRecords, 'records');
+    saveArr(data.documents, saveDocuments, 'documents');
+    saveArr(data.routines, (v) => storage.set(KEYS.ROUTINES, v), 'routines');
+    saveArr(data.formTemplates, saveFormTemplates, 'formTemplates');
+    saveArr(data.automationLog, (v) => storage.set(KEYS.AUTOMATION_LOG, v), 'automationLog');
+    saveArr(data.copyHistory, (v) => storage.set(KEYS.COPY_HISTORY, v), 'copyHistory');
+    saveArr(data.feedback, (v) => storage.set(KEYS.FEEDBACK, v), 'feedback');
+    // 설정: 객체일 때만
+    if (data.settings != null) {
+      if (typeof data.settings === 'object' && !Array.isArray(data.settings)) saveSettings(data.settings);
+      else skipped.push('settings');
+    }
     // 엔진 설정만 복원(reviews/fallbacks/corrections는 복원하지 않음). 신/구 키 모두 호환.
     if (data.engineSettings || data.documentEnginePrefs) {
       applyEnginePrefsFromSync(data.engineSettings || data.documentEnginePrefs);
     }
     // 온보딩 완료 여부는 true일 때만 반영(다른 기기에서 끝낸 온보딩을 다시 띄우지 않음)
     if (data.onboardingDone === true) setOnboardingDone();
-    rebuildAutomationState(data.records || getRecords(), data.children || getChildren(), data.classes || getClasses());
+    rebuildAutomationState(
+      Array.isArray(data.records) ? data.records : getRecords(),
+      Array.isArray(data.children) ? data.children : getChildren(),
+      Array.isArray(data.classes) ? data.classes : getClasses(),
+    );
 
+    const checksumOk = verifyBackupChecksum(data); // true | false | null
     return {
       ok: true,
       summary: {
-        children:  (data.children  || []).length,
-        records:   (data.records   || []).length,
-        documents: (data.documents || []).length,
-        routines:  (data.routines || []).length,
-        forms:     (data.formTemplates || []).length,
+        children:  (Array.isArray(data.children)  ? data.children  : []).length,
+        records:   (Array.isArray(data.records)   ? data.records   : []).length,
+        documents: (Array.isArray(data.documents) ? data.documents : []).length,
+        routines:  (Array.isArray(data.routines)  ? data.routines  : []).length,
+        forms:     (Array.isArray(data.formTemplates) ? data.formTemplates : []).length,
         exportedAt: data.exportedAt,
+        skipped,        // 타입 이상으로 복원하지 않은 필드(있으면 일부 손상 가능성 안내)
+        checksumOk,     // 무결성 검증 결과(null=구버전)
       },
     };
   } catch (e) {
@@ -1291,9 +1328,11 @@ export function parseBackup(jsonString) {
 
 // id 기준 병합 — 없는 항목은 추가, 같은 id는 더 최신(createdAt) 항목 유지
 function mergeById(current, incoming, dateKey = 'createdAt') {
-  const map = new Map((current || []).map(item => [item.id, item]));
+  const cur = Array.isArray(current) ? current : [];
+  const inc = Array.isArray(incoming) ? incoming : []; // 비배열 입력 방어(병합 중 손상 방지)
+  const map = new Map(cur.filter(item => item && item.id != null).map(item => [item.id, item]));
   let added = 0;
-  for (const item of incoming || []) {
+  for (const item of inc) {
     if (!item || item.id == null) continue;
     const existing = map.get(item.id);
     if (!existing) { map.set(item.id, item); added += 1; continue; }

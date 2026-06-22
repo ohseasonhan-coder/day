@@ -374,7 +374,13 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
     if (!clientId) { setSyncMsg({ ok: false, text: '먼저 구글 로그인 설정이 필요해요.' }); return; }
     setSyncBusy(true); setSyncMsg(null);
     const res = await pullFromDrive(clientId, syncStatus?._json ? { json: syncStatus._json } : {});
-    if (res.ok) { setSyncStatus(null); setSyncMsg({ ok: true, text: 'Drive 데이터를 가져왔어요. (가져오기 전 현재 데이터는 이 기기에 안전 보관됨)' }); setSyncTick(t => t + 1); }
+    if (res.ok) {
+      const sm = res.summary || {};
+      let text = 'Drive 데이터를 가져왔어요. (가져오기 전 현재 데이터는 이 기기에 안전 보관됨)';
+      if (sm.checksumOk === false) text += ' ⚠️ 무결성 검증에 차이가 있어요 — 데이터가 이상하면 "되돌리기"로 복구하세요.';
+      if (Array.isArray(sm.skipped) && sm.skipped.length) text += ` (형식 이상으로 일부 항목 건너뜀: ${sm.skipped.join(', ')})`;
+      setSyncStatus(null); setSyncMsg({ ok: true, text }); setSyncTick(t => t + 1);
+    }
     else setSyncMsg({ ok: false, text: `가져오지 못했어요. ${res.error || '인터넷 연결 또는 Google 로그인을 확인해주세요.'} 기존 데이터는 그대로 유지됐어요.` });
     setSyncBusy(false);
   };
