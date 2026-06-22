@@ -274,6 +274,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [user]);
 
+  // 화면 전환 시 항상 맨 위부터 보이게 (이전 화면 스크롤 위치 잔상 방지 — 전역)
+  useEffect(() => { try { window.scrollTo(0, 0); } catch {} }, [page, showSettings]);
+
   const handleLogout = () => {
     logout();
     setUser(null);
