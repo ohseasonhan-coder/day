@@ -220,7 +220,7 @@ export default function App() {
     const names = missing.slice(0, 3).map(c => c.name).join(', ');
     const extra = missing.length > 3 ? ` 외 ${missing.length - 3}명` : '';
     try {
-      new Notification('쌤워크 — 오늘 미기록 아이가 있어요', {
+      new Notification('쌤워크 — 오늘 미기록 원아가 있어요', {
         body: `${names}${extra} (${missing.length}명) 아직 기록이 없어요.`,
         tag: 'sw-unrecorded',
       });
@@ -441,7 +441,7 @@ export default function App() {
               </span>
               {unrecordedCount > 0 && page === 'today' && (
                 <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--accent)', fontWeight: 700, background: 'var(--accent-light)', padding: '3px 10px', borderRadius: 100 }}>
-                  미기록 아이 {unrecordedCount}명
+                  미기록 원아 {unrecordedCount}명
                 </span>
               )}
             </div>

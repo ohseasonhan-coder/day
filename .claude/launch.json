@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "saemwork-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 4173,
+      "env": { "PORT": "4173", "BROWSER": "none" }
+    }
+  ]
+}

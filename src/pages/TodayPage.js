@@ -204,7 +204,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 13 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>원클릭 하루 마감</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>오늘 기록, 알림장, 보육일지, 미기록 아이를 한 번에 확인합니다.</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>오늘 기록, 알림장, 보육일지, 미기록 원아를 한 번에 확인합니다.</div>
         </div>
         <span style={{ fontSize: 12, fontWeight: 900, color: checkPct === 100 ? 'var(--cat-play)' : 'var(--primary)', background: checkPct === 100 ? 'var(--cat-play-light)' : 'var(--primary-light)', borderRadius: 100, padding: '6px 10px', flexShrink: 0 }}>
           {checkPct}%
@@ -212,7 +212,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(4, 1fr)' : '1fr 1fr', gap: 8, marginBottom: 12 }}>
         <DayCloseMini label="오늘 기록" value={`${todayRecords.length}건`} ready={todayRecords.length > 0} />
-        <DayCloseMini label="미기록 아이" value={`${unrecordedChildren.length}명`} ready={unrecordedChildren.length === 0} />
+        <DayCloseMini label="미기록 원아" value={`${unrecordedChildren.length}명`} ready={unrecordedChildren.length === 0} />
         <DayCloseMini label="보육일지" value={autoDocs.daily?.ready ? '준비됨' : '대기'} ready={autoDocs.daily?.ready} />
         <DayCloseMini label="알림장" value={todayRecords.length ? '작성 가능' : '대기'} ready={todayRecords.length > 0} />
       </div>
@@ -377,11 +377,11 @@ export default function TodayPage({ onNavigate, isDesktop }) {
         {cl ? `${cl.name} 업무 자동화` : '오늘의 교사 업무'}
       </div>
       <div style={{ fontSize: 13, opacity: 0.82, marginTop: 5, lineHeight: 1.6 }}>
-        {cl ? `${cl.year}학년도 · ${cl.age}세반 · 아이 ${children.length}명` : '반을 설정하면 자동화 현황을 볼 수 있어요'}
+        {cl ? `${cl.year}학년도 · ${cl.age}세반 · 원아 ${children.length}명` : '반을 설정하면 자동화 현황을 볼 수 있어요'}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 16 }}>
         <HeroStat label="오늘 기록"  value={`${todayRecords.length}건`} />
-        <HeroStat label="완료 아이"  value={`${recordedChildIds.size}/${children.length}`} />
+        <HeroStat label="완료 원아"  value={`${recordedChildIds.size}/${children.length}`} />
         <HeroStat label="예상 절약"  value={`${estimatedSavedMinutes}분`} />
       </div>
       {children.length > 0 && (
@@ -403,10 +403,10 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     </div>
   );
 
-  // 첫 화면 핵심 흐름 안내 (3단계)
-  const FlowHint = (
+  // 첫 화면 핵심 흐름 안내 (3단계) — 아직 기록이 없는 신규 사용자에게만 노출(활성 사용자 화면 정리)
+  const FlowHint = allRecords.length === 0 ? (
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '14px 16px', marginBottom: 18, boxShadow: 'var(--shadow-sm)' }}>
-      <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.6, marginBottom: 10 }}>아이의 모습을 짧게 적으면 관찰일지·알림장·보육일지 문장으로 정리해드려요.</div>
+      <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.6, marginBottom: 10 }}>원아의 모습을 짧게 적으면 관찰일지·알림장·보육일지 문장으로 정리해드려요.</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
         {[['1', '원아 선택'], ['2', '기록 입력'], ['3', '문장 복사']].map(([n, label], i, arr) => (
           <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -418,7 +418,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       </div>
       <button onClick={() => onNavigate('record')} style={{ width: '100%', minHeight: 44, padding: '12px', borderRadius: 12, background: 'var(--primary)', color: 'white', fontSize: 14, fontWeight: 800, border: 'none' }}>오늘기록 시작하기</button>
     </div>
-  );
+  ) : null;
 
   const UnrecordedSection = unrecordedChildren.length > 0 ? (
     <div style={{
@@ -428,7 +428,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
         <AlertCircle size={16} color="var(--accent)" />
         <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent)' }}>
-          오늘 기록이 없는 아이 {unrecordedChildren.length}명
+          오늘 기록이 없는 원아 {unrecordedChildren.length}명
         </span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
@@ -544,7 +544,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
         <MiniBox label="기록"    value={`${weeklyCount}건`} />
-        <MiniBox label="관찰 아이" value={`${uniqueThisWeek}명`} />
+        <MiniBox label="관찰 원아" value={`${uniqueThisWeek}명`} />
         <MiniBox label="문서 가능" value="8종" />
       </div>
       <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
@@ -603,7 +603,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   const QuickStatsRow = (
     <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(4,1fr)' : 'repeat(2,1fr)', gap: 10, marginBottom: 16 }}>
       <QuickStatCard label="이번 주 기록" value={`${weeklyCount}건`} color="var(--primary)" />
-      <QuickStatCard label="미기록 아이" value={`${unrecordedThisWeek}명`} color={unrecordedThisWeek > 0 ? 'var(--accent)' : 'var(--cat-play)'} />
+      <QuickStatCard label="미기록 원아" value={`${unrecordedThisWeek}명`} color={unrecordedThisWeek > 0 ? 'var(--accent)' : 'var(--cat-play)'} />
       <QuickStatCard label="평균 기록/일" value={`${avgPerDay}건`} color="var(--cat-comm)" />
       <QuickStatCard label="이번 달 기록" value={`${allRecords.filter(r => r.date?.startsWith(thisMonthStr)).length}건`} color="var(--cat-nature)" />
     </div>
@@ -710,8 +710,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
           {TimingNotice}
           {StorageWarning}
           {BackupBanner}
-          {WeeklyDigest}
           {UnrecordedSection}
+          {WeeklyDigest}
           {DayClosePanel}
           {ChildQuickPanel}
           {AutomationPanel}
@@ -770,8 +770,8 @@ export default function TodayPage({ onNavigate, isDesktop }) {
       {TimingNotice}
       {StorageWarning}
       {BackupBanner}
-      {WeeklyDigest}
       {UnrecordedSection}
+      {WeeklyDigest}
       {DayClosePanel}
       {ChildQuickPanel}
       {AutomationPanel}

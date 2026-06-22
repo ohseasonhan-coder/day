@@ -236,6 +236,6 @@ export function buildWeeklySummary({ weekRecords, children }) {
     tips,
     headline: total === 0
       ? '이번 주 기록이 아직 없어요. 짧게라도 관찰을 남겨보세요.'
-      : `이번 주 기록 ${total}건 · 아이 ${recordedChildren}/${childCount}명 · 가장 활발한 영역은 ${topArea}예요.`,
+      : `이번 주 기록 ${total}건 · 원아 ${recordedChildren}/${childCount}명 · 가장 활발한 영역은 ${topArea}예요.`,
   };
 }
