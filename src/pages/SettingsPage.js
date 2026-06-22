@@ -51,6 +51,8 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [classes, setClasses]     = useState(getClasses());
   const [children, setChildren]   = useState(getChildren());
   const [activeTab, setActiveTab] = useState('general');
+  // 설정 진입/탭 전환 시 항상 화면 맨 위부터 보이게(이전 화면 스크롤 위치 잔상 방지)
+  useEffect(() => { try { window.scrollTo(0, 0); } catch {} }, [activeTab]);
   const [newChildName, setNewChildName] = useState('');
   const [newClassName, setNewClassName] = useState('');
   const [newClassYear, setNewClassYear] = useState(String(new Date().getFullYear()));
