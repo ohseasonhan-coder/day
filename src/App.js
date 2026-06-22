@@ -49,8 +49,8 @@ const MOBILE_NAV = [
   ...MOBILE_PRIMARY.filter((i) => i.id !== 'settings').map((i) => ({ id: i.id, label: i.label, icon: NAV_ICONS[i.id] })),
   { id: 'more', label: '더보기', icon: MoreHorizontal },
 ];
-// 더보기 시트에 노출할 고급 기능(삭제하지 않고 이동)
-const MORE_MENU = MORE_MENU_ITEMS.map((i) => ({ id: i.id, label: i.label, icon: NAV_ICONS[i.id] }));
+// 더보기 시트에 노출할 고급 기능(삭제하지 않고 이동) — 한줄 설명·레벨 포함
+const MORE_MENU = MORE_MENU_ITEMS.map((i) => ({ id: i.id, label: i.label, desc: i.desc, level: i.level, icon: NAV_ICONS[i.id] }));
 
 // 데스크톱 사이드바 — 카테고리로 묶어 접을 수 있게 구성
 const NAV_GROUPS = [
@@ -120,6 +120,9 @@ export default function App() {
   const [unrecordedCount, setUnrecordedCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false); // 더보기 시트: 고급 기능 펼침
+  // 간단 모드: 기본 ON(undefined 포함). 고급 기능을 접어 화면을 단순하게.
+  const simpleMode = getSettings().simpleMode !== false;
   // 사이드바 그룹 접기 상태 — 기본은 모두 접힘 (현재 페이지가 속한 그룹만 자동으로 펼침)
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     const init = {};
@@ -555,7 +558,7 @@ export default function App() {
           const active = id === 'more' ? showMore : (page === id || (id === 'docs' && page === 'note'));
           const badge  = (id === 'record' || id === 'check') && unrecordedCount > 0 ? unrecordedCount : 0;
           return (
-            <button key={id} onClick={() => (id === 'more' ? setShowMore(true) : handleNavigate(id))} style={{
+            <button key={id} onClick={() => (id === 'more' ? (setShowAdvanced(false), setShowMore(true)) : handleNavigate(id))} style={{
               flex: 1, position: 'relative',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 4px',
               borderRadius: 'var(--radius-md)',
@@ -606,23 +609,48 @@ export default function App() {
       )}
       {showMore && (
         <div onClick={() => setShowMore(false)} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(10,20,50,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--white)', borderRadius: '20px 20px 0 0', padding: '18px 18px calc(var(--bottom-nav) + 18px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', maxHeight: '70vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--white)', borderRadius: '20px 20px 0 0', padding: '18px 18px calc(var(--bottom-nav) + 18px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', maxHeight: '78vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <span style={{ fontSize: 15, fontWeight: 900 }}>더보기</span>
               <button onClick={() => setShowMore(false)} style={{ fontSize: 20, lineHeight: 1, color: 'var(--text-tertiary)', background: 'transparent' }}>×</button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              {MORE_MENU.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => { setShowMore(false); handleNavigate(id); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 14, background: 'var(--gray-50, var(--gray-100))', minHeight: 74 }}>
-                  {Icon && <Icon size={20} color="var(--primary)" />}
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
+            <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginBottom: 12 }}>각 기능이 어떤 때 쓰는지 한 줄로 안내해요.</div>
+
+            {(() => {
+              const Row = ({ id, label, desc, Icon, onClick }) => (
+                <button key={id} onClick={onClick} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 12px', borderRadius: 13, background: 'var(--gray-50, var(--gray-100))', textAlign: 'left', marginBottom: 8 }}>
+                  <span style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {Icon && <Icon size={18} color="var(--primary)" />}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+                    {desc && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 1, lineHeight: 1.4 }}>{desc}</span>}
+                  </span>
+                  <ChevronRight size={16} color="var(--text-tertiary)" style={{ flexShrink: 0 }} />
                 </button>
-              ))}
-              <button onClick={() => { setShowMore(false); setShowSettings(true); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 14, background: 'var(--gray-50, var(--gray-100))', minHeight: 74 }}>
-                <Settings size={20} color="var(--primary)" />
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>설정</span>
-              </button>
-            </div>
+              );
+              const basics = MORE_MENU.filter((m) => m.level === 'basic');
+              const advanced = MORE_MENU.filter((m) => m.level !== 'basic');
+              const showAdv = !simpleMode || showAdvanced;
+              return (
+                <>
+                  {basics.map((m) => <Row key={m.id} id={m.id} label={m.label} desc={m.desc} Icon={m.icon} onClick={() => { setShowMore(false); handleNavigate(m.id); }} />)}
+                  <Row id="settings" label="설정" desc="백업·동기화·계정·간단 모드 설정" Icon={Settings} onClick={() => { setShowMore(false); setShowSettings(true); }} />
+
+                  {simpleMode && !showAdvanced && (
+                    <button onClick={() => setShowAdvanced(true)} style={{ width: '100%', marginTop: 4, padding: '12px', borderRadius: 12, background: 'transparent', border: '1.5px dashed var(--border-strong)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      고급 기능 더 보기 <ChevronDown size={16} />
+                    </button>
+                  )}
+                  {showAdv && (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', margin: '12px 2px 8px' }}>고급 기능</div>
+                      {advanced.map((m) => <Row key={m.id} id={m.id} label={m.label} desc={m.desc} Icon={m.icon} onClick={() => { setShowMore(false); handleNavigate(m.id); }} />)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

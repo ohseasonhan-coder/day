@@ -1421,6 +1421,7 @@ export const setActiveClassId = (id) => storage.set(KEYS.ACTIVE_CLASS, id);
 // ── 온보딩 ────────────────────────────────────────────────────────────────────
 export const isOnboardingDone = () => !!storage.get(KEYS.ONBOARDING_DONE);
 export const setOnboardingDone = () => storage.set(KEYS.ONBOARDING_DONE, true);
+export const resetOnboarding = () => storage.remove(KEYS.ONBOARDING_DONE);
 
 // ── 문서 템플릿 커스터마이징 ────────────────────────────────────────────────────
 export const getDocTemplates = () => storage.get(KEYS.DOC_TEMPLATES) || {};

@@ -6,7 +6,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getFeedback, addFeedback, deleteFeedback, getBackupJson, getGoogleClientId, setGoogleClientId,
   getTrash, restoreFromTrash, purgeTrashItem, emptyTrash, formatDate, hashPin,
   promoteToNewYear, getArchivedChildren, restoreArchivedChild, getStorageUsage,
-  getDeviceName, setDeviceName, getSyncState, getDataUpdatedAt, restoreLocalSafetyBackup } from '../utils/storage';
+  getDeviceName, setDeviceName, getSyncState, getDataUpdatedAt, restoreLocalSafetyBackup, resetOnboarding } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
 import { checkDriveStatus, pullFromDrive, pushToDrive } from '../utils/deviceSync';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
@@ -605,6 +605,27 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
         {/* ── 일반 ─────────────────────────────────────────── */}
         {activeTab === 'general' && (
           <div>
+            {/* 쉽게 쓰기 — 간단 모드 + 사용법 안내 */}
+            <SettingCard title="🧭 쉽게 쓰기">
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+                <div style={{ paddingRight: 10 }}>
+                  <div style={{ fontSize:14, fontWeight:800 }}>간단 모드</div>
+                  <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2, lineHeight:1.5 }}>자주 쓰는 기능만 보이고, 투약·사고·통계 같은 기능은 더보기의 "고급 기능"으로 접어둬요.</div>
+                </div>
+                <button onClick={() => saveDriveSetting({ simpleMode: !(settings.simpleMode !== false) })} style={{
+                  width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                  background: (settings.simpleMode !== false) ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
+                }}>
+                  <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: (settings.simpleMode !== false) ? 23 : 3, transition: 'left 0.2s' }} />
+                </button>
+              </div>
+              <button onClick={() => { resetOnboarding(); window.location.reload(); }} style={{
+                width: '100%', padding: '12px', borderRadius: 12, background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 13.5, fontWeight: 800,
+              }}>
+                📖 사용법 간단 안내 다시 보기
+              </button>
+            </SettingCard>
+
             {/* 다크모드 토글 */}
             <SettingCard title="화면 테마">
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
