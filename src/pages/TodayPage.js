@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage, getStorageUsage } from '../utils/storage';
 import { buildWeeklySummary } from '../utils/planningDocs';
-import { PenLine, FileText, CheckSquare, ChevronRight, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, TrendingUp, Sparkles } from 'lucide-react';
+import { PenLine, FileText, CheckSquare, ChevronRight, ChevronDown, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, TrendingUp, Sparkles } from 'lucide-react';
 
 const SERVICE_CARDS = [
   { title: '보육일지',          desc: '오늘 기록으로 일일 문서 작성',    icon: '📄', nav: 'docs' },
@@ -48,6 +48,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingConsults, setUpcomingConsults] = useState([]);
   const [automation, setAutomation] = useState(() => getAutomationState());
+  const [showAll, setShowAll] = useState(false); // 모바일 첫 화면: 핵심만 + 나머지 현황 접기
 
   const todayStr  = today();
   const dateLabel = formatDateKo(todayStr);
@@ -765,59 +766,82 @@ export default function TodayPage({ onNavigate, isDesktop }) {
   /* ── 모바일 레이아웃 ────────────────────────────── */
   return (
     <div style={{ padding: '20px 20px 0' }}>
+      {/* 첫 화면: 오늘 할 일 중심 핵심만 */}
       {HeroCard}
       {FlowHint}
       {TimingNotice}
       {StorageWarning}
       {BackupBanner}
       {UnrecordedSection}
-      {WeeklyDigest}
       {DayClosePanel}
-      {ChildQuickPanel}
-      {AutomationPanel}
-      {QuickStatsRow}
-      {HeatmapSection}
-      {CoachWidget}
-      {upcomingConsults.length > 0 && (
-        <div style={{ background:'var(--white)', border:'1.5px solid #FF8C42', borderRadius:14, padding:'14px 16px', marginBottom:12, boxShadow:'var(--shadow-sm)' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-            <span style={{ fontWeight:900, fontSize:14 }}>💬 곧 있을 상담</span>
-            <button onClick={() => onNavigate('consult')} style={{ fontSize:12, color:'#FF8C42', fontWeight:800 }}>전체 보기</button>
-          </div>
-          {upcomingConsults.map(c => {
-            const d = new Date(c.date + 'T00:00:00');
-            const today2 = new Date(todayStr + 'T00:00:00');
-            const diff = Math.ceil((d - today2) / 86400000);
-            const ddayLabel = diff === 0 ? 'D-day' : `D-${diff}`;
-            return (
-              <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:800 }}>{c.childName}</div>
-                  <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{c.date} {c.time ? `· ${c.time}` : ''} · {c.type}</div>
-                </div>
-                <span style={{ fontSize:11, fontWeight:900, background:'#FF8C42', color:'white', borderRadius:100, padding:'2px 9px' }}>{ddayLabel}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {UpcomingEventsWidget}
-      {QuickLinks}
-      {CatDistribution}
-
-      {ChecklistSection}
       <Section title="오늘 핵심 업무">{QuickActions}</Section>
-      <Section title="자동화 서비스 범위" action="문서함" onAction={() => onNavigate('docs')}>
-        {ServiceCards}
-      </Section>
 
-      {todayRecords.length > 0 && (
-        <Section title="오늘 기록한 내용" action="문서 만들기" onAction={() => onNavigate('docs')}>
-          {todayRecords.slice(0, 3).map(r => <RecordMiniCard key={r.id} record={r} />)}
-        </Section>
+      {/* 나머지 현황·도구는 접어두고 한 번에 펼치기 */}
+      {!showAll && (
+        <button onClick={() => setShowAll(true)} style={{
+          width: '100%', marginBottom: 16, padding: '14px', borderRadius: 14,
+          background: 'var(--white)', border: '1.5px solid var(--border)',
+          color: 'var(--text-secondary)', fontSize: 14, fontWeight: 800,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          이번 주 현황·도구 더 보기 <ChevronDown size={17} />
+        </button>
       )}
 
-      <div style={{ marginBottom: 16 }}>{WeeklyStats}</div>
+      {showAll && (
+        <>
+          {WeeklyDigest}
+          {ChildQuickPanel}
+          {AutomationPanel}
+          {QuickStatsRow}
+          {HeatmapSection}
+          {CoachWidget}
+          {upcomingConsults.length > 0 && (
+            <div style={{ background:'var(--white)', border:'1.5px solid #FF8C42', borderRadius:14, padding:'14px 16px', marginBottom:12, boxShadow:'var(--shadow-sm)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                <span style={{ fontWeight:900, fontSize:14 }}>💬 곧 있을 상담</span>
+                <button onClick={() => onNavigate('consult')} style={{ fontSize:12, color:'#FF8C42', fontWeight:800 }}>전체 보기</button>
+              </div>
+              {upcomingConsults.map(c => {
+                const d = new Date(c.date + 'T00:00:00');
+                const today2 = new Date(todayStr + 'T00:00:00');
+                const diff = Math.ceil((d - today2) / 86400000);
+                const ddayLabel = diff === 0 ? 'D-day' : `D-${diff}`;
+                return (
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:800 }}>{c.childName}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{c.date} {c.time ? `· ${c.time}` : ''} · {c.type}</div>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:900, background:'#FF8C42', color:'white', borderRadius:100, padding:'2px 9px' }}>{ddayLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {UpcomingEventsWidget}
+          {QuickLinks}
+          {CatDistribution}
+          {ChecklistSection}
+          <Section title="자동화 서비스 범위" action="문서함" onAction={() => onNavigate('docs')}>
+            {ServiceCards}
+          </Section>
+          {todayRecords.length > 0 && (
+            <Section title="오늘 기록한 내용" action="문서 만들기" onAction={() => onNavigate('docs')}>
+              {todayRecords.slice(0, 3).map(r => <RecordMiniCard key={r.id} record={r} />)}
+            </Section>
+          )}
+          <div style={{ marginBottom: 16 }}>{WeeklyStats}</div>
+          <button onClick={() => { setShowAll(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{
+            width: '100%', marginBottom: 16, padding: '12px', borderRadius: 14,
+            background: 'var(--gray-100)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}>
+            접기 <ChevronDown size={16} style={{ transform: 'rotate(180deg)' }} />
+          </button>
+        </>
+      )}
     </div>
   );
 }
