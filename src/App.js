@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId } from './utils/storage';
+import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId, hasDriveContext } from './utils/storage';
 import { backupToDrive, getDriveMeta } from './utils/driveBackup';
 import { autoSyncOnStart } from './utils/deviceSync';
 import { emitSyncEvent } from './utils/driveBackup';
@@ -236,7 +236,7 @@ export default function App() {
     if (!user) return;
     const settings = getSettings();
     const clientId = (getGoogleClientId() || settings.driveClientId || '').trim();
-    if (!settings.driveAutoBackup || !clientId) return;
+    if (settings.driveAutoBackup === false || !clientId || !hasDriveContext()) return; // 기본 켜짐, 단 드라이브 연동 시
     if (getRecords().length === 0) return;
     const last = getDriveMeta().lastBackupAt;
     if (last && Date.now() - new Date(last).getTime() < 20 * 3600 * 1000) return;
@@ -253,7 +253,7 @@ export default function App() {
     try { if (sessionStorage.getItem('sw_autosync_done')) return; } catch {}
     const settings = getSettings();
     const clientId = (getGoogleClientId() || settings.driveClientId || '').trim();
-    if (!settings.driveAutoBackup || !clientId) return;
+    if (settings.driveAutoBackup === false || !clientId || !hasDriveContext()) return; // 기본 켜짐, 단 드라이브 연동 시
     try { sessionStorage.setItem('sw_autosync_done', '1'); } catch {}
     autoSyncOnStart(clientId, { enabled: true })
       .then(r => {

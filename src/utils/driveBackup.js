@@ -223,8 +223,8 @@ if (typeof document !== 'undefined') {
 }
 
 // 드라이브에서 백업 파일 내려받기 (가장 최근 수정본)
-export async function restoreFromDrive(clientId) {
-  const token = await requestDriveToken(clientId, { silent: false });
+export async function restoreFromDrive(clientId, { silent = false } = {}) {
+  const token = await requestDriveToken(clientId, { silent });
   const params = new URLSearchParams({
     q: `name='${DRIVE_FILE_NAME}' and trashed=false`,
     orderBy: 'modifiedTime desc',

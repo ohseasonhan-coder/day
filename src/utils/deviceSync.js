@@ -39,9 +39,9 @@ export function decideSyncAction({ remote, localDataAt, lastSyncedDataAt }) {
 
 // ── Drive 최신 상태 확인 ──────────────────────────────────────────────────────
 // 네트워크 호출 1회. 실패해도 throw하지 않고 { ok:false, error }로 돌려준다.
-export async function checkDriveStatus(clientId) {
+export async function checkDriveStatus(clientId, { silent = false } = {}) {
   try {
-    const { json, modifiedTime } = await restoreFromDrive(clientId);
+    const { json, modifiedTime } = await restoreFromDrive(clientId, { silent });
     const parsed = parseBackup(json);
     if (!parsed.ok) return { ok: false, error: parsed.error };
     const st = getSyncState();
@@ -113,7 +113,8 @@ export async function autoSyncOnStart(clientId, { enabled }) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { ok: false, skipped: true, reason: 'offline' };
   }
-  const status = await checkDriveStatus(clientId);
+  // 시작-자동 경로는 silent 토큰만 사용 — 동의 전 사용자에게 로그인 팝업이 뜨지 않게 한다.
+  const status = await checkDriveStatus(clientId, { silent: true });
   if (!status.ok) return status;
   if (status.action === 'pull') {
     // 원격이 명확히 최신 + 로컬 그대로 → 자동 가져오기

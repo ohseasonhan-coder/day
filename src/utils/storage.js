@@ -1,4 +1,4 @@
-import { scheduleDriveBackup } from './driveBackup';
+import { scheduleDriveBackup, getDriveMeta } from './driveBackup';
 import { deletePhotosByRecord } from './photoStore';
 import { getEnginePrefsForSync, applyEnginePrefsFromSync } from './ai/documentEngineSettings';
 
@@ -217,11 +217,23 @@ function markDataChangedForKey(key) {
   } catch {}
 }
 
+// 드라이브 사용 맥락이 있는지(구글 연동 세션이거나 한 번이라도 백업한 적 있음).
+// 순수 로컬/마스터 사용자에게 불필요한 구글 토큰 시도를 하지 않기 위함.
+export function hasDriveContext() {
+  try {
+    if (getDriveMeta().fileId) return true;
+    const s = JSON.parse(localStorage.getItem('sw_session') || 'null');
+    return !!(s && (s.provider === 'google' || s.googleSub || s.googleLinkedAt));
+  } catch { return false; }
+}
+
 function maybeScheduleDriveBackup(key) {
   try {
     if (!AUTO_BACKUP_KEY_SUFFIXES.some(suffix => String(key).endsWith(suffix))) return;
     if (!getGoogleClientId()) return;
-    if (!getSettings().driveAutoBackup) return;
+    // 자동 동기화는 기본 켜짐 — 사용자가 설정에서 명시적으로 끈 경우에만 중지한다.
+    if (getSettings().driveAutoBackup === false) return;
+    if (!hasDriveContext()) return; // 구글 연동/이전 백업이 있을 때만 자동 백업
     scheduleDriveBackup(getBackupJson);
   } catch {}
 }
@@ -1204,7 +1216,7 @@ export function getBackupJson() {
 export function triggerEnginePrefSync() {
   try {
     if (!getGoogleClientId()) return;
-    if (!getSettings().driveAutoBackup) return;
+    if (getSettings().driveAutoBackup === false) return;
     scheduleDriveBackup(getBackupJson);
   } catch {
     /* 무시 */

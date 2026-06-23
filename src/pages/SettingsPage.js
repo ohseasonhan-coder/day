@@ -1288,17 +1288,17 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800 }}>자동 백업</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>기록이 추가·수정될 때마다 잠시 후 자동으로 드라이브에 백업해요 (앱을 열 때도 1회)</div>
+                  <div style={{ fontSize: 13, fontWeight: 800 }}>자동 백업 <span style={{ fontSize: 10, color: 'var(--cat-play)', fontWeight: 900 }}>기본 켜짐</span></div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>기록이 추가·수정될 때마다 잠시 후 자동으로 드라이브에 백업해요 (앱을 열 때도 1회). 따로 켜지 않아도 동작해요.</div>
                 </div>
-                <button onClick={() => saveDriveSetting({ driveAutoBackup: !settings.driveAutoBackup })} style={{
+                <button onClick={() => saveDriveSetting({ driveAutoBackup: settings.driveAutoBackup === false })} style={{
                   width: 44, height: 24, borderRadius: 12,
-                  background: settings.driveAutoBackup ? 'var(--primary)' : 'var(--gray-300)',
+                  background: (settings.driveAutoBackup !== false) ? 'var(--primary)' : 'var(--gray-300)',
                   position: 'relative', transition: 'background 0.2s', flexShrink: 0,
                 }}>
                   <div style={{
                     width: 18, height: 18, background: 'var(--white)', borderRadius: '50%',
-                    position: 'absolute', top: 3, left: settings.driveAutoBackup ? 23 : 3, transition: 'left 0.2s',
+                    position: 'absolute', top: 3, left: (settings.driveAutoBackup !== false) ? 23 : 3, transition: 'left 0.2s',
                   }} />
                 </button>
               </div>
@@ -1344,14 +1344,14 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                     {/* 자동 동기화 토글 (앱 열 때 자동 맞춤 + 기록 후 자동 백업) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
                       <div style={{ paddingRight: 10 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800 }}>자동 동기화</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.6 }}>앱을 열 때 최신으로 맞추고, 기록 후 잠시 뒤 자동 백업해요. (충돌일 땐 자동으로 덮어쓰지 않아요)</div>
+                        <div style={{ fontSize: 13, fontWeight: 800 }}>자동 동기화 <span style={{ fontSize: 10, color: 'var(--cat-play)', fontWeight: 900 }}>기본 켜짐</span></div>
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.6 }}>구글 로그인만 해두면 따로 켜지 않아도 자동으로 맞춰져요. 앱을 열 때 최신 반영 + 기록 후 자동 백업. (충돌일 땐 자동으로 덮어쓰지 않아요)</div>
                       </div>
-                      <button onClick={() => saveDriveSetting({ driveAutoBackup: !settings.driveAutoBackup })} style={{
+                      <button onClick={() => saveDriveSetting({ driveAutoBackup: settings.driveAutoBackup === false })} style={{
                         width: 44, height: 24, borderRadius: 12, flexShrink: 0,
-                        background: settings.driveAutoBackup ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
+                        background: (settings.driveAutoBackup !== false) ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
                       }}>
-                        <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: settings.driveAutoBackup ? 23 : 3, transition: 'left 0.2s' }} />
+                        <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: (settings.driveAutoBackup !== false) ? 23 : 3, transition: 'left 0.2s' }} />
                       </button>
                     </div>
 
