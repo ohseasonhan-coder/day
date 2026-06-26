@@ -22,7 +22,9 @@ export function detectOnDeviceCapability() {
   let webgpu = false, promptApi = false;
   try { webgpu = !!navigator.gpu; } catch {}
   try { promptApi = !!getLM(); } catch {}
-  return { webgpu, promptApi, desktop: isDesktopEnv(), usable: promptApi && isDesktopEnv() };
+  // 무료 온디바이스 AI(브라우저 내장)가 있는 기기면 어디서든 사용 가능 — 데스크탑으로 한정하지 않는다.
+  // (지금은 사실상 PC 크롬/엣지지만, 모바일이 지원을 추가하면 자동으로 켜진다.)
+  return { webgpu, promptApi, desktop: isDesktopEnv(), usable: promptApi };
 }
 
 // 모델이 실제로 쓸 수 있는 상태인지(다운로드 필요/불가 포함).

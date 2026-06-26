@@ -263,9 +263,10 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
 
   // 온디바이스 AI "자연스럽게 다듬기" (실험실) — 데스크탑 + 지원 브라우저 + 설정 토글일 때만
   const canRefine = useMemo(() => {
-    try { return isDesktop && getSettings().expOnDeviceLLM === true && detectOnDeviceCapability().usable; }
+    // 무료 온디바이스 AI가 있는 기기면(데스크탑/모바일 무관) 설정 토글 시 사용 가능
+    try { return getSettings().expOnDeviceLLM === true && detectOnDeviceCapability().usable; }
     catch { return false; }
-  }, [isDesktop]);
+  }, []);
   const handleRefine = async (field, currentText) => {
     const res = await refineSentence({ text: currentText, memo: rawText, docType: recordType });
     if (res.ok) handleEditResult(field, res.text);
