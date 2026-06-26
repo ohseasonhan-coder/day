@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../utils/sentenceLibrary';
-import { detectOnDeviceCapability, refineSentence } from '../utils/ondeviceLLM';
+import { detectOnDeviceCapability, refineSentence, prepareModel } from '../utils/ondeviceLLM';
 import {
   getChildren,
   getClasses,
@@ -272,6 +272,12 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     if (res.ok) handleEditResult(field, res.text);
     return res;
   };
+  // 지원·켜짐이면 모델을 배경에서 미리 1회 준비 → 사용자가 ✨다듬기 누를 때 기다리지 않음
+  useEffect(() => {
+    if (!canRefine) return;
+    try { if (sessionStorage.getItem('sw_llm_prewarm')) return; sessionStorage.setItem('sw_llm_prewarm', '1'); } catch {}
+    prepareModel().catch(() => {});
+  }, [canRefine]);
 
   const handleAddPhotos = async (e) => {
     const files = Array.from(e.target.files || []);

@@ -59,23 +59,54 @@ const SYSTEM_PROMPT = [
 ].join('\n');
 
 let _session = null;
-async function getSession() {
+let _preparing = null;
+
+// 모델 세션을 만든다(필요 시 크롬이 내장 모델을 1회 준비). onProgress(0~100)로 진행률 보고.
+async function createSession(onProgress) {
   const LM = getLM();
-  if (!LM) return null;
+  if (!LM || typeof LM.create !== 'function') return null;
+  const opts = { initialPrompts: [{ role: 'system', content: SYSTEM_PROMPT }] };
+  if (onProgress) {
+    opts.monitor = (m) => {
+      try { m.addEventListener('downloadprogress', (e) => onProgress(Math.round((e.loaded || 0) * 100))); } catch {}
+    };
+  }
+  try { return await LM.create(opts); }
+  catch { return await LM.create({ systemPrompt: SYSTEM_PROMPT }); } // 구버전 시그니처
+}
+
+async function getSession() {
   if (_session) return _session;
-  try {
-    // 신버전
-    if (typeof LM.create === 'function') {
-      try {
-        _session = await LM.create({ initialPrompts: [{ role: 'system', content: SYSTEM_PROMPT }] });
-      } catch {
-        // 구버전 시그니처
-        _session = await LM.create({ systemPrompt: SYSTEM_PROMPT });
-      }
-      return _session;
+  try { _session = await createSession(); } catch { _session = null; }
+  return _session;
+}
+
+// 백그라운드 사전 준비 — 앱에서 미리 1회 호출해 두면, 사용자가 누를 때 기다리지 않는다.
+// 반환: { ok } | { ok:false, error }. 중복 호출은 같은 작업을 공유한다.
+export function prepareModel(onProgress) {
+  if (_session) return Promise.resolve({ ok: true });
+  if (_preparing) return _preparing;
+  _preparing = (async () => {
+    const LM = getLM();
+    if (!LM) return { ok: false, error: 'unsupported' };
+    try {
+      const avail = await checkModelAvailability();
+      if (avail === 'unavailable') return { ok: false, error: 'unavailable' };
+      _session = await createSession(onProgress);
+      return _session ? { ok: true } : { ok: false, error: 'create-failed' };
+    } catch (e) {
+      return { ok: false, error: e?.message || 'prepare-failed' };
+    } finally {
+      _preparing = null;
     }
-  } catch { return null; }
-  return null;
+  })();
+  return _preparing;
+}
+
+// 모델이 추가 다운로드 없이 바로 쓸 수 있는 상태인지.
+export async function isModelReady() {
+  if (_session) return true;
+  try { return (await checkModelAvailability()) === 'available'; } catch { return false; }
 }
 
 // 규칙 엔진이 만든 문장을 자연스럽게 다시 쓴다.
