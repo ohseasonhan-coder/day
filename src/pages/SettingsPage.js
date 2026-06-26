@@ -634,16 +634,16 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               <SettingCard title="🧪 자연스럽게 다듬기 (실험실)">
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                   <div style={{ paddingRight: 10 }}>
-                    <div style={{ fontSize:14, fontWeight:800 }}>온디바이스 AI 문장 다듬기</div>
+                    <div style={{ fontSize:14, fontWeight:800 }}>온디바이스 AI 문장 다듬기 <span style={{ fontSize: 10, color: 'var(--cat-play)', fontWeight: 900 }}>기본 켜짐</span></div>
                     <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2, lineHeight:1.6 }}>
-                      결과 카드에 ✨다듬기 버튼이 생겨요. 이 기기(크롬 내장 AI) 안에서만 다시 써서 더 자연스럽게 만들어요 — 외부로 전송하지 않아요. 실험 기능이라 결과는 확인 후 사용하세요.
+                      지원되는 기기에서는 따로 켜지 않아도 결과 카드에 ✨다듬기 버튼이 보여요. 이 기기(브라우저 내장 AI) 안에서만 다시 써서 더 자연스럽게 만들어요 — 외부로 전송하지 않아요. 실험 기능이라 결과는 확인 후 사용하세요.
                     </div>
                   </div>
-                  <button onClick={() => saveDriveSetting({ expOnDeviceLLM: !(settings.expOnDeviceLLM === true) })} style={{
+                  <button onClick={() => saveDriveSetting({ expOnDeviceLLM: settings.expOnDeviceLLM === false })} style={{
                     width: 44, height: 24, borderRadius: 12, flexShrink: 0,
-                    background: settings.expOnDeviceLLM === true ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
+                    background: settings.expOnDeviceLLM !== false ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
                   }}>
-                    <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: settings.expOnDeviceLLM === true ? 23 : 3, transition: 'left 0.2s' }} />
+                    <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: settings.expOnDeviceLLM !== false ? 23 : 3, transition: 'left 0.2s' }} />
                   </button>
                 </div>
               </SettingCard>

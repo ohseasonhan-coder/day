@@ -263,8 +263,8 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
 
   // 온디바이스 AI "자연스럽게 다듬기" (실험실) — 데스크탑 + 지원 브라우저 + 설정 토글일 때만
   const canRefine = useMemo(() => {
-    // 무료 온디바이스 AI가 있는 기기면(데스크탑/모바일 무관) 설정 토글 시 사용 가능
-    try { return getSettings().expOnDeviceLLM === true && detectOnDeviceCapability().usable; }
+    // 무료 온디바이스 AI가 있는 기기면 별도 설정 없이 기본 사용(명시적으로 끈 경우만 숨김)
+    try { return getSettings().expOnDeviceLLM !== false && detectOnDeviceCapability().usable; }
     catch { return false; }
   }, []);
   const handleRefine = async (field, currentText) => {
