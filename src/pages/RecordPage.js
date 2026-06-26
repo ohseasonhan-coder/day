@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../utils/sentenceLibrary';
+import { detectOnDeviceCapability, refineSentence } from '../utils/ondeviceLLM';
 import {
   getChildren,
   getClasses,
@@ -260,6 +261,17 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   // 결과 카드에서 직접 수정한 내용을 결과 상태에 반영(저장 시 함께 저장됨).
   const handleEditResult = (field, value) => setResult(r => (r ? { ...r, [field]: value } : r));
 
+  // 온디바이스 AI "자연스럽게 다듬기" (실험실) — 데스크탑 + 지원 브라우저 + 설정 토글일 때만
+  const canRefine = useMemo(() => {
+    try { return isDesktop && getSettings().expOnDeviceLLM === true && detectOnDeviceCapability().usable; }
+    catch { return false; }
+  }, [isDesktop]);
+  const handleRefine = async (field, currentText) => {
+    const res = await refineSentence({ text: currentText, memo: rawText, docType: recordType });
+    if (res.ok) handleEditResult(field, res.text);
+    return res;
+  };
+
   const handleAddPhotos = async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
@@ -444,11 +456,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               </div>
             )}
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
-            <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
-            <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
+            <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
+            <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <CurriculumBasisCard basis={result.curriculumBasis} />
-            <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
-            <ResultSection title="교사 지원계획" field="support" text={result.support} defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
+            <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
+            <ResultSection title="교사 지원계획" field="support" text={result.support} defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <ResultSection title="문서작성 준비 상태" text={result.documentReadyText} defaultOpen={false} optional onCopied={refreshCopyHistory} />
             <ResultSection title="원문 순화본" text={result.softened} defaultOpen={false} optional onCopied={refreshCopyHistory} />
           </div>
@@ -731,11 +743,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 </div>
               )}
               <CopyAllButton result={result} onCopied={refreshCopyHistory} />
-              <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
-              <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
+              <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
+              <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <CurriculumBasisCard basis={result.curriculumBasis} />
-              <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} />
-              <ResultSection title="교사 지원계획" field="support" text={result.support} defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} />
+              <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
+              <ResultSection title="교사 지원계획" field="support" text={result.support} defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <ResultSection title="문서작성 준비 상태" text={result.documentReadyText} defaultOpen={false} optional onCopied={refreshCopyHistory} />
               <ResultSection title="원문 순화본" text={result.softened} defaultOpen={false} optional onCopied={refreshCopyHistory} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>
@@ -1996,13 +2008,25 @@ function CopyAllButton({ result, onCopied }) {
   );
 }
 
-function ResultSection({ title, text, field, accent, defaultOpen = true, optional = false, onCopied, onChange }) {
+function ResultSection({ title, text, field, accent, defaultOpen = true, optional = false, onCopied, onChange, canRefine = false, onRefine }) {
   const showToast = useToast();
   const [open, setOpen] = useState(defaultOpen);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [refining, setRefining] = useState(false);
   const isEmpty = !text || !String(text).trim();
   if (isEmpty && optional) return null;
+
+  const handleRefineClick = async (e) => {
+    e?.stopPropagation?.();
+    if (isEmpty || refining || !onRefine) return;
+    setRefining(true); setOpen(true);
+    try {
+      const res = await onRefine(field, text);
+      if (res?.ok) { setEditing(true); showToast('자연스럽게 다듬었어요. 확인 후 사용하세요 ✨', 'success'); }
+      else showToast(res?.error || '다듬지 못했어요.', 'error');
+    } finally { setRefining(false); }
+  };
 
   const handleCopy = async (e) => {
     e?.stopPropagation?.();
@@ -2027,6 +2051,11 @@ function ResultSection({ title, text, field, accent, defaultOpen = true, optiona
           {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />} {title}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {canRefine && !isEmpty && onRefine && (
+            <span role="button" tabIndex={0} onClick={handleRefineClick} title="기기 안에서 자연스럽게 다듬기 (실험실)" style={{ minHeight: 36, padding: '8px 11px', borderRadius: 10, background: refining ? 'var(--gray-300)' : '#6C63FF', color: 'white', fontSize: 13, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              ✨ {refining ? '다듬는 중…' : '다듬기'}
+            </span>
+          )}
           {!isEmpty && onChange && (
             <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setOpen(true); setEditing(v => !v); }} style={{ minHeight: 36, padding: '8px 11px', borderRadius: 10, background: editing ? 'var(--primary)' : 'var(--gray-100)', color: editing ? 'white' : 'var(--text-secondary)', fontSize: 13, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Pencil size={13} /> {editing ? '완료' : '편집'}

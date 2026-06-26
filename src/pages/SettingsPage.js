@@ -9,6 +9,7 @@ import { getSettings, saveSettings, getClasses, saveClasses, getChildren, saveCh
   getDeviceName, setDeviceName, getSyncState, getDataUpdatedAt, restoreLocalSafetyBackup, resetOnboarding } from '../utils/storage';
 import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogleSignInButton } from '../utils/driveBackup';
 import { checkDriveStatus, pullFromDrive, pushToDrive } from '../utils/deviceSync';
+import { detectOnDeviceCapability } from '../utils/ondeviceLLM';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
   isMaster, adminUpdateAccount, adminDeleteAccount, getAccountDataStats } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
@@ -627,6 +628,26 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 📖 사용법 간단 안내 다시 보기
               </button>
             </SettingCard>
+
+            {/* 온디바이스 AI 다듬기 (실험실) — 지원 환경(데스크탑+크롬 내장 AI)에서만 노출 */}
+            {detectOnDeviceCapability().usable && (
+              <SettingCard title="🧪 자연스럽게 다듬기 (실험실)">
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ paddingRight: 10 }}>
+                    <div style={{ fontSize:14, fontWeight:800 }}>온디바이스 AI 문장 다듬기</div>
+                    <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2, lineHeight:1.6 }}>
+                      결과 카드에 ✨다듬기 버튼이 생겨요. 이 기기(크롬 내장 AI) 안에서만 다시 써서 더 자연스럽게 만들어요 — 외부로 전송하지 않아요. 실험 기능이라 결과는 확인 후 사용하세요.
+                    </div>
+                  </div>
+                  <button onClick={() => saveDriveSetting({ expOnDeviceLLM: !(settings.expOnDeviceLLM === true) })} style={{
+                    width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                    background: settings.expOnDeviceLLM === true ? 'var(--primary)' : 'var(--gray-300)', position: 'relative', transition: 'background 0.2s',
+                  }}>
+                    <div style={{ width: 18, height: 18, background: 'var(--white)', borderRadius: '50%', position: 'absolute', top: 3, left: settings.expOnDeviceLLM === true ? 23 : 3, transition: 'left 0.2s' }} />
+                  </button>
+                </div>
+              </SettingCard>
+            )}
 
             {/* 다크모드 토글 */}
             <SettingCard title="화면 테마">
