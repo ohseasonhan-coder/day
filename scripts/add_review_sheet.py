@@ -29,9 +29,9 @@ try:
 except Exception:
     wb = Workbook()  # 원본이 없으면 새로 만든다
 
-name = "자동검수결과(500건)"
-if name in wb.sheetnames:
-    del wb[name]
+name = f"자동검수결과({summary['n']}건)"
+for s in [s for s in wb.sheetnames if s.startswith("자동검수결과")]:
+    del wb[s]
 ws = wb.create_sheet(name)
 ws.sheet_view.showGridLines = False
 

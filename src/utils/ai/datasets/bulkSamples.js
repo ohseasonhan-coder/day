@@ -105,7 +105,7 @@ function build(count) {
 }
 
 // 메타 포함(영역/이름) — 검수 시트 기록용
-export const BULK_SAMPLE_RECORDS = build(500);
+export const BULK_SAMPLE_RECORDS = build(1000);
 // 문자열만 — 기존 호환
 export const BULK_SAMPLES = BULK_SAMPLE_RECORDS.map((r) => r.text);
 

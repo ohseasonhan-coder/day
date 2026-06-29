@@ -72,8 +72,8 @@ beforeAll(async () => {
   ].join('\n'));
 });
 
-describe('대량 비식별 샘플 자연스러움/품질 (500건)', () => {
-  test('샘플이 500건이다', () => { expect(results.length).toBe(500); });
+describe('대량 비식별 샘플 자연스러움/품질 (1000건)', () => {
+  test('샘플이 1000건이다', () => { expect(results.length).toBe(1000); });
 
   test('모든 샘플이 오류 없이, 빈 문장 없이 생성된다', () => {
     const broken = results.filter((x) => x.error || !nonEmpty(x.observation) || !nonEmpty(x.parent));
