@@ -94,7 +94,7 @@ const SCENES = [
   ['정서', (S) => `${S} 실수해도 괜찮다는 말을 듣고 다시 도전했다.`],
 ];
 
-function build(count) {
+export function makeSamples(count) {
   const out = [];
   for (let i = 0; i < count; i++) {
     const name = NAMES[i % NAMES.length];
@@ -104,8 +104,8 @@ function build(count) {
   return out;
 }
 
-// 메타 포함(영역/이름) — 검수 시트 기록용
-export const BULK_SAMPLE_RECORDS = build(1000);
+// 메타 포함(영역/이름) — 검수 시트 기록용. 상시 회귀 테스트는 1000건 유지.
+export const BULK_SAMPLE_RECORDS = makeSamples(1000);
 // 문자열만 — 기존 호환
 export const BULK_SAMPLES = BULK_SAMPLE_RECORDS.map((r) => r.text);
 
