@@ -212,13 +212,40 @@ function patternSafetyEducation(el) {
   ].join(' ');
 }
 
+// 패턴 E — 일상생활/자조(낮잠·식사·정리·배변·위생·옷 등): "활용하여/놀이에 참여" 대신 생활 맥락 문체
+const ROUTINE_RE = /(낮잠|잠자|식사|간식|밥|정리|치우|배변|화장실|소변|대변|손씻|손\s*씻|양치|이닦|이\s*닦|칫솔|옷|지퍼|단추|신발|양말|가방|사물함|컵|그릇|수저|등원|휴식)/;
+const GROSS_RE = /(달리|뛰|점프|폴짝|계단|평균대|공을|공\s|던지|굴리|훌라후프|구르|기어|균형|콩주머니|매트|미끄럼)/;
+function patternDailyLiving(el) {
+  const ctx = el.activity ? `${el.activity} 시간에 ` : '';
+  const supportVerb = el.teacherSupport ? el.teacherSupport.verb : '스스로 해보도록 곁에서 격려하는';
+  const focus = el.curriculumArea === '신체운동·건강' ? '기본생활습관과 자조 능력' : '스스로 하려는 자립심';
+  return [
+    `${ctx}유아들은 일과의 흐름을 이해하고 필요한 일을 스스로 해 보려는 모습을 보였다.`,
+    `교사는 ${supportVerb} 지원을 통해 ${eul(focus)} 길러 주었으며, 이는 ${el.curriculumArea} 영역의 발달 경험과 연결된다.`,
+  ].join(' ');
+}
+// 패턴 F — 신체활동(대근육 움직임): "놀이에 참여" 대신 신체 조절 맥락 문체
+function patternBodyMovement(el) {
+  const ctx = el.activity ? `${el.activity} 시간에 ` : '';
+  const supportVerb = el.teacherSupport ? el.teacherSupport.verb : '안전한 환경과 충분한 공간을 마련해 주는';
+  return [
+    `${ctx}유아들은 몸을 다양하게 움직이며 신체를 조절하는 경험을 즐겁게 이어 갔다.`,
+    `교사는 ${supportVerb} 지원을 통해 대근육과 신체 조절 능력이 자랄 수 있도록 도왔으며, 이는 ${el.curriculumArea} 영역의 발달 경험과 연결된다.`,
+  ].join(' ');
+}
+
 // ── 메인 ──────────────────────────────────────────────────────────
 export function composeEvaluation({ childName, input, categories, curriculum } = {}) {
   const el = extractEvaluationElements({ childName, input, categories });
+  const raw = String(el.parsed?.rawText || input || '');
+  const isRoutine = (Array.isArray(categories) && categories.includes('기본생활습관')) || ROUTINE_RE.test(raw);
+  const isGross = GROSS_RE.test(raw);
   let body;
   if (el.difficulty) body = patternDifficulty(el);
   else if (el.isSafetyEducation) body = patternSafetyEducation(el);
-  else if (el.peerCollaboration) body = patternPeerInteraction(el);
+  else if (el.peerCollaboration && el.peerInteraction) body = patternPeerInteraction(el);
+  else if (isRoutine) body = patternDailyLiving(el);
+  else if (isGross) body = patternBodyMovement(el);
   else body = patternPlayExpansion(el);
 
   if (curriculum?.item && !body.includes(curriculum.item)) {
