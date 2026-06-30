@@ -464,7 +464,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             )}
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
             <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
-            <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen={false} optional onCopied={refreshCopyHistory} />
+            <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
             <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <CurriculumBasisCard basis={result.curriculumBasis} />
             <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
@@ -752,7 +752,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               )}
               <CopyAllButton result={result} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
-              <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen={false} optional onCopied={refreshCopyHistory} />
+              <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
               <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <CurriculumBasisCard basis={result.curriculumBasis} />
               <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />

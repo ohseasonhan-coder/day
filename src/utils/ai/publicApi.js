@@ -49,8 +49,8 @@ export async function processRecord(options = {}) {
   const resolved = applyEnginePreferences(guarded, modularDrafts, options.rawText);
   return {
     ...resolved,
-    // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 기존 필드 조합, 새 생성 없음
-    copyReady: buildCopyReadyObservation(resolved),
+    // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 기존 필드 조합·정리, 새 생성 없음
+    copyReady: buildCopyReadyObservation({ ...resolved, childName: options.childName }),
     aiAnalysis: analysis,
     modularDrafts,
   };
