@@ -15,6 +15,7 @@ import {
   createRecordDrafts,
 } from './draftComposer';
 import { generateWithFallback } from './documentEngineResolver';
+import { buildCopyReadyObservation } from './copyReadyObservation';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
 
@@ -45,8 +46,11 @@ export async function processRecord(options = {}) {
   const legacyResult = await legacyProcessRecord(options);
   const guarded = guardRecordResult(legacyResult, { sourceText: options.rawText });
   const modularDrafts = createRecordDrafts({ analysis, tone: options.tone });
+  const resolved = applyEnginePreferences(guarded, modularDrafts, options.rawText);
   return {
-    ...applyEnginePreferences(guarded, modularDrafts, options.rawText),
+    ...resolved,
+    // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 기존 필드 조합, 새 생성 없음
+    copyReady: buildCopyReadyObservation(resolved),
     aiAnalysis: analysis,
     modularDrafts,
   };
