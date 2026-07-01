@@ -3,6 +3,7 @@ import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../utils/sentenceLibrary';
 import { detectOnDeviceCapability, refineSentence, prepareModel } from '../utils/ondeviceLLM';
+import { buildCopyReadyObservation } from '../utils/ai/copyReadyObservation';
 import {
   getChildren,
   getClasses,
@@ -130,6 +131,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [result, setResult]                 = useState(null);
   const [error, setError]                   = useState('');
   const [saved, setSaved]                   = useState(false);
+  const [autoRefined, setAutoRefined]       = useState(false);
   const [mode, setMode]                     = useState(context?.mode === 'list' ? 'list' : 'write');
   const [searchText, setSearchText]         = useState('');
   const [filterChildId, setFilterChildId]   = useState('all');
@@ -253,9 +255,29 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
         return;
       }
       setResult({ ...res, recordType });
+      setAutoRefined(false);
+      if (canRefine) autoRefineResult({ ...res, recordType }); // 지원 기기: 백그라운드 자동 다듬기
     } catch {
       setError('문장을 만들지 못했어요. 입력 내용을 조금 더 구체적으로 적어주세요.');
     } finally { setLoading(false); }
+  };
+
+  // 온디바이스 LLM 자동 다듬기 — 생성 직후 관찰일지·알림장을 더 자연스럽게.
+  // 사실/발화가 바뀌면(가드 실패) 적용하지 않고 규칙 문장을 그대로 둔다.
+  const autoRefineResult = async (res) => {
+    try {
+      const updates = {};
+      for (const [field, dt] of [['observation', 'observation'], ['parent', 'notice']]) {
+        const cur = res[field];
+        if (!cur) continue;
+        const r = await refineSentence({ text: cur, memo: rawText, docType: dt });
+        if (r.ok && r.text && r.text !== cur) updates[field] = r.text;
+      }
+      if (Object.keys(updates).length === 0) return;
+      const copyReady = buildCopyReadyObservation({ ...res, ...updates, childName: selectedChild?.name });
+      setResult((prev) => (prev ? { ...prev, ...updates, copyReady } : prev));
+      setAutoRefined(true);
+    } catch { /* 조용히 무시 — 규칙 문장 유지 */ }
   };
 
   // 결과 카드에서 직접 수정한 내용을 결과 상태에 반영(저장 시 함께 저장됨).
@@ -460,6 +482,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {result.devAreas.map(a => <span key={a} style={{ fontSize: 12, color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: 100, fontWeight: 700 }}>{a}</span>)}
                 </div>
+              </div>
+            )}
+            {autoRefined && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0EFFF', color: '#6C63FF', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>
+                ✨ 이 기기 AI가 더 자연스럽게 다듬었어요 <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>· 사실·아이 말은 그대로</span>
               </div>
             )}
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
@@ -750,7 +777,12 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                   </div>
                 </div>
               )}
-              <CopyAllButton result={result} onCopied={refreshCopyHistory} />
+              {autoRefined && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0EFFF', color: '#6C63FF', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>
+                ✨ 이 기기 AI가 더 자연스럽게 다듬었어요 <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>· 사실·아이 말은 그대로</span>
+              </div>
+            )}
+            <CopyAllButton result={result} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
               <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />

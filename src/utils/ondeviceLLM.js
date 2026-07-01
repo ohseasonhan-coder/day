@@ -2,6 +2,30 @@
 // 크롬 내장 Prompt API(Gemini Nano)를 사용해 기기 안에서만 문장을 다듬는다.
 // 외부 서버/외부 LLM API로 데이터를 보내지 않는다(브라우저 내장 모델).
 // 기존 규칙 엔진은 그대로 두고, 이 모듈은 "선택적 후처리"로만 동작한다.
+import { scoreText } from './ai/qualityScorer';
+
+const SCORE_DOCTYPE = { observation: 'observation', parent: 'notice', notice: 'notice', evaluation: 'dailyReport', support: 'support' };
+
+// 사실 보존 가드: 다듬은 결과가 원문의 사실/아이 발화를 바꾸면 false(→ 규칙 문장 유지).
+// 순수 함수(LLM 없이 검증 가능). 모든 자동 다듬기는 이 가드를 통과해야 적용된다.
+export function passesFactGuard({ memo = '', original = '', refined = '', docType = 'observation' } = {}) {
+  const out = String(refined || '').trim();
+  if (!out) return false;
+  const base = String(original || '');
+  // 1) 발화 보존: 원문 따옴표 속 아이 말이 다듬은 결과에 그대로 남아야 한다.
+  const quotes = Array.from(String(memo).matchAll(/"([^"]+)"/g)).map((m) => m[1]);
+  if (!quotes.every((q) => out.includes(q))) return false;
+  // 2) 환각으로 과도하게 길어지는 경우 거부
+  if (base && out.length > base.length * 2.2 + 40) return false;
+  // 3) 사실 보존 점수: 원문(규칙 문장) 대비 크게 떨어지면 거부
+  const dt = SCORE_DOCTYPE[docType] || 'observation';
+  try {
+    const b = scoreText(base, { input: memo, documentType: dt }).detail.factPreservation;
+    const r = scoreText(out, { input: memo, documentType: dt }).detail.factPreservation;
+    if (r < b - 3) return false;
+  } catch {}
+  return true;
+}
 
 // 크롬 Prompt API는 버전에 따라 window.LanguageModel 또는 window.ai.languageModel 로 노출된다.
 function getLM() {
@@ -127,6 +151,10 @@ export async function refineSentence({ text, memo, docType } = {}) {
     const out = await session.prompt(user);
     const refined = String(out || '').trim().replace(/^["“]|["”]$/g, '').trim();
     if (!refined) return { ok: false, error: '결과가 비었어요.' };
+    // 사실 보존 가드: 사실/발화가 바뀌면 적용하지 않고 규칙 문장 유지
+    if (!passesFactGuard({ memo, original: base, refined, docType })) {
+      return { ok: false, error: '사실 보존을 위해 규칙 문장을 유지했어요.', guarded: true };
+    }
     return { ok: true, text: refined };
   } catch (e) {
     return { ok: false, error: e?.message || '다듬기에 실패했어요.' };
