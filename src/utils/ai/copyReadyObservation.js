@@ -3,9 +3,11 @@
 //   [배움 읽기]  관찰 사실에서 드러난 놀이 시도·관계·표현·탐색 흐름을 원아 중심으로 읽음
 //   [교사 지원 및 다음 계획]  생성된 support(다음 지원 계획)
 // 원칙: 입력에 없는 행동·발화·감정·또래·성취를 추가하지 않는다. 외부 LLM/서버 없음.
-// (반 단위 평가 composer는 건드리지 않고, 개별 관찰용 '배움 읽기'는 여기서 근거 기반으로 만든다.)
+// buildAuditedCopyReady: 생성 직후 observationAudit로 검수하고, 중대 문제는 사실 보존 폴백을 적용한다.
+import { auditObservationCopy } from './observationAudit';
 
 const clean = (s) => String(s || '').trim();
+const quotesOf = (s) => Array.from(String(s).matchAll(/"([^"]+)"/g)).map((m) => m[1]);
 
 function hasBatchim(name) {
   const last = name.charCodeAt(name.length - 1);
@@ -24,7 +26,6 @@ function finishSentence(s) {
 }
 
 // ── 배움 읽기: 관찰 사실에서 실제 드러난 흐름만 근거로 읽는다 ──────────────────
-// 각 신호는 입력(원문)에 실제로 등장한 단서에만 반응한다(사실 추가·과장 없음).
 const LEARNING_SIGNALS = [
   { key: 'persist', re: /(다시|무너지|넘어지|끝까지|반복|재시도|여러 번|계속|포기하지)/, needPeer: false,
     make: (t) => `${t} 뜻대로 되지 않는 순간에도 시도를 이어 가며 스스로 방법을 찾아가는 끈기를 보였다.` },
@@ -41,6 +42,7 @@ const LEARNING_SIGNALS = [
   { key: 'make', re: /(그리|색칠|만들|점토|블록|쌓|접|악기|율동|춤|꾸미|모양)/, needPeer: false,
     make: (t) => `${t} 재료를 자기만의 방식으로 다루며 만들고 표현하는 과정을 즐겼다.` },
 ];
+const SAFE_LEARNING = (t) => `${t} 관심 있는 놀이에 몰입하며 자신의 방식으로 경험을 넓혀 갔다.`;
 
 export function buildLearningReading({ input, childName } = {}) {
   const src = clean(input);
@@ -51,22 +53,51 @@ export function buildLearningReading({ input, childName } = {}) {
     if (sig.needPeer && !hasPeer) continue;
     if (sig.re.test(src)) return sig.make(topic);
   }
-  return `${topic} 관심 있는 놀이에 몰입하며 자신의 방식으로 경험을 넓혀 갔다.`;
+  return SAFE_LEARNING(topic);
 }
 
-// ── 복사용 문서 조립 ──────────────────────────────────────────────────────────
-export function buildCopyReadyObservation({ observation, support, input, childName } = {}) {
-  const obs = clean(observation);
-  const learning = buildLearningReading({ input: input || obs, childName });
-  const sup = clean(support);
+function assemble(observation, learning, support) {
   const sections = [
-    ['관찰내용', obs],
-    ['배움 읽기', learning],
-    ['교사 지원 및 다음 계획', sup],
+    ['관찰내용', clean(observation)],
+    ['배움 읽기', clean(learning)],
+    ['교사 지원 및 다음 계획', clean(support)],
   ].filter(([, body]) => body).map(([label, body]) => [label, finishSentence(body)]);
   if (sections.length === 0) return '';
-  // 교사가 그대로 복사·붙여넣기: 라벨 블록 + 빈 줄. 점수·내부 라벨 없음.
   return sections.map(([label, body]) => `[${label}]\n${body}`).join('\n\n');
+}
+
+// 기존 호환: 문자열만 반환
+export function buildCopyReadyObservation({ observation, support, input, childName } = {}) {
+  const learning = buildLearningReading({ input: input || observation, childName });
+  return assemble(observation, learning, support);
+}
+
+// 검수 연결판: 생성 직후 감사 → 우선순위(통과/경미 정리/중대 폴백) 적용
+// 반환: { copyReady, audit: { ...auditResult, fallbackApplied } }
+export function buildAuditedCopyReady({ observation, support, input, childName } = {}) {
+  let obs = clean(observation);
+  let learning = buildLearningReading({ input: input || obs, childName });
+  const sup = clean(support);
+
+  let audit = auditObservationCopy({ input, observation: obs, learning, support: sup, childName });
+  let fallbackApplied = false;
+
+  if (audit.severity === 'major') {
+    fallbackApplied = true;
+    // 발화 손실 → 관찰내용에 원문 발화를 그대로 복원(사실 보존)
+    if (audit.warnings.includes('speech_lost')) {
+      const missing = quotesOf(input).filter((q) => !obs.includes(q));
+      if (missing.length) obs = finishSentence(`${obs.replace(/[.]\s*$/, '')} ${missing.map((q) => `"${q}"`).join(' ')}`);
+    }
+    // 배움 읽기의 중대 문제 → 사실 추가 없는 안전 기본 문장으로 대체
+    const LEARN_MAJOR = ['fact_addition_peer', 'fact_addition_speech', 'negative_or_diagnostic', 'josa_error'];
+    if (audit.warnings.some((c) => LEARN_MAJOR.includes(c))) {
+      learning = SAFE_LEARNING(topicParticle(childName));
+    }
+    audit = auditObservationCopy({ input, observation: obs, learning, support: sup, childName });
+  }
+
+  return { copyReady: assemble(obs, learning, sup), audit: { ...audit, fallbackApplied } };
 }
 
 export default buildCopyReadyObservation;

@@ -15,7 +15,7 @@ import {
   createRecordDrafts,
 } from './draftComposer';
 import { generateWithFallback } from './documentEngineResolver';
-import { buildCopyReadyObservation } from './copyReadyObservation';
+import { buildAuditedCopyReady } from './copyReadyObservation';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
 
@@ -49,13 +49,17 @@ export async function processRecord(options = {}) {
   const resolved = applyEnginePreferences(guarded, modularDrafts, options.rawText);
   return {
     ...resolved,
-    // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 기존 필드 조합·근거 기반, 사실 추가 없음
-    copyReady: buildCopyReadyObservation({
-      observation: resolved.observation,
-      support: resolved.support,
-      input: options.rawText,
-      childName: options.childName,
-    }),
+    // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 생성 직후 자동 검수 연결.
+    // 통과=그대로 / 경미=안전 정리 / 중대(발화손실·사실추가 등)=사실 보존 폴백.
+    ...(() => {
+      const { copyReady, audit } = buildAuditedCopyReady({
+        observation: resolved.observation,
+        support: resolved.support,
+        input: options.rawText,
+        childName: options.childName,
+      });
+      return { copyReady, copyReadyAudit: audit };
+    })(),
     aiAnalysis: analysis,
     modularDrafts,
   };

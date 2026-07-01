@@ -3,7 +3,7 @@ import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../utils/sentenceLibrary';
 import { detectOnDeviceCapability, refineSentence, prepareModel } from '../utils/ondeviceLLM';
-import { buildCopyReadyObservation } from '../utils/ai/copyReadyObservation';
+import { buildAuditedCopyReady } from '../utils/ai/copyReadyObservation';
 import {
   getChildren,
   getClasses,
@@ -274,8 +274,9 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
         if (r.ok && r.text && r.text !== cur) updates[field] = r.text;
       }
       if (Object.keys(updates).length === 0) return;
-      const copyReady = buildCopyReadyObservation({ observation: (updates.observation || res.observation), support: res.support, input: rawText, childName: selectedChild?.name });
-      setResult((prev) => (prev ? { ...prev, ...updates, copyReady } : prev));
+      const { copyReady, audit } = buildAuditedCopyReady({ observation: (updates.observation || res.observation), support: res.support, input: rawText, childName: selectedChild?.name });
+      if (!audit.ok && typeof console !== 'undefined') console.warn('[관찰일지 검수]', audit.severity, audit.details?.map((d) => d.message));
+      setResult((prev) => (prev ? { ...prev, ...updates, copyReady, copyReadyAudit: audit } : prev));
       setAutoRefined(true);
     } catch { /* 조용히 무시 — 규칙 문장 유지 */ }
   };
