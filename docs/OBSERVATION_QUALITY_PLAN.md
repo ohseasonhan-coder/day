@@ -49,3 +49,44 @@
 - 배움 읽기는 신호 정규식 기반이라, 드문 상황은 기본 문장으로 수렴(과장 없음, 다만 개별성 약함).
 - 교사 지원은 계획 문체 통일 — "실제 제공 지원" 분리는 B단계.
 - 규칙 출력의 문학적 자연스러움 상한은 존재. 그 이상은 지원 기기의 온디바이스 다듬기(G)가 담당.
+
+---
+
+# 2.5단계 — "안전 검수"와 "목표 품질"의 분리 측정
+
+> 목적: `observationAudit`/`pasteScore`의 100점이 **안전·사실성 위반 없음**을 뜻할 뿐, v3 목표 문장 수준의
+> **자연스러움·개별성·문서 완성도**를 보장하지 않는다는 점을 코드·리포트에서 분리해 측정한다. (생성 엔진은 그대로.)
+
+## 세 가지 점수 축 (혼동 금지)
+| 점수 | 정의 | 산출 |
+|---|---|---|
+| **Safety Score** | 사실 추가·발화 손실·금지표현·이름 오류·낙인 등 안전·사실성 위반 없음 | `observationAudit.pasteScore` |
+| **Target Alignment** | v3 목표 문장과 비교한 문서 품질(관찰 사실 유지·근거 있는 배움 읽기·역할 분리·개인화·자연스러움·길이) | `targetQuality.scoreTargetAlignment` |
+| **Copy-Ready Score** | 교사가 그대로 붙여넣을 수 있는 형식·완결성·자연스러움 | `targetQuality.scoreCopyReady` |
+
+- **"100점"의 의미**: Safety 100 = "안전 통과", 품질 보장 아님. 목표 수준 여부는 Target Alignment로 본다.
+- Target Alignment는 **완전 문장 일치를 요구하지 않는다** — 사실·역할이 적절하면 표현이 달라도 감점하지 않고, 안전하지만 일반적(개별성 약함)인 문장은 목표 대비 낮은 점수를 받는다.
+
+## 파일
+- `src/utils/ai/targetQuality.js` — 목표 대비 평가기 + 복붙 평가기(+ `parseTargetSections`).
+- `src/utils/ai/reportAggregate.js` — 중복 입력 정규화(고유 입력 기준) 집계.
+- `scripts/analyze_v3.py` — v3 읽기 전용 분석 + **완전 비식별**(이름 컬럼 + 앱 합성 이름 풀) + 목표 3섹션 분해 + 중복/목표 통계.
+- `src/utils/ai.targetQuality.test.js` — 분리·역감점·중복 왜곡·목표 금지표현 비전파 회귀.
+- `src/utils/ai.observationReport.test.js`(gate) — 리포트 + 교사 검토용 비교 파일 생성.
+
+## 실행
+```
+# 1) v3 재분석 + 비식별 로컬 데이터셋(목표 포함) 생성 (gitignore 경로)
+python scripts/analyze_v3.py
+# 2) 목표 품질 리포트 + 교사 검토 비교 리포트(로컬 MD)
+OBSREPORT=1 CI=true npx react-scripts test src/utils/ai.observationReport.test.js --watchAll=false
+```
+- 산출물(로컬 전용, Git 제외): `data/golden_local/observation_golden.local.json`, `data/golden_local/review_report.local.md`.
+
+## v3 데이터 성격 (측정 타당성 주의)
+- v3 시트명은 **"자동검수결과(1000건)"** — 목표 열(관찰/배움/지원/복사용)은 **앱이 합성 이름으로 자동 생성한 참조 서식**이다. 사람이 독립 작성한 golden이 아니므로 Target Alignment는 "richer 참조 서식과의 정렬"로 해석한다.
+- 1,000행 중 **고유 입력 70개**(각 ~14회 중복), 그중 **42개 그룹은 같은 입력·다른 목표**. → 중복이 평균을 부풀리므로 **고유 입력 기준**을 주요 지표로 사용한다.
+
+## 측정 결과(고유 입력 70 기준)
+- Safety **100** · Copy-Ready **100** · Target Alignment **약 96.5** — 안전은 만점이나 목표 정렬엔 여지.
+- 최다 약점: **배움 읽기가 일반 문장(SAFE 폴백)으로 후퇴** — 표현·자립·구성·탐색·또래 신호를 정규식이 못 잡는 ~13/70 사례. 즉 갭의 원인은 안전이 아니라 **배움 읽기 근거성/개별성**.
