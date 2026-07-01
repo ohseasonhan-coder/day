@@ -274,7 +274,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
         if (r.ok && r.text && r.text !== cur) updates[field] = r.text;
       }
       if (Object.keys(updates).length === 0) return;
-      const copyReady = buildCopyReadyObservation({ ...res, ...updates, childName: selectedChild?.name });
+      const copyReady = buildCopyReadyObservation({ observation: (updates.observation || res.observation), support: res.support, input: rawText, childName: selectedChild?.name });
       setResult((prev) => (prev ? { ...prev, ...updates, copyReady } : prev));
       setAutoRefined(true);
     } catch { /* 조용히 무시 — 규칙 문장 유지 */ }
