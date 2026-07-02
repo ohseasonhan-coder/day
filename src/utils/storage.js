@@ -56,6 +56,8 @@ export const SYNC_EXCLUDED_KEYS = [
   'engine_reviews', 'engine_fallbacks', 'user_corrections', 'review_samples',
   'admin_report', 'debug', 'sw_session', 'password', 'passwordHash', 'passwordSalt',
   'accessToken', 'sw_drive_backup_meta',
+  // 검토 모드(4단계) 데이터 — 이 기기 로컬 전용, 백업·동기화 제외
+  'sw_review_feedback', 'sw_review_mode', 'sw_review_notice_seen',
 ];
 
 export function getDeviceId() {

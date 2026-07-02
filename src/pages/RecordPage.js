@@ -4,6 +4,8 @@ import { useToast } from '../components/Toast';
 import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../utils/sentenceLibrary';
 import { detectOnDeviceCapability, refineSentence, prepareModel } from '../utils/ondeviceLLM';
 import { buildAuditedCopyReady } from '../utils/ai/copyReadyObservation';
+import ReviewComparePanel from '../components/ReviewComparePanel';
+import { isReviewModeEnabled, setReviewMode, computeEditStats, saveReviewEntry } from '../utils/reviewFeedback';
 import {
   getChildren,
   getClasses,
@@ -132,6 +134,10 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
   const [error, setError]                   = useState('');
   const [saved, setSaved]                   = useState(false);
   const [autoRefined, setAutoRefined]       = useState(false);
+  // 검토 모드(4단계) — 개발·검토 전용 feature flag. OFF면 기존 화면과 완전히 동일.
+  const [reviewMode, setReviewModeState]    = useState(() => isReviewModeEnabled());
+  const reviewIdRef = useRef('');           // 결과 식별자(원문 대신 피드백에 저장)
+  const reviewOriginalRef = useRef(null);   // 생성 직후 스냅샷(수정 전후 비교용 — 저장은 파생 통계만)
   const [mode, setMode]                     = useState(context?.mode === 'list' ? 'list' : 'write');
   const [searchText, setSearchText]         = useState('');
   const [filterChildId, setFilterChildId]   = useState('all');
@@ -256,6 +262,9 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       }
       setResult({ ...res, recordType });
       setAutoRefined(false);
+      // 검토 모드용 스냅샷 — 원문은 저장하지 않고, 저장 시 파생 통계(수정 여부·길이·섹션)만 남긴다.
+      reviewIdRef.current = `rev_${Date.now().toString(36)}`;
+      reviewOriginalRef.current = { observation: res.observation, evaluation: res.evaluation, support: res.support, parent: res.parent };
       if (canRefine) autoRefineResult({ ...res, recordType }); // 지원 기기: 백그라운드 자동 다듬기
     } catch {
       setError('문장을 만들지 못했어요. 입력 내용을 조금 더 구체적으로 적어주세요.');
@@ -277,6 +286,8 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       const { copyReady, audit } = buildAuditedCopyReady({ observation: (updates.observation || res.observation), support: res.support, input: rawText, childName: selectedChild?.name });
       if (!audit.ok && typeof console !== 'undefined') console.warn('[관찰일지 검수]', audit.severity, audit.details?.map((d) => d.message));
       setResult((prev) => (prev ? { ...prev, ...updates, copyReady, copyReadyAudit: audit } : prev));
+      // 자동 다듬기는 사용자 수정이 아니므로 비교 기준 스냅샷도 갱신
+      if (reviewOriginalRef.current) reviewOriginalRef.current = { ...reviewOriginalRef.current, ...updates };
       setAutoRefined(true);
     } catch { /* 조용히 무시 — 규칙 문장 유지 */ }
   };
@@ -324,6 +335,11 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
       savePhotos(newRecord.id, photos)
         .then(() => setPhotos([]))
         .catch(() => showToast('사진 저장 중 오류가 발생했어요. (기록은 저장됨)', 'error'));
+    }
+    // 검토 모드: 수정 전후 파생 통계만 로컬 저장(원문 미복제)
+    if (reviewMode && reviewOriginalRef.current) {
+      const stats = computeEditStats(reviewOriginalRef.current, result);
+      saveReviewEntry({ kind: 'edit', resultId: reviewIdRef.current, docType: recordType, variant: 'A', ...stats });
     }
     setSaved(true);
     clearDraft(); setDraftBanner(false);
@@ -490,9 +506,18 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 ✨ 이 기기 AI가 더 자연스럽게 다듬었어요 <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>· 사실·아이 말은 그대로</span>
               </div>
             )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+              <button onClick={() => { const next = !reviewMode; setReviewMode(next); setReviewModeState(next); }}
+                style={{ padding: '5px 10px', borderRadius: 100, border: `1px solid ${reviewMode ? 'var(--primary)' : 'var(--border)'}`, background: reviewMode ? 'var(--primary-light)' : 'transparent', color: reviewMode ? 'var(--primary)' : 'var(--text-tertiary)', fontSize: 11.5, fontWeight: 700 }}>
+                {reviewMode ? '🔍 검토 모드 켜짐' : '검토 모드'}
+              </button>
+            </div>
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
             <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
+            {reviewMode && result.copyReady && (
+              <ReviewComparePanel result={result} input={rawText} childName={selectedChild?.name} resultId={reviewIdRef.current} onCopied={refreshCopyHistory} />
+            )}
             <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <CurriculumBasisCard basis={result.curriculumBasis} />
             <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
@@ -783,9 +808,18 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
                 ✨ 이 기기 AI가 더 자연스럽게 다듬었어요 <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>· 사실·아이 말은 그대로</span>
               </div>
             )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+              <button onClick={() => { const next = !reviewMode; setReviewMode(next); setReviewModeState(next); }}
+                style={{ padding: '5px 10px', borderRadius: 100, border: `1px solid ${reviewMode ? 'var(--primary)' : 'var(--border)'}`, background: reviewMode ? 'var(--primary-light)' : 'transparent', color: reviewMode ? 'var(--primary)' : 'var(--text-tertiary)', fontSize: 11.5, fontWeight: 700 }}>
+                {reviewMode ? '🔍 검토 모드 켜짐' : '검토 모드'}
+              </button>
+            </div>
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
+              {reviewMode && result.copyReady && (
+                <ReviewComparePanel result={result} input={rawText} childName={selectedChild?.name} resultId={reviewIdRef.current} onCopied={refreshCopyHistory} />
+              )}
               <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <CurriculumBasisCard basis={result.curriculumBasis} />
               <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
