@@ -18,6 +18,7 @@ import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
 import { extractDocxText, extractHwpxText, classifyFormFile } from '../utils/docxImport';
 import EngineComparePanel from '../components/EngineComparePanel';
 import EngineReviewReport from '../components/EngineReviewReport';
+import DocTemplateStudio from '../components/DocTemplateStudio';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -1715,6 +1716,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
         {/* ── 관리자 탭 (마스터 전용) ───────────────────────── */}
         {activeTab === 'admin' && isMaster(currentUser) && (
           <div>
+            <DocTemplateStudio currentUser={currentUser} />
             {adminMsg && (
               <div style={{
                 background: adminMsg.ok ? 'var(--cat-play-light)' : 'var(--accent-light)',

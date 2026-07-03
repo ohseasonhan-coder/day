@@ -14,9 +14,10 @@ import { extractFactCard } from './factCard';
 import { buildMessages, OUTPUT_SCHEMA } from './promptBuilder';
 import { parseLLMJson, validateLLMOutput } from './postProcess';
 import { embeddedAdapter } from './embeddedLLM';
+import { privateServerAdapter } from './privateServerLLM';
 import { detectOnDeviceCapability } from '../../ondeviceLLM';
 
-export const ENGINE_IDS = ['rule', 'embedded-local-llm', 'chrome-builtin', 'auto'];
+export const ENGINE_IDS = ['rule', 'embedded-local-llm', 'private-server-7b', 'chrome-builtin', 'auto'];
 export const DEFAULT_ENGINE = 'rule'; // 일반 사용자 기본 — LLM은 검토 flag에서만 시험
 
 // 브라우저 내장 모델은 "선택적" 어댑터로만 등록(구조화 JSON 생성 미지원 → generate는 미구현 상태 보고).
@@ -33,6 +34,7 @@ const chromeAdapter = {
 
 const REGISTRY = {
   'embedded-local-llm': embeddedAdapter,
+  'private-server-7b': privateServerAdapter, // 개인 PC 7B 서버(관리자 설정 시에만 ready)
   'chrome-builtin': chromeAdapter,
 };
 // 테스트·확장용 — mock 어댑터 주입

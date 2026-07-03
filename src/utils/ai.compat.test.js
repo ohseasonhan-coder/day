@@ -87,6 +87,14 @@ test('외부 API 호출 코드가 없다', () => {
     });
   };
   walk(aiDir);
-  const source = files.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+  // 예외(5.5단계): privateServerLLM.js는 "관리자 본인 소유 PC의 로컬 7B 서버"로만 fetch한다.
+  //  - 제3자 유료 LLM API 아님(주소는 관리자가 직접 설정, 미설정 시 규칙 fallback)
+  //  - 별도 가드: 해당 파일에 상용 API 도메인이 들어가면 실패한다.
+  files.filter((f) => f.endsWith('privateServerLLM.js')).forEach((f) => {
+    const src = fs.readFileSync(f, 'utf8');
+    expect(src).not.toMatch(/openai\.com|anthropic|googleapis|api\.openai|generativelanguage|api\.mistral|openrouter/i);
+  });
+  const source = files.filter((f) => !f.endsWith('privateServerLLM.js'))
+    .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   expect(source).not.toMatch(/openai|gemini|claude|fetch\s*\(|XMLHttpRequest|axios/i);
 });

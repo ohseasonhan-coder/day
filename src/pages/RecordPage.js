@@ -5,6 +5,7 @@ import { generateSentences, detectCategoryFromText, getCurrentSeason } from '../
 import { detectOnDeviceCapability, refineSentence, prepareModel } from '../utils/ondeviceLLM';
 import { buildAuditedCopyReady } from '../utils/ai/copyReadyObservation';
 import ReviewComparePanel from '../components/ReviewComparePanel';
+import DocTemplateWriter from '../components/DocTemplateWriter';
 import { isReviewModeEnabled, setReviewMode, computeEditStats, saveReviewEntry } from '../utils/reviewFeedback';
 import {
   getChildren,
@@ -518,6 +519,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             {reviewMode && result.copyReady && (
               <ReviewComparePanel result={result} input={rawText} childName={selectedChild?.name} resultId={reviewIdRef.current} onCopied={refreshCopyHistory} />
             )}
+            <DocTemplateWriter childName={selectedChild?.name} childAge={cl?.age} className={cl?.name} memoText={rawText} ruleObservation={result.observation} ruleSupport={result.support} />
             <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <CurriculumBasisCard basis={result.curriculumBasis} />
             <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
@@ -820,6 +822,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
               {reviewMode && result.copyReady && (
                 <ReviewComparePanel result={result} input={rawText} childName={selectedChild?.name} resultId={reviewIdRef.current} onCopied={refreshCopyHistory} />
               )}
+              <DocTemplateWriter childName={selectedChild?.name} childAge={cl?.age} className={cl?.name} memoText={rawText} ruleObservation={result.observation} ruleSupport={result.support} />
               <ResultSection title="보육일지 평가" field="evaluation"  text={result.evaluation}  defaultOpen={false} onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <CurriculumBasisCard basis={result.curriculumBasis} />
               <ResultSection title="알림장" field="parent" accent text={result.parent} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
