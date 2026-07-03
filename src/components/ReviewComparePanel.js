@@ -228,11 +228,11 @@ export default function ReviewComparePanel({ result, input, childName, resultId,
       <LocalLLMSection result={result} input={input} childName={childName} cVariant={cVariant} setCVariant={setCVariant} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)' }}>실제로 쓰기에 더 좋은 쪽:</span>
-        {[['A', 'A안'], ['B', 'B안'], ['same', '비슷함']].map(([k, label]) => (
+        {[['A', 'A안'], ['B', 'B안'], ...(cVariant ? [['C', 'C안']] : []), ['same', '비슷함']].map(([k, label]) => (
           <button key={k} onClick={() => setPreferred(k)} style={{ padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: `1.5px solid ${preferred === k ? 'var(--primary)' : 'var(--border)'}`, background: preferred === k ? 'var(--primary)' : 'white', color: preferred === k ? 'white' : 'var(--text-secondary)' }}>{label}</button>
         ))}
-        <button onClick={submit} disabled={!selA.length && !selB.length && !preferred}
-          style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 12, border: 'none', background: (selA.length || selB.length || preferred) ? 'var(--primary)' : 'var(--gray-100)', color: (selA.length || selB.length || preferred) ? 'white' : 'var(--text-tertiary)', fontSize: 13, fontWeight: 800 }}>
+        <button onClick={submit} disabled={!selA.length && !selB.length && !selC.length && !preferred}
+          style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 12, border: 'none', background: (selA.length || selB.length || selC.length || preferred) ? 'var(--primary)' : 'var(--gray-100)', color: (selA.length || selB.length || selC.length || preferred) ? 'white' : 'var(--text-tertiary)', fontSize: 13, fontWeight: 800 }}>
           피드백 저장
         </button>
       </div>

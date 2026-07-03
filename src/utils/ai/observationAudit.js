@@ -14,7 +14,7 @@ const BANNED_LEARNING = [
 ];
 const NEGATIVE_DIAGNOSTIC = /(부족하다|부족한|못한다|못했다|뒤떨어|뒤처|산만|문제가 있|문제를 보|느리다|미흡|서투르|장애|의심)/;
 // support가 "이미 제공된 지원"으로 단정하는 과거형(계획이어야 함)
-const SUPPORT_DONE = /(지원하였다|도와주었다|도와 주었다|제공하였다|격려하였다|마련해 주었다|해 주었다|이끌어 주었다)/;
+const SUPPORT_DONE = /(지원하였|지원했|도와주었|도와 주었|제공하였|제공했|격려하였|격려했|마련해 주었|해 주었|이끌어 주었|계획하였|계획했|활용하였|기회를 얻었)/;
 
 const quotesOf = (s) => Array.from(String(s).matchAll(/"([^"]+)"/g)).map((m) => m[1]);
 const endsProperly = (s) => /[.!?]["”']?$/.test(clean(s));

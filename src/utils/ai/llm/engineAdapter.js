@@ -76,8 +76,13 @@ export async function generateObservationWithEngine({
   try {
     const factCard = extractFactCard({ input, childName });
     const messages = buildMessages(factCard);
-    const raw = await adapter.generate({ messages, schema: OUTPUT_SCHEMA });
-    const parsed = parseLLMJson(raw);
+    let raw = await adapter.generate({ messages, schema: OUTPUT_SCHEMA });
+    let parsed = parseLLMJson(raw);
+    // 로컬 7B가 드물게 JSON 밖 설명을 붙이거나 형식을 깨뜨리면 동일 사실카드로 1회만 재요청한다.
+    if (!parsed.ok && adapter.name === 'private-server-7b') {
+      raw = await adapter.generate({ messages, schema: OUTPUT_SCHEMA, retries: 0 });
+      parsed = parseLLMJson(raw);
+    }
     if (!parsed.ok) return { ...base, fallbackReason: parsed.error };
 
     // 관찰내용은 규칙 결과에서 그대로(사실·발화 보존) — 규칙 B안의 관찰내용 섹션 사용

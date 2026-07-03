@@ -63,7 +63,7 @@ function sanitizeEntry(entry = {}) {
     out.memo = String(entry.memo || '').slice(0, 120); // 선택 메모(로컬 전용, 리포트 미출력)
     out.auditCodes = (entry.auditCodes || []).map(String).slice(0, 10); // 코드만(원문 아님)
   } else if (out.kind === 'preference') {
-    out.preferred = ['A', 'B', 'same'].includes(entry.preferred) ? entry.preferred : 'same';
+    out.preferred = ['A', 'B', 'C', 'same'].includes(entry.preferred) ? entry.preferred : 'same';
   } else if (out.kind === 'edit') {
     out.variant = entry.variant === 'A' ? 'A' : 'B';
     out.edited = !!entry.edited;
@@ -155,6 +155,7 @@ export function buildReviewReport(entries = getReviewEntries()) {
   };
 
   const prefB = prefs.filter((e) => e.preferred === 'B').length;
+  const prefC = prefs.filter((e) => e.preferred === 'C').length;
   const sectionFocus = {};
   edits.forEach((e) => (e.editedSections || []).forEach((s) => { sectionFocus[s] = (sectionFocus[s] || 0) + 1; }));
 
@@ -177,7 +178,7 @@ export function buildReviewReport(entries = getReviewEntries()) {
     A: variantStats('A'),
     B: variantStats('B'),
     C: variantStats('C'), // 로컬 LLM(실험) — 표본 있을 때만 의미
-    preference: { n: prefs.length, a: prefs.filter((e) => e.preferred === 'A').length, b: prefB, same: prefs.filter((e) => e.preferred === 'same').length, bPreferredRate: rate(prefB, prefs.length) },
+    preference: { n: prefs.length, a: prefs.filter((e) => e.preferred === 'A').length, b: prefB, c: prefC, same: prefs.filter((e) => e.preferred === 'same').length, bPreferredRate: rate(prefB, prefs.length), cPreferredRate: rate(prefC, prefs.length) },
     editing: {
       n: edits.length,
       editedRate: rate(edits.filter((e) => e.edited).length, edits.length),

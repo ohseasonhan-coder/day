@@ -10,6 +10,13 @@ export const PRIVATE_SERVER_KEYS = {
   MODEL: 'sw_admin_llm_server_model', // 예: qwen2.5:7b-instruct
 };
 
+export const PRIVATE_SERVER_DEFAULTS = {
+  timeoutMs: 75000,
+  retries: 1,
+  temperature: 0.2,
+  maxTokens: 160,
+};
+
 export function getServerConfig() {
   try {
     return {
@@ -35,6 +42,19 @@ async function ping(url) {
   finally { if (timer) clearTimeout(timer); }
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = PRIVATE_SERVER_DEFAULTS.timeoutMs) {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  try {
+    return await fetch(url, { ...options, signal: ctrl?.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('server-timeout');
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export const privateServerAdapter = {
   name: 'private-server-7b',
   getStatus: async () => {
@@ -50,17 +70,38 @@ export const privateServerAdapter = {
     return ok ? { ok: true } : { ok: false, error: '서버 연결 실패' };
   },
   // messages → 텍스트(JSON 기대). 프롬프트·응답은 저장하지 않고 반환만.
-  generate: async ({ messages } = {}) => {
+  generate: async ({ messages, schema, timeoutMs = PRIVATE_SERVER_DEFAULTS.timeoutMs, retries = PRIVATE_SERVER_DEFAULTS.retries } = {}) => {
     const { url, model } = getServerConfig();
     if (!url) throw new Error('server-not-configured');
-    const res = await fetch(`${url}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 320, stream: false }),
-    });
-    if (!res.ok) throw new Error(`server-http-${res.status}`);
-    const j = await res.json();
-    return j?.choices?.[0]?.message?.content || '';
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        const res = await fetchWithTimeout(`${url}/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: PRIVATE_SERVER_DEFAULTS.temperature,
+            max_tokens: PRIVATE_SERVER_DEFAULTS.maxTokens,
+            stream: false,
+            response_format: schema ? { type: 'json_object' } : undefined,
+          }),
+        }, timeoutMs);
+        if (!res.ok) throw new Error(`server-http-${res.status}`);
+        const j = await res.json();
+        const content = j?.choices?.[0]?.message?.content || '';
+        if (!content.trim()) throw new Error('server-empty-output');
+        return content;
+      } catch (error) {
+        lastError = error;
+        // timeout은 서버에서 이전 생성을 계속 수행할 수 있어 재시도하면 큐가 길어진다. 즉시 B안으로 전환한다.
+        const retryable = /fetch|network|server-http-5|empty-output/i.test(String(error?.message || error))
+          && !/timeout/i.test(String(error?.message || error));
+        if (!retryable || attempt >= retries) break;
+      }
+    }
+    throw lastError || new Error('server-generate-failed');
   },
   deleteCache: async () => ({ ok: true }), // 서버 측 모델은 앱이 관리하지 않음
 };

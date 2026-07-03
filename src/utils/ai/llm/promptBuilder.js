@@ -13,12 +13,16 @@ export const OUTPUT_SCHEMA = {
 };
 
 const SYSTEM = [
-  '너는 한국 어린이집·유치원 관찰일지의 "배움 읽기"와 "교사 지원 및 다음 계획"을 쓰는 보조 작가다.',
-  '입력으로는 사실 카드만 주어진다. 사실 카드에 없는 행동·발화·감정·또래 반응·교사 지원을 절대 추가하지 마라.',
-  '진단·평가·낙인·과장 표현을 쓰지 마라. 아이를 존중하는 따뜻하고 전문적인 문체를 유지하라.',
-  '다음 표현은 금지: "유아들은", "활용하여", "놀이에 참여하였다", "발달 경험과 연결된다", "영역과 연결지어".',
-  '교사 지원이 사실 카드에 없으면 이미 했다고 쓰지 말고 "다음 계획"으로만 표현하라.',
-  '출력은 반드시 JSON 하나만: {"learningReading": "...", "supportAndNextPlan": "..."} — 설명·머리말·코드블록 금지.',
+  '한국 보육 관찰일지의 배움 읽기와 다음 지원을 쓴다.',
+  '카드에 없는 행동·말·감정·또래·교사 지원은 추가하지 않는다.',
+  '진단·낙인·과장과 유아들은/활용하여/놀이에 참여하였다 표현은 금지한다.',
+  '실제 교사 지원이 없으면 지원은 현재형 계획으로만 쓴다.',
+  '한국어 한 문장씩 쓴다. 각 값은 반드시 20~45자이며 주어·행동 근거·의미를 포함한다.',
+  '배움은 이름+관찰 근거+의미로, 지원은 "~할 수 있도록 ... 제공한다/돕는다" 계획형으로 끝낸다.',
+  '배움 읽기에는 행동 문장을 그대로 복사하지 말고 행동에서 드러난 배움의 의미만 쓴다.',
+  '지원은 매번 대화 기회만 쓰지 말고 카드의 행동·재료·다음가능성에 맞게 구체화한다.',
+  '했습니다/하였다/얻었다/것입니다 문체는 쓰지 않는다.',
+  'JSON만 출력한다: {"learningReading":"","supportAndNextPlan":""}',
 ].join('\n');
 
 function line(label, v) {
@@ -30,24 +34,17 @@ function line(label, v) {
 // 사실 카드 → chat messages ([{role,content},...])
 export function buildMessages(factCard = {}) {
   const user = [
-    '아래 사실 카드만 근거로 관찰일지의 두 항목을 작성하라.',
-    '',
-    line('원아 표시 이름', factCard.name),
-    line('실제 행동(사실)', factCard.actions),
-    line('직접 발화(글자 그대로 보존 대상)', factCard.speeches),
-    line('놀이 재료·상황', factCard.materials),
-    line('또래 상호작용', factCard.peers),
-    line('실제 교사 지원', factCard.teacherSupport),
-    line('다음 놀이 가능성(참고)', factCard.nextPossibility),
-    '',
-    '추정 금지 요소:',
-    ...(factCard.forbidden || []).map((f) => `- ${f}`),
-    '',
-    '작성 규칙:',
-    ...(factCard.styleRules || []).map((r) => `- ${r}`),
-    '',
-    'JSON만 출력:',
-  ].join('\n');
+    line('이름', factCard.name),
+    line('행동', factCard.actions),
+    line('직접 발화', factCard.speeches),
+    line('재료', factCard.materials),
+    line('또래', factCard.peers),
+    line('실제지원', factCard.teacherSupport),
+    line('다음가능성', factCard.nextPossibility),
+    (factCard.peers || []).length ? '' : '또래 언급 금지',
+    factCard.teacherSupport ? '' : '지원 과거형 금지',
+    '두 값 모두 비우지 말 것. 이름으로 시작. 관찰 반복 금지. 문장 끝에 마침표. JSON만.',
+  ].filter(Boolean).join('\n');
   return [
     { role: 'system', content: SYSTEM },
     { role: 'user', content: user },
