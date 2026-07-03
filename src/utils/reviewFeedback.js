@@ -11,7 +11,8 @@ import { parseTargetSections } from './ai/targetQuality';
 export const REVIEW_KEYS = {
   MODE: 'sw_review_mode',            // 검토 모드 feature flag
   NOTICE: 'sw_review_notice_seen',   // 개인정보 안내 확인 여부
-  DATA: 'sw_review_feedback',        // 피드백·선호·수정 통계 엔트리(최근 200건)
+  // 주의: 'sw_review_feedback'은 계정 키 패턴 sw_${uid}_feedback(uid='review')과 정확히 충돌하므로 금지.
+  DATA: 'sw_review_entries',         // 피드백·선호·수정 통계 엔트리(최근 200건)
 };
 export const MAX_REVIEW_ENTRIES = 200;
 

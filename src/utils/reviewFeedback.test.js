@@ -78,7 +78,12 @@ describe('로컬 저장 — 화이트리스트·200건 제한·키 분리', () =
 
   test('검토 키는 일반 기록 키와 분리되고 동기화 제외 목록에 있다', () => {
     Object.values(REVIEW_KEYS).forEach((k) => expect(k.startsWith('sw_review_')).toBe(true));
-    expect(SYNC_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['sw_review_feedback', 'sw_review_mode', 'sw_review_notice_seen']));
+    expect(SYNC_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['sw_review_entries', 'sw_review_mode', 'sw_review_notice_seen']));
+    // 계정 키 패턴(sw_${uid}_feedback 등)과의 정확 충돌 금지 — uid='review'인 계정 보호
+    const accountSuffixes = ['_records', '_children', '_classes', '_documents', '_settings', '_templates', '_draft', '_feedback', '_copy_history', '_trash', '_events', '_consults', '_routines'];
+    Object.values(REVIEW_KEYS).forEach((k) => {
+      accountSuffixes.forEach((suf) => expect(k).not.toBe(`sw_review${suf}`));
+    });
   });
 
   test('검토 데이터 삭제 — 일반 데이터는 남고 검토 데이터만 지워진다', () => {
