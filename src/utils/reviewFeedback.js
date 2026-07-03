@@ -58,7 +58,7 @@ function sanitizeEntry(entry = {}) {
     docType: String(entry.docType || 'observation').slice(0, 20),
   };
   if (out.kind === 'feedback') {
-    out.variant = entry.variant === 'A' ? 'A' : 'B';
+    out.variant = ['A', 'B', 'C'].includes(entry.variant) ? entry.variant : 'B'; // C = 로컬 LLM(실험)
     out.selections = (entry.selections || []).filter((k) => OPTION_KEYS.includes(k)).slice(0, 5);
     out.memo = String(entry.memo || '').slice(0, 120); // 선택 메모(로컬 전용, 리포트 미출력)
     out.auditCodes = (entry.auditCodes || []).map(String).slice(0, 10); // 코드만(원문 아님)
@@ -176,6 +176,7 @@ export function buildReviewReport(entries = getReviewEntries()) {
     feedbackCount: fb.length,
     A: variantStats('A'),
     B: variantStats('B'),
+    C: variantStats('C'), // 로컬 LLM(실험) — 표본 있을 때만 의미
     preference: { n: prefs.length, a: prefs.filter((e) => e.preferred === 'A').length, b: prefB, same: prefs.filter((e) => e.preferred === 'same').length, bPreferredRate: rate(prefB, prefs.length) },
     editing: {
       n: edits.length,

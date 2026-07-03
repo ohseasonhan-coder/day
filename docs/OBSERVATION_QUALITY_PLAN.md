@@ -138,6 +138,36 @@ OBSREPORT=1 CI=true npx react-scripts test src/utils/ai.observationReport.test.j
 - **리포트**: 패널 내 "검토 리포트" — 검토 건수, A/B별 그대로 사용·표현 수정·사실 다름·자연스러움·지원 계획 비율, B안 선호율, 수정률·평균 수정 길이·섹션 집중도, 최근 20건 반복 유형, 사실 오류 시 audit 코드 빈도. **원문·메모 미출력.**
 - **개인정보**: 첫 진입 시 "이 기기에만 저장·외부 미전송" 안내 + 상시 푸터 문구 + "검토 데이터 삭제" 즉시 삭제.
 
+---
+
+# 5단계 — 앱 내장형 로컬 LLM 엔진 (POC)
+
+> 목표: Chrome `window.LanguageModel` 의존 없이, 앱이 자체적으로 로컬 LLM을 실행해
+> 배움 읽기·교사 지원을 생성. 규칙 엔진은 사실 카드 추출·검수·fallback으로 유지.
+
+## 런타임·모델
+- **런타임**: WebLLM(@mlc-ai/web-llm, Apache-2.0) — WebGPU 로컬 추론, JSON 스키마 강제(XGrammar),
+  모델 가중치 브라우저 Cache Storage 자동 캐시. 대안 비교: Transformers.js(WASM fallback 있으나
+  1B+ 생성은 실용 불가, 스키마 강제 없음), wllama(CPU 전용, 느림). → WebGPU 대상(크롬·엣지 = 앱 공식 지원 브라우저)에 최적.
+- **모델**: `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` (Apache-2.0, 상업 사용 가능, 한국어 생성 가능한 최소급).
+  ⚠ Qwen2.5-**3B**는 연구 라이선스라 금지. 가중치는 Git/번들 미포함 — 최초 "엔진 준비" 시 1회 다운로드.
+- **번들 영향**: web-llm은 dynamic import 지연 청크(원시 5.9MB, 검토 패널에서만 로드). main +8.4kB(어댑터 호출부만).
+
+## 구조 (src/utils/ai/llm/)
+```
+입력 메모 → factCard.js(사실 카드 추출·정규화, 규칙)
+         → promptBuilder.js(카드만 직렬화 + JSON 스키마 강제)
+         → embeddedLLM.js(WebLLM 어댑터: idle/need-download/preparing/ready/unsupported/error)
+         → postProcess.js(JSON 파싱→형식·길이·반복·금지어→사실카드 발화 대조→observationAudit)
+         → 통과: 복사용 3단 반영(관찰내용은 항상 규칙 결과) / 실패·미지원: 규칙 B안 fallback(사유는 개발 정보)
+engineAdapter.js: rule(기본) | embedded-local-llm | chrome-builtin(선택 보조) | auto
+```
+- LLM 담당: **배움 읽기 + 교사 지원 및 다음 계획만**. 관찰내용은 규칙 결과 고정(발화·사실 보존).
+- 원문 전체를 LLM에 자유 전달하지 않음 — 사실 카드 필드만(이름/행동/발화/재료/또래/실지원/다음가능성/금지요소/작성규칙).
+- 원문·프롬프트·LLM 전문 출력은 저장하지 않음(반환값 전달만).
+- UI: 검토 flag 안 "AI 문장 엔진(실험)" 섹션 — 준비(진행률)/미지원/실패/저장공간부족 구분, C안 카드로만 표시(A/B 미덮어쓰기), 모델 삭제 버튼.
+- 테스트: mock 어댑터(ai.llmEngine.test, 17건) — CI에서 모델 다운로드 없음.
+
 ## 품질 게이트(개발 판단 기준 — 코드 반영 전 필독)
 1. **fact_mismatch("사실과 다름") > 0이면** 규칙 확장보다 **사실 보존 원인 분석 우선**(리포트의 audit 코드 빈도부터).
 2. **need_natural("더 자연스럽게")이 반복되면** 해당 표현 유형을 분류해 표현 풀 개선 후보로 축적(즉시 엔진 수정 금지).
