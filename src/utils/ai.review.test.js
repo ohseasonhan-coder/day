@@ -142,7 +142,7 @@ describe('검수 샘플 입력 도구', () => {
 
   test('검수 샘플 프리셋이 20개 이상이고 발화를 포함한다', () => {
     const presets = getReviewSamplePresets();
-    expect(presets.length).toBeGreaterThanOrEqual(20);
+    expect(presets.length).toBeGreaterThanOrEqual(30);
     presets.forEach((p) => {
       expect(typeof p.id).toBe('string');
       expect(typeof p.label).toBe('string');

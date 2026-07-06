@@ -21,6 +21,18 @@ export const REVIEW_SAMPLE_PRESETS = [
   { id: 'parent_soft', label: '부모에게 부드럽게 전달', rawText: '등원 후 태오가 친구를 밀어 넘어질 뻔했다. 교사가 위험하다고 알려 주자 "미안해"라고 사과했다.' },
   { id: 'fact_keep', label: '관찰일지 사실 보존(거부)', rawText: '실내자유놀이에서 교사가 그리기를 권했지만 하준이가 "안 할래요"라며 참여하지 않고 친구들을 바라보았다.' },
   { id: 'development', label: '발달평가 확장(배변 자립)', rawText: '라온이가 "쉬 마려워요"라고 미리 말하고 화장실에 가서 스스로 옷을 내리고 변기에 앉았다.' },
+  { id: 'emotion_only_cry', label: '부정 감정 단독(울음)', rawText: '블록 탑이 무너지자 봄이가 울음을 터뜨리고 바닥을 바라보았다.' },
+  { id: 'emotion_only_fear', label: '부정 감정 단독(놀람)', rawText: '천둥소리가 들리자 가을이가 깜짝 놀라 두 손으로 귀를 막았다.' },
+  { id: 'sparse_arrival', label: '근거 희박(등원)', rawText: '난이가 오늘 등원했다.' },
+  { id: 'sparse_room', label: '근거 희박(교실)', rawText: '들이가 오전에 교실에 있었다.' },
+  { id: 'long_narrative', label: '긴 복합 서사', rawText: '해솔이가 블록으로 다리를 만들다가 가운데가 무너지자 블록의 방향을 바꾸어 다시 놓았다. 옆에서 보던 친구에게 "여기를 잡아 줘"라고 말했고, 친구가 블록을 잡아 주자 자동차를 다리 위로 움직이며 "이제 안 무너져"라고 말했다.' },
+  { id: 'long_daily', label: '긴 일상 서사', rawText: '점심시간에 한별이가 국을 먼저 먹은 뒤 숟가락을 내려놓았다. 잠시 반찬을 살펴보다가 "이건 조금 먹어 볼래요"라고 말하고 채소를 한 입 먹었으며, 식사가 끝난 뒤 식판을 정리대에 가져다 놓았다.' },
+  { id: 'metaphor_cloud', label: '은유적 발화(구름)', rawText: '윤슬이가 창밖의 구름을 바라보며 "하늘에 솜사탕이 떠 있어"라고 말하고 손가락으로 구름의 움직임을 따라 그렸다.' },
+  { id: 'metaphor_leaf', label: '은유적 발화(나뭇잎)', rawText: '새벽이가 비에 젖은 나뭇잎을 들고 "나뭇잎이 목욕했나 봐"라고 말하며 물방울을 살펴보았다.' },
+  { id: 'typo_colloquial', label: '오타·구어 메모', rawText: '보름이 미끄럼틀 순서 잘기다렷다가 탐 친구 먼저가라고함' },
+  { id: 'mixed_conflict', label: '갈등과 회복 복합', rawText: '도담이가 친구와 자동차를 잡아당기다가 손을 놓고 "너 먼저 하고 나 줘"라고 말했다. 친구가 놀이를 마친 뒤 자동차를 건네자 함께 길을 만들었다.' },
+  { id: 'silent_observation', label: '말 없는 관찰', rawText: '미르가 화분의 잎을 손으로 만지지 않고 가까이에서 한참 바라본 뒤 돋보기를 가져와 다시 살펴보았다.' },
+  { id: 'teacher_support_only', label: '교사 지원 포함', rawText: '종이 접기를 어려워하는 라윤이에게 교사가 접는 선을 손가락으로 짚어 주자 라윤이가 선을 따라 종이를 눌렀다.' },
 ];
 
 export function getReviewSamplePresets() {

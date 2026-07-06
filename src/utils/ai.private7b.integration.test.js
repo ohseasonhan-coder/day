@@ -13,17 +13,21 @@ const SAMPLE_CHILDREN = {
   physical: '지호', top: '윤재', role: '수아', cleanup: '다은', safety_edu: '시아',
   fire_bell: '가온', nature: '은우', leaf: '지안', passive: '예준', emotion_color: '아윤',
   cry: '윤서', support_change: '라윤', parent_soft: '태오', fact_keep: '하준', development: '라온',
+  emotion_only_cry: '봄', emotion_only_fear: '가을', sparse_arrival: '난', sparse_room: '들',
+  long_narrative: '해솔', long_daily: '한별', metaphor_cloud: '윤슬', metaphor_leaf: '새벽',
+  typo_colloquial: '보름', mixed_conflict: '도담', silent_observation: '미르', teacher_support_only: '라윤',
 };
 
-run('Ollama 7B 실제 20건 품질·fallback·속도 검증', async () => {
+run('Ollama 7B 실제 30건 이상 품질·fallback·속도 검증', async () => {
   setServerConfig({
     url: process.env.PRIVATE_7B_URL || 'http://localhost:11434/v1',
     model: process.env.PRIVATE_7B_MODEL || 'qwen2.5:7b-instruct',
   });
 
-  const sampleCount = Math.max(1, Math.min(20, Number(process.env.PRIVATE_7B_COUNT) || 20));
+  const sampleCount = Math.max(1, Math.min(REVIEW_SAMPLE_PRESETS.length, Number(process.env.PRIVATE_7B_COUNT) || 30));
+  const sampleOffset = Math.max(0, Number(process.env.PRIVATE_7B_OFFSET) || 0);
   const rows = [];
-  for (const sample of REVIEW_SAMPLE_PRESETS.slice(0, sampleCount)) {
+  for (const sample of REVIEW_SAMPLE_PRESETS.slice(sampleOffset, sampleOffset + sampleCount)) {
     const childName = SAMPLE_CHILDREN[sample.id] || '가온';
     const base = await processRecord({ childName, rawText: sample.rawText, classAge: 4, recordType: 'observe' });
     const started = Date.now();
@@ -74,6 +78,6 @@ run('Ollama 7B 실제 20건 품질·fallback·속도 검증', async () => {
   fs.writeFileSync(out, JSON.stringify(report, null, 2), 'utf8');
   console.log(`\n===== PRIVATE 7B VALIDATION =====\n${JSON.stringify(summary, null, 2)}\nreport: ${out}`);
 
-  expect(rows).toHaveLength(sampleCount);
-  expect(summary.cAccepted + summary.fallbackCount).toBe(sampleCount);
-}, 20 * 60 * 1000);
+  expect(rows).toHaveLength(Math.min(sampleCount, Math.max(0, REVIEW_SAMPLE_PRESETS.length - sampleOffset)));
+  expect(summary.cAccepted + summary.fallbackCount).toBe(rows.length);
+}, 35 * 60 * 1000);

@@ -6,7 +6,7 @@ import {
   hasSeenReviewNotice, markReviewNoticeSeen, buildReviewReport, getReviewEntries, clearReviewData,
 } from '../utils/reviewFeedback';
 import { generateObservationWithEngine } from '../utils/ai/llm/engineAdapter';
-import { embeddedAdapter, EMBEDDED_MODEL_ID } from '../utils/ai/llm/embeddedLLM';
+import { privateServerAdapter } from '../utils/ai/llm/privateServerLLM';
 import { parseTargetSections } from '../utils/ai/targetQuality';
 
 const card = { background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 14 };
@@ -59,25 +59,32 @@ function VariantCard({ v, selections, onToggle, memo, onMemo, onCopy }) {
 
 function ReportView() {
   const r = buildReviewReport(getReviewEntries());
-  const row = (label, a, b) => (
-    <tr><td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{label}</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>{a}</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>{b}</td></tr>
+  const row = (label, a, b, c) => (
+    <tr><td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{label}</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>{a}</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>{b}</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>{c}</td></tr>
   );
   return (
     <div style={{ ...card, marginTop: 10, fontSize: 12.5 }}>
       <div style={{ fontWeight: 800, marginBottom: 6 }}>검토 리포트 (이 기기 로컬 집계 · 원문 미포함)</div>
       <div style={{ color: 'var(--text-secondary)', marginBottom: 8 }}>
-        검토 {r.feedbackCount}건 · 선호 응답 {r.preference.n}건 (B안 선호 {r.preference.bPreferredRate}%) · 수정 표본 {r.editing.n}건(수정률 {r.editing.editedRate}%, 평균 {r.editing.avgEditLen}자)
+        검토 {r.feedbackCount}건 · 선호 응답 {r.preference.n}건 (새 B안 {r.preference.bPreferredRate}% · C안 {r.preference.cPreferredRate}%) · 수정 표본 {r.editing.n}건
+      </div>
+      <div style={{ padding: '8px 10px', marginBottom: 8, borderRadius: 8, background: 'var(--gray-50)', fontWeight: 800 }}>
+        권고: {r.recommendation}
       </div>
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead><tr style={{ fontWeight: 800 }}><td style={{ padding: '4px 8px' }}>지표</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>A안(n={r.A.n})</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>B안(n={r.B.n})</td></tr></thead>
+        <thead><tr style={{ fontWeight: 800 }}><td style={{ padding: '4px 8px' }}>지표</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>기존 B(n={r.A.n})</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>새 B(n={r.B.n})</td><td style={{ padding: '4px 8px', textAlign: 'center' }}>C(n={r.C.n})</td></tr></thead>
         <tbody>
-          {row('그대로 사용 가능', `${r.A.useAsIsRate}%`, `${r.B.useAsIsRate}%`)}
-          {row('표현만 약간 수정', `${r.A.minorWordingRate}%`, `${r.B.minorWordingRate}%`)}
-          {row('사실과 다름', `${r.A.factMismatchRate}%`, `${r.B.factMismatchRate}%`)}
-          {row('더 자연스럽게 필요', `${r.A.needNaturalRate}%`, `${r.B.needNaturalRate}%`)}
-          {row('더 구체적 지원 계획', `${r.A.needSupportPlanRate}%`, `${r.B.needSupportPlanRate}%`)}
+          {row('그대로 사용 가능', `${r.A.useAsIsRate}%`, `${r.B.useAsIsRate}%`, `${r.C.useAsIsRate}%`)}
+          {row('표현만 약간 수정', `${r.A.minorWordingRate}%`, `${r.B.minorWordingRate}%`, `${r.C.minorWordingRate}%`)}
+          {row('사실과 다름', `${r.A.factMismatchRate}%`, `${r.B.factMismatchRate}%`, `${r.C.factMismatchRate}%`)}
+          {row('더 자연스럽게 필요', `${r.A.needNaturalRate}%`, `${r.B.needNaturalRate}%`, `${r.C.needNaturalRate}%`)}
+          {row('더 구체적 지원 계획', `${r.A.needSupportPlanRate}%`, `${r.B.needSupportPlanRate}%`, `${r.C.needSupportPlanRate}%`)}
         </tbody>
       </table>
+      <div style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
+        내부 자연스러움 {r.naturalnessAlignment.internalRate}% · 교사 기준 새 B안 자연스러움 수정 필요 {r.naturalnessAlignment.teacherNeedNaturalRate}%
+        {r.B.n >= 30 ? (r.naturalnessAlignment.matches ? ' · 일치' : ' · 불일치') : ' · 표본 대기'}
+      </div>
       {Object.keys(r.editing.sectionFocus).length > 0 && (
         <div style={{ marginTop: 6, color: 'var(--text-secondary)' }}>섹션별 수정 집중: {Object.entries(r.editing.sectionFocus).map(([s, n]) => `${s} ${n}회`).join(' · ')}</div>
       )}
@@ -91,32 +98,22 @@ function ReportView() {
   );
 }
 
-// 앱 내장형 로컬 LLM(실험) 섹션 — 검토 flag 안에서만 노출. 규칙 결과를 덮어쓰지 않고 C안으로만 표시.
-// 상태: 미준비/다운로드 필요/준비 중(진행률)/사용 가능/기기 미지원/실패 → 실패·미지원은 규칙 결과 그대로.
-function LocalLLMSection({ result, input, childName, cVariant, setCVariant }) {
-  const [status, setStatus] = useState({ state: 'idle', progress: 0, error: '' });
+// 개인 PC 7B 검토 섹션. 서버가 실제 준비된 경우에만 C안 생성 버튼을 보여 준다.
+function LocalLLMSection({ result, input, childName, setCVariant }) {
+  const [status, setStatus] = useState({ state: 'checking', progress: 0, error: '' });
   const [busy, setBusy] = useState(false);
   const [fallbackNote, setFallbackNote] = useState('');
-  useEffect(() => { let on = true; embeddedAdapter.getStatus().then((s) => { if (on) setStatus(s); }); return () => { on = false; }; }, []);
-
-  const prepare = async () => {
-    setBusy(true); setFallbackNote('');
-    setStatus({ state: 'preparing', progress: 0, error: '' });
-    const r = await embeddedAdapter.prepare((p) => setStatus({ state: 'preparing', progress: p, error: '' }));
-    setStatus(await embeddedAdapter.getStatus());
-    if (!r.ok && r.error !== 'unsupported') setFallbackNote(`엔진 준비 실패(${r.error}) — 규칙 기반 결과를 그대로 사용해요.`);
-    setBusy(false);
-  };
+  useEffect(() => { let on = true; privateServerAdapter.getStatus().then((s) => { if (on) setStatus(s); }); return () => { on = false; }; }, []);
   const apply = async () => {
     setBusy(true); setFallbackNote('');
-    const r = await generateObservationWithEngine({ input, childName, observation: result.observation, support: result.support, engine: 'embedded-local-llm' });
+    const r = await generateObservationWithEngine({ input, childName, observation: result.observation, support: result.support, engine: 'private-server-7b' });
     if (r.engineUsed === 'rule') {
       setFallbackNote(`AI 결과가 검수를 통과하지 못해 규칙 결과를 유지했어요. (개발 정보: ${r.fallbackReason || '-'})`);
       setCVariant(null);
     } else {
       const s = parseTargetSections(r.copyReady);
       setCVariant({
-        variant: 'C', title: 'C안 · 로컬 AI(실험)',
+        variant: 'C', title: 'C안 · 개인 PC 7B',
         sections: { observation: s.observation, learning: s.learning, support: s.support },
         sectionLabels: ['관찰내용(규칙 보존)', '배움 읽기(AI)', '교사 지원 및 다음 계획(AI)'],
         copyText: r.copyReady, audit: r.audit,
@@ -124,47 +121,18 @@ function LocalLLMSection({ result, input, childName, cVariant, setCVariant }) {
     }
     setBusy(false);
   };
-  const removeModel = async () => {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm('내려받은 AI 모델 파일을 이 기기에서 삭제할까요? (다시 쓰려면 재다운로드)')) return;
-    await embeddedAdapter.deleteCache();
-    setCVariant(null);
-    setStatus(await embeddedAdapter.getStatus());
-  };
-
-  const stateLabel = {
-    idle: '모델 준비 필요(캐시 있음 — 초기화만)', 'need-download': '모델 다운로드 필요(최초 1회, 이후 기기 캐시)',
-    preparing: `AI 문장 엔진 준비 중… ${status.progress}%`, ready: '사용 가능',
-    unsupported: '이 기기(브라우저)는 로컬 AI 미지원 — 규칙 엔진 사용', error: `실패: ${status.error}`,
-  }[status.state] || status.state;
-
   return (
     <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 12, background: 'white', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 800 }}>🧪 AI 문장 엔진(앱 내장 로컬 · 실험)</span>
-        <span style={{ fontSize: 11.5, color: status.state === 'error' ? '#DC2626' : 'var(--text-tertiary)' }}>{stateLabel}</span>
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-        문장 생성은 이 기기 안에서만 실행돼요(기록·결과 외부 전송 없음). 모델은 최초 1회만 내려받아 기기에 저장돼요.
+        <span style={{ fontSize: 12.5, fontWeight: 800 }}>개인 PC 7B 비교</span>
+        <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>{status.state === 'ready' ? '연결됨' : '연결된 경우에만 C안 표시'}</span>
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-        {(status.state === 'need-download' || status.state === 'idle' || status.state === 'error') && (
-          <button onClick={prepare} disabled={busy} style={{ padding: '7px 12px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 12, fontWeight: 800 }}>AI 문장 엔진 준비</button>
-        )}
         {status.state === 'ready' && (
-          <button onClick={apply} disabled={busy} style={{ padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: 'white', fontSize: 12, fontWeight: 800 }}>{busy ? '생성 중…' : '더 자연스러운 AI 문장 적용 (C안 생성)'}</button>
-        )}
-        {status.state !== 'need-download' && status.state !== 'unsupported' && (
-          <button onClick={removeModel} disabled={busy} style={{ padding: '7px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'white', color: '#DC2626', fontSize: 12, fontWeight: 700 }}>모델 삭제</button>
+          <button onClick={apply} disabled={busy} style={{ padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: 'white', fontSize: 12, fontWeight: 800 }}>{busy ? '생성 중…' : 'C안 생성'}</button>
         )}
       </div>
-      {status.state === 'preparing' && (
-        <div style={{ marginTop: 8, height: 6, borderRadius: 3, background: 'var(--gray-100)', overflow: 'hidden' }}>
-          <div style={{ width: `${status.progress}%`, height: '100%', background: 'var(--primary)', transition: 'width .3s' }} />
-        </div>
-      )}
       {fallbackNote && <div style={{ marginTop: 8, fontSize: 11.5, color: '#B45309' }}>{fallbackNote}</div>}
-      <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--text-tertiary)' }}>모델: {EMBEDDED_MODEL_ID} (Apache-2.0) · WebGPU 필요 · 원문·프롬프트·AI 전문은 저장하지 않아요.</div>
     </div>
   );
 }
@@ -205,7 +173,7 @@ export default function ReviewComparePanel({ result, input, childName, resultId,
   return (
     <div style={{ marginTop: 14, marginBottom: 14, border: '1.5px dashed var(--primary)', borderRadius: 16, padding: 14, background: 'var(--primary-light)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--primary)' }}>🔍 검토 모드 — 같은 입력, 두 가지 결과 비교</div>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--primary)' }}>검토 모드 · 같은 입력 결과 비교</div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => setShowReport((s) => !s)} style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'white', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>{showReport ? '리포트 닫기' : '검토 리포트'}</button>
           <button onClick={removeAll} style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'white', fontSize: 12, fontWeight: 700, color: '#DC2626' }}>검토 데이터 삭제</button>
@@ -225,10 +193,10 @@ export default function ReviewComparePanel({ result, input, childName, resultId,
           <VariantCard v={cVariant} selections={selC} onToggle={(k) => setSelC(toggleFeedbackSelection(selC, k))} memo={''} onMemo={() => {}} onCopy={copy} />
         )}
       </div>
-      <LocalLLMSection result={result} input={input} childName={childName} cVariant={cVariant} setCVariant={setCVariant} />
+      <LocalLLMSection result={result} input={input} childName={childName} setCVariant={setCVariant} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)' }}>실제로 쓰기에 더 좋은 쪽:</span>
-        {[['A', 'A안'], ['B', 'B안'], ...(cVariant ? [['C', 'C안']] : []), ['same', '비슷함']].map(([k, label]) => (
+        {[['A', '기존 B안'], ['B', '새 B안'], ...(cVariant ? [['C', 'C안']] : []), ['same', '비슷함']].map(([k, label]) => (
           <button key={k} onClick={() => setPreferred(k)} style={{ padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: `1.5px solid ${preferred === k ? 'var(--primary)' : 'var(--border)'}`, background: preferred === k ? 'var(--primary)' : 'white', color: preferred === k ? 'white' : 'var(--text-secondary)' }}>{label}</button>
         ))}
         <button onClick={submit} disabled={!selA.length && !selB.length && !selC.length && !preferred}

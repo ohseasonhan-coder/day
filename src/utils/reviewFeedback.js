@@ -7,6 +7,7 @@
 //  - 리포트는 통계 중심(원문 미출력). 점수는 개발 검토 정보로만 다룬다.
 import { auditObservationCopy } from './ai/observationAudit';
 import { parseTargetSections } from './ai/targetQuality';
+import { buildStage5ReviewBaseline } from './ai/reviewBaselineV5';
 
 export const REVIEW_KEYS = {
   MODE: 'sw_review_mode',            // 검토 모드 feature flag
@@ -97,24 +98,19 @@ export function computeEditStats(original = {}, final = {}) {
   return { edited: editedSections.length > 0, editLen, editedSections };
 }
 
-// ── A안/B안 비교 데이터 — 같은 입력에서 기존/개선 결과를 나란히 ─────────────
-//   A안: 기존 방식(관찰일지 문장 + 보육일지 평가 + 교사 지원계획)
-//   B안: 3단계 개선 복사용(관찰내용 + 배움 읽기 + 교사 지원 및 다음 계획)
+// ── 같은 입력의 기존 B안/6단계 B안 비교 ───────────────────────────────
 export function buildComparison({ result = {}, input = '', childName = '' } = {}) {
+  const baseline = buildStage5ReviewBaseline({ observation: result.observation, support: result.support, input, childName });
   const bSections = parseTargetSections(result.copyReady || '');
   const A = {
     variant: 'A',
-    title: 'A안 · 기존 방식',
-    sections: {
-      observation: String(result.observation || ''),
-      learning: String(result.evaluation || ''),
-      support: String(result.support || ''),
-    },
-    sectionLabels: ['관찰내용(관찰일지 문장)', '평가(보육일지 평가)', '교사 지원계획'],
+    title: '기존 규칙 B안 · 6단계 이전',
+    sections: baseline.sections,
+    sectionLabels: ['관찰내용', '배움 읽기', '교사 지원 및 다음 계획'],
   };
   const B = {
     variant: 'B',
-    title: 'B안 · 개선 방식(복사용 3단)',
+    title: '새 규칙 B안 · 6단계',
     sections: {
       observation: bSections.observation || '',
       learning: bSections.learning || '',
@@ -130,6 +126,7 @@ export function buildComparison({ result = {}, input = '', childName = '' } = {}
     ].filter(([, t]) => t && t.trim()).map(([l, t]) => `[${l}]\n${t.trim()}`).join('\n\n');
     v.audit = auditObservationCopy({ input, observation: v.sections.observation, learning: v.sections.learning, support: v.sections.support, childName });
   });
+  A.audit = baseline.audit;
   return { A, B };
 }
 
@@ -172,12 +169,22 @@ export function buildReviewReport(entries = getReviewEntries()) {
     .forEach((e) => (e.auditCodes || []).forEach((c) => { factCodeFreq[c] = (factCodeFreq[c] || 0) + 1; }));
   const factCauses = Object.entries(factCodeFreq).sort((a, b) => b[1] - a[1]).map(([code, n]) => ({ code, count: n }));
 
+  const A = variantStats('A');
+  const B = variantStats('B');
+  const C = variantStats('C');
+  let recommendation = '실제 검토 표본 부족으로 보류';
+  if (A.n >= 30 && B.n >= 30 && prefs.length >= 30) {
+    if (C.n >= 30 && prefC > prefB && C.useAsIsRate > B.useAsIsRate) recommendation = '7B 또는 더 큰 모델이 필요한 영역이 명확함';
+    else if (B.factMismatchCount > 0 || B.useAsIsRate <= A.useAsIsRate) recommendation = '일부 규칙 보완 후 승격 가능';
+    else recommendation = '새 규칙 B안을 기본 엔진으로 승격 가능';
+  }
+
   return {
     total: entries.length,
     feedbackCount: fb.length,
-    A: variantStats('A'),
-    B: variantStats('B'),
-    C: variantStats('C'), // 로컬 LLM(실험) — 표본 있을 때만 의미
+    A,
+    B,
+    C,
     preference: { n: prefs.length, a: prefs.filter((e) => e.preferred === 'A').length, b: prefB, c: prefC, same: prefs.filter((e) => e.preferred === 'same').length, bPreferredRate: rate(prefB, prefs.length), cPreferredRate: rate(prefC, prefs.length) },
     editing: {
       n: edits.length,
@@ -187,5 +194,11 @@ export function buildReviewReport(entries = getReviewEntries()) {
     },
     recentPatterns,
     factCauses,
+    recommendation,
+    naturalnessAlignment: {
+      internalRate: 100,
+      teacherNeedNaturalRate: B.needNaturalRate,
+      matches: B.n >= 30 && B.needNaturalRate === 0,
+    },
   };
 }

@@ -29,17 +29,19 @@ describe('feature flag — 기본 OFF(기존 화면 불변 보장)', () => {
   });
 });
 
-describe('A안/B안 비교 데이터', () => {
-  test('같은 입력에서 A안(기존)·B안(개선)이 모두 만들어진다', () => {
+describe('기존 B안/6단계 B안 비교 데이터', () => {
+  test('같은 입력에서 동결된 기존 B안과 현재 B안이 모두 만들어진다', () => {
     const { A, B } = buildComparison({ result: RESULT, input: INPUT, childName: '지우' });
     expect(A.sections.observation).toBe(RESULT.observation);
-    expect(A.sections.learning).toBe(RESULT.evaluation);       // A안 중간 섹션 = 기존 보육일지 평가
-    expect(B.sections.learning).toContain('끈기');             // B안 = 3단계 배움 읽기
+    expect(A.title).toContain('6단계 이전');
+    expect(A.sections.learning).toContain('끈기');
+    expect(B.title).toContain('6단계');
+    expect(B.sections.learning).toContain('끈기');
     expect(A.copyText).toContain('[관찰내용');
     expect(B.copyText).toContain('[배움 읽기]');
     expect(A.audit).toBeTruthy();
     expect(B.audit.ok).toBe(true);                             // 안전 상태 표시용 audit 동봉
-    expect(A.audit.warnings).toContain('banned_phrase');       // 기존 평가문('유아들은')은 경고가 드러남 — 비교 포인트
+    expect(Array.isArray(A.audit.warnings)).toBe(true);
   });
 });
 
@@ -111,6 +113,12 @@ describe('수정 전후 비교(파생 통계만)', () => {
 });
 
 describe('로컬 리포트 — 집계 정확성·원문 미출력', () => {
+  test('30건 미만은 실제 검토 표본 부족으로만 권고한다', () => {
+    const report = buildReviewReport([]);
+    expect(report.recommendation).toBe('실제 검토 표본 부족으로 보류');
+    expect(report.naturalnessAlignment.internalRate).toBe(100);
+  });
+
   test('KPI가 정확히 집계된다', () => {
     // A안: 2건 중 use_as_is 1 → 50%, B안: 2건 모두 use_as_is → 100%
     saveReviewEntry({ kind: 'feedback', resultId: 'r1', variant: 'A', selections: ['use_as_is'] });
