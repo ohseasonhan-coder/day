@@ -17,6 +17,12 @@ export const PRIVATE_SERVER_DEFAULTS = {
   maxTokens: 160,
 };
 
+// 설정이 비어 있을 때 자동 감지할 "같은 PC" 표준 주소(Ollama, LM Studio).
+// 로컬호스트만 후보로 두므로 외부로 나가는 요청이 아니며, 감지 실패 시 조용히 규칙 엔진만 쓴다.
+export const DEFAULT_SERVER_CANDIDATES = ['http://localhost:11434/v1', 'http://127.0.0.1:11434/v1', 'http://localhost:1234/v1'];
+let _autoUrl = null;      // 세션 내 자동 감지 캐시(저장하지 않음 — 서버가 꺼졌을 수 있어 매 세션 재확인)
+let _autoChecked = false;
+
 export function getServerConfig() {
   try {
     return {
@@ -30,7 +36,25 @@ export function setServerConfig({ url, model } = {}) {
     if (url != null) localStorage.setItem(PRIVATE_SERVER_KEYS.URL, String(url).trim());
     if (model != null) localStorage.setItem(PRIVATE_SERVER_KEYS.MODEL, String(model).trim());
   } catch {}
+  _autoUrl = null; _autoChecked = false; // 관리자 변경 시 자동 감지 캐시 초기화
 }
+
+// 관리자 설정 URL이 있으면 그대로, 없으면 로컬 표준 주소를 1회 탐지(설정 0회 지원).
+// AI 기능을 실제로 쓸 때만 호출되므로 앱 시작 성능에는 영향 없음.
+export async function resolveServerUrl() {
+  const { url } = getServerConfig();
+  if (url) return url;
+  if (_autoChecked) return _autoUrl;
+  _autoChecked = true;
+  for (const cand of DEFAULT_SERVER_CANDIDATES) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await ping(cand)) { _autoUrl = cand; return cand; }
+  }
+  _autoUrl = null;
+  return null;
+}
+// 테스트용 — 자동 감지 캐시 초기화
+export function __resetAutoDetect() { _autoUrl = null; _autoChecked = false; }
 
 async function ping(url) {
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -58,20 +82,25 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = PRIVATE_SERVER_DE
 export const privateServerAdapter = {
   name: 'private-server-7b',
   getStatus: async () => {
-    const { url } = getServerConfig();
-    if (!url) return { state: 'unsupported', progress: 0, error: '서버 미설정(관리자 설정 필요)' };
-    const ok = await ping(url);
-    return ok ? { state: 'ready', progress: 100, error: '' } : { state: 'error', progress: 0, error: '서버 연결 실패' };
+    const configured = getServerConfig().url;
+    const url = await resolveServerUrl(); // 미설정이면 로컬 표준 주소 자동 감지
+    if (!url) return { state: 'unsupported', progress: 0, error: '로컬 AI 서버 없음(같은 PC에서 Ollama 실행 시 자동 연결)' };
+    if (configured) {
+      const ok = await ping(url);
+      return ok ? { state: 'ready', progress: 100, error: '' } : { state: 'error', progress: 0, error: '서버 연결 실패' };
+    }
+    return { state: 'ready', progress: 100, error: '' }; // 자동 감지분은 감지 시점에 이미 ping 통과
   },
   prepare: async () => {
-    const { url } = getServerConfig();
+    const url = await resolveServerUrl();
     if (!url) return { ok: false, error: 'unsupported' };
     const ok = await ping(url);
     return ok ? { ok: true } : { ok: false, error: '서버 연결 실패' };
   },
   // messages → 텍스트(JSON 기대). 프롬프트·응답은 저장하지 않고 반환만.
   generate: async ({ messages, schema, timeoutMs = PRIVATE_SERVER_DEFAULTS.timeoutMs, retries = PRIVATE_SERVER_DEFAULTS.retries } = {}) => {
-    const { url, model } = getServerConfig();
+    const { model } = getServerConfig();
+    const url = await resolveServerUrl();
     if (!url) throw new Error('server-not-configured');
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt += 1) {

@@ -1,4 +1,6 @@
-import { privateServerAdapter, setServerConfig } from './ai/llm/privateServerLLM';
+import {
+  privateServerAdapter, setServerConfig, resolveServerUrl, __resetAutoDetect, DEFAULT_SERVER_CANDIDATES,
+} from './ai/llm/privateServerLLM';
 
 describe('private-server-7b 오류 처리', () => {
   const originalFetch = global.fetch;
@@ -42,6 +44,58 @@ describe('private-server-7b 오류 처리', () => {
     const output = await privateServerAdapter.generate({ messages: [], retries: 1 });
     expect(output).toContain('learningReading');
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('로컬 서버 자동 감지(설정 0회)', () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    localStorage.clear();       // 관리자 URL 미설정 상태
+    __resetAutoDetect();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  test('주소 미설정이어도 같은 PC 표준 주소를 자동 감지해 ready가 된다', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+    const url = await resolveServerUrl();
+    expect(DEFAULT_SERVER_CANDIDATES).toContain(url);
+    const status = await privateServerAdapter.getStatus();
+    expect(status.state).toBe('ready');
+  });
+
+  test('로컬 서버가 없으면 unsupported → 규칙 엔진 fallback 경로', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('refused'));
+    expect(await resolveServerUrl()).toBeNull();
+    const status = await privateServerAdapter.getStatus();
+    expect(status.state).toBe('unsupported');
+  });
+
+  test('감지는 세션당 1회만 시도한다(재호출 시 추가 네트워크 없음)', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('refused'));
+    await resolveServerUrl();
+    const calls = global.fetch.mock.calls.length; // 후보 주소 수만큼
+    await resolveServerUrl();
+    await privateServerAdapter.getStatus();
+    expect(global.fetch.mock.calls.length).toBe(calls);
+  });
+
+  test('관리자 설정 주소가 있으면 자동 감지 없이 그 주소를 쓴다', async () => {
+    setServerConfig({ url: 'http://192.168.0.10:11434/v1' });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+    expect(await resolveServerUrl()).toBe('http://192.168.0.10:11434/v1');
+  });
+
+  test('관리자가 설정을 바꾸면 감지 캐시가 초기화된다', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('refused'));
+    expect(await resolveServerUrl()).toBeNull();     // 감지 실패 캐시
+    setServerConfig({ url: '' });                    // 저장(초기화 트리거)
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+    expect(await resolveServerUrl()).not.toBeNull(); // 재감지 성공
   });
 });
 

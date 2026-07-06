@@ -191,6 +191,15 @@ engineAdapter.js: rule(기본) | embedded-local-llm | chrome-builtin(선택 보�
 - 저장: `sw_shared_doc_forms`(기기 공용, 동기화·백업 제외). 7B 서버 주소 `sw_admin_llm_server_url`(관리자 전용, 교사 미노출).
 - 다음 단계: DOCX/PDF/한글 출력, dailyRoutine류 엔진 연결, 문서 인스턴스 보관함, 7B 서버 실검증.
 
+## 설정 0회·내장 표현 풀 (5.5 후속 — "사용자 설정 없는 AI")
+- **자동 감지**: 관리자 주소 미설정 시 같은 PC 표준 주소(Ollama 11434, LM Studio 1234)를 AI 사용 시점에 1회 탐지(세션 캐시).
+  실증: 주소 삭제 상태에서 `GET /v1/models` 자동 탐지 → `POST /chat/completions` 실생성 확인. 서버 없으면 조용히 규칙 엔진.
+- **7B → 내장 코드(증류) 판정**: 7B 모델 자체 내장은 불가(4.7GB·속도). scripts/distill7b.mjs로 템플릿 증류를 실측한 결과
+  **품질 미달 폐기**(환각·중국어 혼입·조각문·또래 창작). 대신 표현 풀을 수작업 정제해 내장 — persist/express/explore/make에
+  결정론적 2변형(pickBy), 전 변형 audit 무경고 가드 테스트. 용량 +0.5KB, 설정 0회, 즉시·오프라인.
+- **문체 가드(style_mismatch)**: '습니다/것입니다/기회를 얻었다/향상되었다' 류 차단 — 실검증에서 통과했던 유형이
+  보강 후 실전 차단 확인(콘솔 '[로컬 LLM 검수 탈락] style_mismatch').
+
 ## 품질 게이트(개발 판단 기준 — 코드 반영 전 필독)
 1. **fact_mismatch("사실과 다름") > 0이면** 규칙 확장보다 **사실 보존 원인 분석 우선**(리포트의 audit 코드 빈도부터).
 2. **need_natural("더 자연스럽게")이 반복되면** 해당 표현 유형을 분류해 표현 풀 개선 후보로 축적(즉시 엔진 수정 금지).

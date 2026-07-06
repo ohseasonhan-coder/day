@@ -111,7 +111,7 @@ export default function DocTemplateStudio({ currentUser }) {
       <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 10, marginBottom: 12 }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>🖥 개인 PC AI 서버(7B) 설정 — 선택</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <input value={server.url} placeholder="예: http://localhost:11434/v1 (비우면 규칙 엔진만 사용)"
+          <input value={server.url} placeholder="비워 두면 같은 PC의 Ollama/LM Studio를 자동으로 찾아요"
             onChange={(e) => setServer({ ...server, url: e.target.value })} style={{ ...inputStyle, flex: 2, minWidth: 220 }} />
           <input value={server.model} placeholder="모델명 예: qwen2.5:7b-instruct"
             onChange={(e) => setServer({ ...server, model: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
@@ -120,7 +120,8 @@ export default function DocTemplateStudio({ currentUser }) {
           {serverState && <span style={{ fontSize: 12, alignSelf: 'center' }}>{serverState}</span>}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-          관리자 본인 소유 PC의 로컬 서버 주소만 입력하세요. 미설정·연결 실패 시 자동으로 규칙 엔진 결과를 사용해요. ({PRIVATE_SERVER_KEYS.URL})
+          주소를 비워 두면 이 PC의 로컬 AI 서버(Ollama·LM Studio)를 자동으로 찾아 연결해요(설정 불필요).
+          다른 PC 주소는 관리자 본인 소유 서버만 입력하세요. 서버가 없거나 연결 실패 시 자동으로 규칙 엔진 결과를 사용해요. ({PRIVATE_SERVER_KEYS.URL})
         </div>
       </div>
 

@@ -92,6 +92,13 @@ describe('사실 보존 차단(LLM 결과 폐기 조건)', () => {
     expect(r.fallbackReason).toContain('banned_phrase');
   });
 
+  test('합쇼체·상투 성취 문체(습니다/기회를 얻었다) → 차단(실검증 반영)', async () => {
+    const bad = JSON.stringify({ learningReading: '지우는 개미의 움직임을 관찰하여 이해하는 기회를 얻었다.', supportAndNextPlan: '도구를 제공하여 관찰을 이어가도록 돕는다.' });
+    const r = await gen({ engine: 'auto', adapter: createMockAdapter({ response: bad }) });
+    expect(r.engineUsed).toBe('rule');
+    expect(r.fallbackReason).toContain('style_mismatch');
+  });
+
   test('이름·조사 오류 → 차단(audit major)', async () => {
     const bad = JSON.stringify({ learningReading: '지우은 다시 시도하며 끈기를 보였다.', supportAndNextPlan: '블록을 제공한다.' });
     const r = await gen({ engine: 'auto', adapter: createMockAdapter({ response: bad }) });

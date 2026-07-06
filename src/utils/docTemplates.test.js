@@ -5,6 +5,7 @@ import {
   renderInstance, buildAutoValues, generateAIFieldValues, extractTags,
 } from './docTemplates';
 import { createMockAdapter } from './ai/llm/mockLLM';
+import { __resetAutoDetect } from './ai/llm/privateServerLLM';
 import { SYNC_EXCLUDED_KEYS } from './storage';
 
 const MASTER = { userId: 'master', role: 'master' };
@@ -138,10 +139,19 @@ describe('AI 생성 필드 경로 — 규칙/7B 분리·audit·fallback', () => 
   });
 
   test('7B 서버 미설정/오류 → B안 fallback이 문서 필드에 들어감', async () => {
-    const r = await generateAIFieldValues({ ...base, engine: 'private-server-7b' }); // 실제 어댑터, URL 미설정
-    expect(r.engineUsed).toBe('rule');
-    expect(r.values.learningReading).toBeTruthy();
-    expect(r.values.observation).toBe(INPUT);
+    // 자동 감지가 개발 PC의 실서버를 찾지 않도록 네트워크를 차단(오류 경로 검증)
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockRejectedValue(new Error('refused'));
+    __resetAutoDetect();
+    try {
+      const r = await generateAIFieldValues({ ...base, engine: 'private-server-7b' }); // 실제 어댑터, 서버 없음
+      expect(r.engineUsed).toBe('rule');
+      expect(r.values.learningReading).toBeTruthy();
+      expect(r.values.observation).toBe(INPUT);
+    } finally {
+      global.fetch = originalFetch;
+      __resetAutoDetect();
+    }
   });
 
   test('직접 입력 필드는 AI가 덮어쓰지 않음', async () => {

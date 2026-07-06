@@ -5,6 +5,8 @@ import { auditObservationCopy } from '../observationAudit';
 const clean = (s) => String(s || '').trim();
 const BANNED = [/유아들은/, /활용하여/, /놀이에 참여하였다/, /발달 경험과 연결/, /영역과 연결지어/, /영역의 발달/];
 const FOREIGN_SCRIPT = /[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff]/;
+// \uad00\ucc30\uc77c\uc9c0 \ubb38\uccb4\uc640 \uc5b4\uae0b\ub098\ub294 \uc5b4\ud22c(\ud569\uc1fc\uccb4\u00b7\ub2e8\uc815 \uc608\uace0\u00b7\uc0c1\ud22c \uc131\ucde8 \ud45c\ud604) \u2014 7B\uac00 \ud504\ub86c\ud504\ud2b8 \uae08\uc9c0\uc5d0\ub3c4 \uc885\uc885 \uc0dd\uc131\ud568(\uc2e4\uac80\uc99d)
+const STYLE_MISMATCH = /(\uc2b5\ub2c8\ub2e4|\uac83\uc785\ub2c8\ub2e4|\uae30\ud68c\ub97c \uc5bb\uc5c8|\uacbd\ud5d8\uc744 \uc5bb\uc5c8\ub2e4|\ub2a5\ub825\uc744 \uae38\ub800\ub2e4|\ud5a5\uc0c1\ub418\uc5c8\ub2e4)/;
 
 // 관대한 JSON 추출: 본문에서 첫 {...} 블록을 찾아 파싱(코드블록·머리말 방어)
 export function parseLLMJson(text) {
@@ -44,6 +46,7 @@ export function validateLLMOutput({ data = {}, factCard = {}, input = '', observ
   // 4) 금지 표현 재도입
   if (BANNED.some((re) => re.test(learning) || re.test(support))) reasons.push('banned_phrase');
   if (FOREIGN_SCRIPT.test(learning) || FOREIGN_SCRIPT.test(support)) reasons.push('foreign_script');
+  if (STYLE_MISMATCH.test(learning) || STYLE_MISMATCH.test(support)) reasons.push('style_mismatch');
   // 5) 사실 카드에 없는 발화 창작(따옴표 비교)
   const outQuotes = Array.from(`${learning} ${support}`.matchAll(/"([^"]+)"/g)).map((m) => m[1]);
   const known = factCard.speeches || [];
