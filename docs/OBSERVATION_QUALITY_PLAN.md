@@ -200,6 +200,41 @@ engineAdapter.js: rule(기본) | embedded-local-llm | chrome-builtin(선택 보�
 - **문체 가드(style_mismatch)**: '습니다/것입니다/기회를 얻었다/향상되었다' 류 차단 — 실검증에서 통과했던 유형이
   보강 후 실전 차단 확인(콘솔 '[로컬 LLM 검수 탈락] style_mismatch').
 
+---
+
+# 6단계 — 규칙 엔진 고도화: LLM 없이 LLM급 (5단 파이프라인)
+
+```
+입력 메모 → 사실 카드(llm/factCard: 3분리 — observedFacts/safeMeanings/forbidden)
+         → 의미·상황 판정(planner/situationJudge: trigger+required+excluded+needPeer, primary+secondary)
+         → 문장 계획(planner/sentencePlanner: observationPlan/learningPlan/supportPlan + blockedClaims)
+         → 렌더링(planner/sentenceRenderer: 결정론 변형, emotionOnly 가드, 계획 밖 의미 추가 금지)
+         → audit·fallback(observationAudit + rules/blockedClaims 근거 대조)
+```
+
+## 선언형 규칙(src/utils/ai/rules/)
+- **themes.js** — 19테마(기존 17 + 갈등·사과 + 질문·설명): id/category/trigger/required/excluded/needPeer/
+  priority(배열 순서)/coexist/충돌규칙(excluded로 양보 선언)/allowed·blockedClaims/learningVariants(결정론 2변형)/
+  secondary(보조문장)/supportVariants(상황 연결 계획형 2종)/testCases. **새 규칙 = 항목 추가만.**
+- **blockedClaims.js** — 근거 기반 금지 주장: 감정 단정(evidence로 입력 감정 있으면 면제)/의도 추정(발화 있으면 면제)/
+  발달·성취 단정(무조건)/문체(습니다·기회를 얻었)/일반론 지원(GENERIC_SUPPORT). audit·렌더러·7B 후처리가 공유.
+
+## 핵심 규칙 변경(사실 충실성)
+- persist: '무너지/넘어지' **단독 발화 제거**(재시도 단서 필수) — 울음만 있는 입력에서 "시도 이어감" 창작 방지.
+- persist excluded=/미안|사과|화해|다툰/ — 화해 맥락의 "다시(놀이 재개)"를 conflict에 양보(선언형 충돌 처리).
+- 부정 감정만+회복 없음(emotionOnly): recover 비활성(required) + '즐거움' 계열 변형 회피(렌더러 가드).
+  '놀라워(감탄)'는 부정 감정으로 취급하지 않음.
+- 구어체 일반화: 조사 생략('차례 기다렸다가'), 활용형(그렸/건네주/들여다보/버티/그네/녹아 등) 트리거 확장.
+
+## audit 보강(근거 대조)
+- major 추가: emotion_fabricated / intent_speculation / development_claim (blockedClaims 대조, 입력 근거 시 면제)
+- minor 추가: achievement_claim / style_formal / learning_support_duplicate(토큰 80% 중복) / generic_support(일반론 단독)
+
+## 자유입력 55건 리포트(ai.ruleEngine.test — CI 상시)
+Safety 98.4 · Copy-Ready 98.9 · 자연스러움 100% · 개인화 100% · 신호감지 91% · SAFE(일반론) 9%(희박·부정감정 의도적)
+· 배움 문형 고유율 69% · 중대 오류 0 · 금지 표현 0 · 결정론 검증 통과.
+게이트: SAFE≤20%, 감지≥80%, Safety≥95, 고유율≥55, major=0.
+
 ## 품질 게이트(개발 판단 기준 — 코드 반영 전 필독)
 1. **fact_mismatch("사실과 다름") > 0이면** 규칙 확장보다 **사실 보존 원인 분석 우선**(리포트의 audit 코드 빈도부터).
 2. **need_natural("더 자연스럽게")이 반복되면** 해당 표현 유형을 분류해 표현 풀 개선 후보로 축적(즉시 엔진 수정 금지).

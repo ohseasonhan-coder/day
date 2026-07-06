@@ -1,6 +1,9 @@
 // 복사용 관찰일지 자동 검수 — qualityScorer(점수)와 별개로, "교사가 그대로 붙여넣어도 되는가"를
 // 항목별로 점검하고, 실패 사유를 사람이 읽을 수 있는 형태로 돌려준다.
 // 심각도(minor/major)로 나누어 생성 흐름의 폴백 판단에 쓴다. (점수 구조를 바꾸지 않는다.)
+// 6단계: 금지 주장 사전(rules/blockedClaims)과 대조하는 근거 기반 검사 추가 —
+//   입력 근거 없는 감정/의도/발달 단정(major), 배움↔지원 중복(minor), 일반론 지원(minor).
+import { findBlockedClaims, GENERIC_SUPPORT } from './rules/blockedClaims';
 
 const clean = (s) => String(s || '').trim();
 
@@ -20,7 +23,8 @@ const quotesOf = (s) => Array.from(String(s).matchAll(/"([^"]+)"/g)).map((m) => 
 const endsProperly = (s) => /[.!?]["”']?$/.test(clean(s));
 const hasPeerWord = (s) => /(친구|또래|함께|같이|서로)/.test(String(s));
 
-const MAJOR = new Set(['speech_lost', 'fact_addition_peer', 'fact_addition_speech', 'negative_or_diagnostic', 'support_asserts_done', 'josa_error']);
+const MAJOR = new Set(['speech_lost', 'fact_addition_peer', 'fact_addition_speech', 'negative_or_diagnostic', 'support_asserts_done', 'josa_error',
+  'emotion_fabricated', 'intent_speculation', 'development_claim']);
 
 function messageFor(code, extra) {
   switch (code) {
@@ -37,6 +41,13 @@ function messageFor(code, extra) {
     case 'incomplete_observation': return '관찰내용 문장 완결성 부족(종결부호)';
     case 'incomplete_learning': return '배움 읽기 문장 완결성 부족(종결부호)';
     case 'incomplete_support': return '교사 지원 및 다음 계획 문장 완결성 부족(종결부호)';
+    case 'emotion_fabricated': return '입력에 없는 감정을 단정함';
+    case 'intent_speculation': return '입력에 없는 의도·생각을 추정함';
+    case 'development_claim': return '발달 수준·능력을 단정함';
+    case 'achievement_claim': return '성취·성격을 단정함';
+    case 'style_formal': return '관찰일지 문체와 어긋남(합쇼체·상투구)';
+    case 'learning_support_duplicate': return '배움 읽기와 지원 계획이 같은 내용을 반복함';
+    case 'generic_support': return '지원 계획이 상황과 연결되지 않은 일반론임';
     default: return code;
   }
 }
@@ -97,6 +108,15 @@ export function auditObservationCopy({ input = '', observation = '', learning = 
   if (learn && !endsProperly(learn)) push('incomplete_learning');
   if (sup && !endsProperly(sup)) push('incomplete_support');
 
+  // 11) 금지 주장 사전 대조 — 입력 근거 없는 감정/의도/발달·성취 단정, 문체 불일치
+  findBlockedClaims(`${learn} ${sup}`, input).forEach((c) => push(c.id));
+
+  // 12) 배움 읽기 ↔ 지원 계획 중복(역할 분리)
+  if (learn && sup && nearDuplicate(learn, sup)) push('learning_support_duplicate');
+
+  // 13) 일반론 지원(상황과 연결되지 않은 상투구 단독)
+  if (sup && GENERIC_SUPPORT.test(sup)) push('generic_support');
+
   const severity = codes.some((c) => MAJOR.has(c)) ? 'major' : (codes.length ? 'minor' : 'none');
   const majorN = details.filter((d) => d.severity === 'major').length;
   const minorN = details.filter((d) => d.severity === 'minor').length;
@@ -125,6 +145,15 @@ function detectRepetition(text) {
   const count = {};
   for (const w of tokens) { count[w] = (count[w] || 0) + 1; if (count[w] >= 3) return w; }
   return null;
+}
+
+// 두 문장이 사실상 같은 내용인지(토큰 겹침 80%+) — 배움↔지원 역할 분리 검사용
+function nearDuplicate(a, b) {
+  const tok = (s) => String(s).replace(/[^가-힣\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 2);
+  const ta = tok(a); const tb = new Set(tok(b));
+  if (ta.length < 4) return false;
+  const inter = ta.filter((x) => tb.has(x)).length;
+  return inter / ta.length >= 0.8;
 }
 
 export default auditObservationCopy;
