@@ -105,6 +105,26 @@ function templateContent(kind) {
       ],
     };
   }
+  if (kind === 'daily') {
+    return {
+      type: 'doc',
+      content: [
+        heading(1, '일일 보육일지'),
+        table(
+          tableRow(tableCell(paragraph(textNode('반명'))), tableCell(paragraph(fieldChip('className')))),
+          tableRow(tableCell(paragraph(textNode('일자'))), tableCell(paragraph(fieldChip('recordDate')))),
+          tableRow(tableCell(paragraph(textNode('날씨'))), tableCell(paragraph(fieldChip('weather')))),
+          tableRow(tableCell(paragraph(textNode('작성자'))), tableCell(paragraph(fieldChip('teacherName')))),
+        ),
+        heading(2, '하루 일과'),
+        paragraph(fieldChip('dailyRoutine')),
+        heading(2, '놀이 평가'),
+        paragraph(fieldChip('playEvaluation')),
+        heading(2, '교사 메모'),
+        paragraph(fieldChip('teacherMemo')),
+      ],
+    };
+  }
   return {
     type: 'doc',
     content: [
@@ -135,6 +155,17 @@ export const BUILTIN_RICH_TEMPLATES = [
     createdBy: 'system',
     updatedAt: '2026-01-01T00:00:00.000Z',
     content: templateContent('observation'),
+  },
+  {
+    templateId: 'builtin_daily',
+    title: '일일 보육일지',
+    description: '하루 일과와 놀이 평가를 정리하는 기본 서식',
+    type: 'template',
+    published: true,
+    system: true,
+    createdBy: 'system',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    content: templateContent('daily'),
   },
   {
     templateId: 'builtin_consult',

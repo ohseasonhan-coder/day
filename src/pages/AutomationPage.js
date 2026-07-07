@@ -3,6 +3,7 @@ import { getRecords, getChildren, getClasses, today, addDocumentDraft } from '..
 import { buildWeeklyPlan, buildBatchNotices, buildWeeklySummary,
   dailyJournalToDoc, batchNoticesToDoc, buildMonthlyEvaluation, buildChildrenMonthlyDigest, buildMonthlyNewsletter } from '../utils/planningDocs';
 import { generateDailyJournal } from '../utils/ai';
+import { onDailyJournalSaved } from '../utils/documentInstances';
 import { buildAccreditationReadiness } from '../utils/accreditation';
 import { exportDocx } from '../utils/docxExport';
 import { useToast } from '../components/Toast';
@@ -85,6 +86,15 @@ function OneClickTab({ records, children, cl, todayRecs, showToast }) {
       const journalDoc = dailyJournalToDoc(journal, { className: cl?.name, date: today() });
       const noticeDoc = batchNoticesToDoc(buildBatchNotices({ records: todayRecs, date: today() }), { className: cl?.name });
       [journalDoc, noticeDoc].forEach(doc => addDocumentDraft({ ...doc, source: 'oneclick' }));
+      // 하루 기록 저장 → 일일 보육일지 서식 초안 자동 생성(같은 날짜 재마감 시 중복 없음)
+      try {
+        const sections = journalDoc.sections || [];
+        onDailyJournalSaved({
+          date: today(), className: cl?.name,
+          journalText: sections.map((s) => `${s.title}\n${s.text}`).join('\n\n'),
+          playEvaluation: (sections.find((s) => /평가|놀이/.test(s.title)) || {}).text || '',
+        });
+      } catch {}
       setResult({ kind: '오늘 마감', docs: [journalDoc, noticeDoc] });
       showToast('보육일지·알림장을 만들어 문서함에 저장했어요 📁', 'success');
     } catch { showToast('생성 중 오류가 발생했어요.', 'error'); }

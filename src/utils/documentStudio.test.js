@@ -89,10 +89,10 @@ describe('document studio rich document storage', () => {
 });
 
 describe('document studio templates and permissions', () => {
-  test('초기 기본 서식 3개를 제공한다', () => {
+  test('초기 기본 서식 4개를 제공한다(자동 생성용 일일 보육일지 포함)', () => {
     const templates = listRichTemplates(TEACHER);
-    expect(templates.map((tpl) => tpl.title)).toEqual(expect.arrayContaining(['관찰일지', '부모 상담 기록', '교사 회의록']));
-    expect(templates).toHaveLength(3);
+    expect(templates.map((tpl) => tpl.title)).toEqual(expect.arrayContaining(['관찰일지', '일일 보육일지', '부모 상담 기록', '교사 회의록']));
+    expect(templates).toHaveLength(4);
   });
 
   test('일반 교사는 서식 저장을 할 수 없다', () => {
