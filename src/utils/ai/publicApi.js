@@ -16,6 +16,10 @@ import {
 } from './draftComposer';
 import { generateWithFallback } from './documentEngineResolver';
 import { buildAuditedCopyReady } from './copyReadyObservation';
+import { getB2SentenceEngine } from './b2/config';
+import { runConstrainedB2LLM } from './b2/llmBridge';
+import { isB3Enabled } from './b3/config';
+import { generateB3 } from './b3/engine';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
 
@@ -47,19 +51,34 @@ export async function processRecord(options = {}) {
   const guarded = guardRecordResult(legacyResult, { sourceText: options.rawText });
   const modularDrafts = createRecordDrafts({ analysis, tone: options.tone });
   const resolved = applyEnginePreferences(guarded, modularDrafts, options.rawText);
+  const current = buildAuditedCopyReady({
+    observation: resolved.observation,
+    support: resolved.support,
+    input: options.rawText,
+    childName: options.childName,
+  });
+  const b3Enabled = isB3Enabled();
+  const sentenceResult = b3Enabled
+    ? generateB3({ input: options.rawText, childName: options.childName, observation: resolved.observation, fallbackCopyReady: current.copyReady })
+    : await runConstrainedB2LLM({
+      input: options.rawText,
+      childName: options.childName,
+      observation: resolved.observation,
+      fallbackCopyReady: current.copyReady,
+      engine: getB2SentenceEngine(),
+    });
+  const b2 = sentenceResult.b2;
   return {
     ...resolved,
     // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 생성 직후 자동 검수 연결.
     // 통과=그대로 / 경미=안전 정리 / 중대(발화손실·사실추가 등)=사실 보존 폴백.
-    ...(() => {
-      const { copyReady, audit } = buildAuditedCopyReady({
-        observation: resolved.observation,
-        support: resolved.support,
-        input: options.rawText,
-        childName: options.childName,
-      });
-      return { copyReady, copyReadyAudit: audit };
-    })(),
+    copyReady: sentenceResult.copyReady,
+    b2CopyReady: sentenceResult.b2CopyReady,
+    copyReadyAudit: sentenceResult.audit,
+    sentenceEngine: sentenceResult.engineUsed,
+    llmMeta: sentenceResult.llmMeta,
+    b2: { enabled: true, questions: b2.questions, trace: b2.trace },
+    b3: b3Enabled ? { enabled: true, questions: sentenceResult.questions, trace: sentenceResult.trace } : null,
     aiAnalysis: analysis,
     modularDrafts,
   };

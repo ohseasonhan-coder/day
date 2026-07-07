@@ -13,7 +13,7 @@ const card = { background: 'var(--white)', border: '1px solid var(--border)', bo
 const secTitle = { fontSize: 11.5, fontWeight: 800, color: 'var(--text-tertiary)', margin: '8px 0 3px' };
 const secBody = { fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: 'var(--text-primary)' };
 
-function VariantCard({ v, selections, onToggle, memo, onMemo, onCopy }) {
+function VariantCard({ v, selections, onToggle, onCopy }) {
   const warn = !v.audit.ok;
   return (
     <div style={card}>
@@ -40,7 +40,7 @@ function VariantCard({ v, selections, onToggle, memo, onMemo, onCopy }) {
       <div style={{ marginTop: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>이 결과는 어땠나요? (복수 선택)</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {FEEDBACK_OPTIONS.map((o) => {
+          {FEEDBACK_OPTIONS.filter((o) => v.variant === 'C' || !o.key.endsWith('_b2')).map((o) => {
             const on = selections.includes(o.key);
             return (
               <button key={o.key} onClick={() => onToggle(o.key)}
@@ -50,8 +50,6 @@ function VariantCard({ v, selections, onToggle, memo, onMemo, onCopy }) {
             );
           })}
         </div>
-        <input value={memo} onChange={(e) => onMemo(e.target.value)} placeholder="한 줄 메모(선택, 이 기기에만 저장)" maxLength={120}
-          style={{ marginTop: 8, width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 12.5 }} />
       </div>
     </div>
   );
@@ -79,6 +77,11 @@ function ReportView() {
           {row('사실과 다름', `${r.A.factMismatchRate}%`, `${r.B.factMismatchRate}%`, `${r.C.factMismatchRate}%`)}
           {row('더 자연스럽게 필요', `${r.A.needNaturalRate}%`, `${r.B.needNaturalRate}%`, `${r.C.needNaturalRate}%`)}
           {row('더 구체적 지원 계획', `${r.A.needSupportPlanRate}%`, `${r.B.needSupportPlanRate}%`, `${r.C.needSupportPlanRate}%`)}
+          {row('과장 또는 일반론', `${r.A.overgeneralizedRate}%`, `${r.B.overgeneralizedRate}%`, `${r.C.overgeneralizedRate}%`)}
+          {row('직접 발화 훼손', `${r.A.speechDamagedRate}%`, `${r.B.speechDamagedRate}%`, `${r.C.speechDamagedRate}%`)}
+          {row('B2보다 더 자연스러움', '-', '-', `${r.C.moreNaturalThanB2Rate}%`)}
+          {row('B2보다 더 개별적임', '-', '-', `${r.C.moreIndividualThanB2Rate}%`)}
+          {row('B2보다 구체적 지원', '-', '-', `${r.C.moreSpecificSupportThanB2Rate}%`)}
         </tbody>
       </table>
       <div style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
@@ -106,17 +109,17 @@ function LocalLLMSection({ result, input, childName, setCVariant }) {
   useEffect(() => { let on = true; privateServerAdapter.getStatus().then((s) => { if (on) setStatus(s); }); return () => { on = false; }; }, []);
   const apply = async () => {
     setBusy(true); setFallbackNote('');
-    const r = await generateObservationWithEngine({ input, childName, observation: result.observation, support: result.support, engine: 'private-server-7b' });
-    if (r.engineUsed === 'rule') {
+    const r = await generateObservationWithEngine({ input, childName, observation: result.observation, support: result.support, engine: 'auto', reviewMode: true });
+    if (r.engineUsed === 'rule-b2') {
       setFallbackNote(`AI 결과가 검수를 통과하지 못해 규칙 결과를 유지했어요. (개발 정보: ${r.fallbackReason || '-'})`);
       setCVariant(null);
     } else {
       const s = parseTargetSections(r.copyReady);
       setCVariant({
-        variant: 'C', title: 'C안 · 개인 PC 7B',
+        variant: 'C', title: `LLM 결과 · ${r.engineUsed}`,
         sections: { observation: s.observation, learning: s.learning, support: s.support },
         sectionLabels: ['관찰내용(규칙 보존)', '배움 읽기(AI)', '교사 지원 및 다음 계획(AI)'],
-        copyText: r.copyReady, audit: r.audit,
+        copyText: r.copyReady, audit: r.audit, engine: r.engineUsed, llmMeta: r.llmMeta,
       });
     }
     setBusy(false);
@@ -143,8 +146,6 @@ export default function ReviewComparePanel({ result, input, childName, resultId,
   const [selB, setSelB] = useState([]);
   const [selC, setSelC] = useState([]);
   const [cVariant, setCVariant] = useState(null);
-  const [memoA, setMemoA] = useState('');
-  const [memoB, setMemoB] = useState('');
   const [preferred, setPreferred] = useState('');
   const [savedMsg, setSavedMsg] = useState('');
   const [showReport, setShowReport] = useState(false);
@@ -154,10 +155,29 @@ export default function ReviewComparePanel({ result, input, childName, resultId,
     try { await navigator.clipboard.writeText(v.copyText); onCopied?.(); } catch {}
   };
   const submit = () => {
-    if (selA.length) saveReviewEntry({ kind: 'feedback', resultId, docType: 'observation', variant: 'A', selections: selA, memo: memoA, auditCodes: cmp.A.audit.warnings });
-    if (selB.length) saveReviewEntry({ kind: 'feedback', resultId, docType: 'observation', variant: 'B', selections: selB, memo: memoB, auditCodes: cmp.B.audit.warnings });
-    if (cVariant && selC.length) saveReviewEntry({ kind: 'feedback', resultId, docType: 'observation', variant: 'C', selections: selC, memo: '', auditCodes: cVariant.audit?.warnings });
-    if (preferred) saveReviewEntry({ kind: 'preference', resultId, docType: 'observation', preferred });
+    if (selA.length) saveReviewEntry({ kind: 'feedback', resultId, docType: 'observation', variant: 'A', selections: selA, auditCodes: cmp.A.audit.warnings, engine: 'legacy-rule' });
+    if (selB.length) {
+      const b3Trace = result.b3?.trace;
+      saveReviewEntry({
+        kind: 'feedback', resultId, docType: 'observation', variant: result.b3?.enabled ? 'B3' : (result.b2?.enabled ? 'B2' : 'B'), selections: selB,
+        auditCodes: cmp.B.audit.warnings, themeIds: b3Trace?.themeIds || result.b2?.trace?.themeIds,
+        engine: result.b3?.enabled ? 'rule-b3' : 'rule-b2', auditPassed: cmp.B.audit.severity !== 'major',
+        skeletonId: b3Trace?.learningPatternId || result.b2?.trace?.skeletonId,
+        variantId: result.b2?.trace?.learningVariantId,
+        learningPatternId: b3Trace?.learningPatternId,
+        supportPatternId: b3Trace?.supportPatternId,
+        selectedCandidateId: b3Trace?.selectedCandidateIds?.join('|'),
+        candidateScore: b3Trace?.selectedScores ? Math.round((b3Trace.selectedScores.learning + b3Trace.selectedScores.support) / 2) : 0,
+        selected: preferred === 'B',
+      });
+    }
+    if (cVariant && selC.length) saveReviewEntry({
+      kind: 'feedback', resultId, docType: 'observation', variant: 'C', selections: selC, memo: '',
+      auditCodes: cVariant.audit?.warnings, engine: cVariant.engine, auditPassed: cVariant.llmMeta?.auditPassed,
+      themeIds: [cVariant.llmMeta?.learningTheme], variantId: cVariant.llmMeta?.supportAction,
+      selected: preferred === 'C',
+    });
+    if (preferred) saveReviewEntry({ kind: 'preference', resultId, docType: 'observation', preferred, engine: preferred === 'C' ? cVariant?.engine : (result.b3?.enabled ? 'rule-b3' : 'rule-b2') });
     setSavedMsg('피드백을 이 기기에 저장했어요.');
     setTimeout(() => setSavedMsg(''), 2500);
   };
@@ -187,16 +207,16 @@ export default function ReviewComparePanel({ result, input, childName, resultId,
       )}
       {showReport && <ReportView />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10, marginTop: 10 }}>
-        <VariantCard v={cmp.A} selections={selA} onToggle={(k) => setSelA(toggleFeedbackSelection(selA, k))} memo={memoA} onMemo={setMemoA} onCopy={copy} />
-        <VariantCard v={cmp.B} selections={selB} onToggle={(k) => setSelB(toggleFeedbackSelection(selB, k))} memo={memoB} onMemo={setMemoB} onCopy={copy} />
+        <VariantCard v={cmp.A} selections={selA} onToggle={(k) => setSelA(toggleFeedbackSelection(selA, k))} onCopy={copy} />
+        <VariantCard v={cmp.B} selections={selB} onToggle={(k) => setSelB(toggleFeedbackSelection(selB, k))} onCopy={copy} />
         {cVariant && (
-          <VariantCard v={cVariant} selections={selC} onToggle={(k) => setSelC(toggleFeedbackSelection(selC, k))} memo={''} onMemo={() => {}} onCopy={copy} />
+          <VariantCard v={cVariant} selections={selC} onToggle={(k) => setSelC(toggleFeedbackSelection(selC, k))} onCopy={copy} />
         )}
       </div>
       <LocalLLMSection result={result} input={input} childName={childName} setCVariant={setCVariant} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)' }}>실제로 쓰기에 더 좋은 쪽:</span>
-        {[['A', '기존 B안'], ['B', '새 B안'], ...(cVariant ? [['C', 'C안']] : []), ['same', '비슷함']].map(([k, label]) => (
+        {[['A', '기존 B안'], ['B', result.b3?.enabled ? 'B3 사례기반' : 'B2 규칙 엔진'], ...(cVariant ? [['C', 'LLM 결과']] : []), ['same', '비슷함']].map(([k, label]) => (
           <button key={k} onClick={() => setPreferred(k)} style={{ padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: `1.5px solid ${preferred === k ? 'var(--primary)' : 'var(--border)'}`, background: preferred === k ? 'var(--primary)' : 'white', color: preferred === k ? 'white' : 'var(--text-secondary)' }}>{label}</button>
         ))}
         <button onClick={submit} disabled={!selA.length && !selB.length && !selC.length && !preferred}

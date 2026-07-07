@@ -23,6 +23,11 @@ export const FEEDBACK_OPTIONS = [
   { key: 'fact_mismatch', label: '사실과 다름' },
   { key: 'need_natural', label: '더 자연스럽게 필요' },
   { key: 'need_support_plan', label: '더 구체적인 지원 계획 필요' },
+  { key: 'more_natural_b2', label: 'B2보다 더 자연스러움' },
+  { key: 'more_individual_b2', label: 'B2보다 더 개별적임' },
+  { key: 'more_specific_support_b2', label: 'B2보다 지원 계획이 구체적임' },
+  { key: 'overgeneralized', label: '과장 또는 일반론' },
+  { key: 'speech_damaged', label: '직접 발화 훼손' },
 ];
 const OPTION_KEYS = FEEDBACK_OPTIONS.map((o) => o.key);
 
@@ -59,14 +64,24 @@ function sanitizeEntry(entry = {}) {
     docType: String(entry.docType || 'observation').slice(0, 20),
   };
   if (out.kind === 'feedback') {
-    out.variant = ['A', 'B', 'C'].includes(entry.variant) ? entry.variant : 'B'; // C = 로컬 LLM(실험)
-    out.selections = (entry.selections || []).filter((k) => OPTION_KEYS.includes(k)).slice(0, 5);
-    out.memo = String(entry.memo || '').slice(0, 120); // 선택 메모(로컬 전용, 리포트 미출력)
+    out.variant = ['A', 'B', 'B2', 'B3', 'C'].includes(entry.variant) ? entry.variant : 'B';
+    out.selections = (entry.selections || []).filter((k) => OPTION_KEYS.includes(k)).slice(0, 10);
     out.auditCodes = (entry.auditCodes || []).map(String).slice(0, 10); // 코드만(원문 아님)
+    out.themeIds = (entry.themeIds || []).map(String).slice(0, 3);
+    out.skeletonId = String(entry.skeletonId || '').slice(0, 40);
+    out.variantId = String(entry.variantId || '').slice(0, 40);
+    out.engine = String(entry.engine || '').slice(0, 40);
+    out.auditPassed = !!entry.auditPassed;
+    out.selected = !!entry.selected;
+    out.learningPatternId = String(entry.learningPatternId || '').slice(0, 60);
+    out.supportPatternId = String(entry.supportPatternId || '').slice(0, 60);
+    out.selectedCandidateId = String(entry.selectedCandidateId || '').slice(0, 140);
+    out.candidateScore = Math.max(0, Math.min(200, Number(entry.candidateScore) || 0));
   } else if (out.kind === 'preference') {
     out.preferred = ['A', 'B', 'C', 'same'].includes(entry.preferred) ? entry.preferred : 'same';
+    out.engine = String(entry.engine || '').slice(0, 40);
   } else if (out.kind === 'edit') {
-    out.variant = entry.variant === 'A' ? 'A' : 'B';
+    out.variant = ['A', 'B', 'B2', 'B3', 'C'].includes(entry.variant) ? entry.variant : 'B';
     out.edited = !!entry.edited;
     out.editLen = Math.max(0, Math.min(9999, Number(entry.editLen) || 0));
     out.editedSections = (entry.editedSections || []).map(String).slice(0, 6);
@@ -101,7 +116,7 @@ export function computeEditStats(original = {}, final = {}) {
 // ── 같은 입력의 기존 B안/6단계 B안 비교 ───────────────────────────────
 export function buildComparison({ result = {}, input = '', childName = '' } = {}) {
   const baseline = buildStage5ReviewBaseline({ observation: result.observation, support: result.support, input, childName });
-  const bSections = parseTargetSections(result.copyReady || '');
+  const bSections = parseTargetSections(result.b3?.enabled ? result.copyReady : (result.b2CopyReady || result.copyReady || ''));
   const A = {
     variant: 'A',
     title: '기존 규칙 B안 · 6단계 이전',
@@ -110,7 +125,7 @@ export function buildComparison({ result = {}, input = '', childName = '' } = {}
   };
   const B = {
     variant: 'B',
-    title: '새 규칙 B안 · 6단계',
+    title: result.b3?.enabled ? 'B3 사례기반 문장 엔진' : (result.b2?.enabled ? 'B2 엔진 · 후보 선택 규칙' : '새 규칙 B안 · 6단계'),
     sections: {
       observation: bSections.observation || '',
       learning: bSections.learning || '',
@@ -147,6 +162,11 @@ export function buildReviewReport(entries = getReviewEntries()) {
       factMismatchRate: rate(has('fact_mismatch'), rows.length),
       needNaturalRate: rate(has('need_natural'), rows.length),
       needSupportPlanRate: rate(has('need_support_plan'), rows.length),
+      moreNaturalThanB2Rate: rate(has('more_natural_b2'), rows.length),
+      moreIndividualThanB2Rate: rate(has('more_individual_b2'), rows.length),
+      moreSpecificSupportThanB2Rate: rate(has('more_specific_support_b2'), rows.length),
+      overgeneralizedRate: rate(has('overgeneralized'), rows.length),
+      speechDamagedRate: rate(has('speech_damaged'), rows.length),
       factMismatchCount: has('fact_mismatch'),
     };
   };
@@ -170,7 +190,7 @@ export function buildReviewReport(entries = getReviewEntries()) {
   const factCauses = Object.entries(factCodeFreq).sort((a, b) => b[1] - a[1]).map(([code, n]) => ({ code, count: n }));
 
   const A = variantStats('A');
-  const B = variantStats('B');
+  const B = variantStats(fb.some((entry) => entry.variant === 'B3') ? 'B3' : (fb.some((entry) => entry.variant === 'B2') ? 'B2' : 'B'));
   const C = variantStats('C');
   let recommendation = '실제 검토 표본 부족으로 보류';
   if (A.n >= 30 && B.n >= 30 && prefs.length >= 30) {

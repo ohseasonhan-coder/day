@@ -187,7 +187,7 @@ export function buildAutoValues({ childName = '', childAge = '', className = '',
 // 반환: { values, engineUsed, fallbackReason? } — 프롬프트·전문 출력은 저장하지 않음.
 export async function generateAIFieldValues({
   input = '', childName = '', ruleObservation = '', ruleSupport = '',
-  engine = 'private-server-7b', manualValues = {}, adapter = null,
+  engine = 'rule-b2', manualValues = {}, adapter = null,
 } = {}) {
   const r = await generateObservationWithEngine({
     input, childName, observation: ruleObservation, support: ruleSupport, engine, adapter,

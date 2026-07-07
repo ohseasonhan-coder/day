@@ -6,6 +6,7 @@ import { detectOnDeviceCapability, refineSentence, prepareModel } from '../utils
 import { buildAuditedCopyReady } from '../utils/ai/copyReadyObservation';
 import ReviewComparePanel from '../components/ReviewComparePanel';
 import DocTemplateWriter from '../components/DocTemplateWriter';
+import B2QuickAdjust from '../components/B2QuickAdjust';
 import { isReviewModeEnabled, setReviewMode, computeEditStats, saveReviewEntry } from '../utils/reviewFeedback';
 import {
   getChildren,
@@ -32,6 +33,7 @@ import {
   clearCopyHistory,
   getSettings,
 } from '../utils/storage';
+
 import { processRecord } from '../utils/ai';
 import { buildCombinedCopy, QUICK_EXAMPLES } from '../utils/recordCopy';
 import { compressImage, savePhotos, getPhotosByRecord, deletePhoto } from '../utils/photoStore';
@@ -42,6 +44,20 @@ import {
   Search, CalendarDays, ListFilter, X, ChevronLeft, ChevronRight,
   List, PlusCircle, Pencil, Trash2, Plus, ChevronDown, ChevronUp, Star, Camera,
 } from 'lucide-react';
+
+const mergeQuickAdjustResult = (previous, next) => {
+  const b2 = next.b2 || next;
+  const usesB3 = next.trace?.engine === 'rule-b3';
+  return {
+    ...previous,
+    copyReady: next.copyReady,
+    b2CopyReady: next.b2CopyReady || b2.copyReady,
+    copyReadyAudit: next.audit,
+    sentenceEngine: next.engineUsed || (usesB3 ? 'rule-b3' : 'rule-b2'),
+    b2: { enabled: true, questions: b2.questions || [], trace: b2.trace || {} },
+    b3: usesB3 ? { enabled: true, questions: next.questions || [], trace: next.trace } : previous.b3,
+  };
+};
 
 const MAX_PHOTOS = 4;
 
@@ -516,6 +532,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
             <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
             <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
+            <B2QuickAdjust result={result} input={rawText} childName={selectedChild?.name} onApply={(next) => setResult((prev) => mergeQuickAdjustResult(prev, next))} />
             {reviewMode && result.copyReady && (
               <ReviewComparePanel result={result} input={rawText} childName={selectedChild?.name} resultId={reviewIdRef.current} onCopied={refreshCopyHistory} />
             )}
@@ -819,6 +836,7 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
             <CopyAllButton result={result} onCopied={refreshCopyHistory} />
               <ResultSection title="관찰일지 문장" field="observation" text={result.observation} defaultOpen onChange={handleEditResult} onCopied={refreshCopyHistory} canRefine={canRefine} onRefine={handleRefine} />
               <ResultSection title="📋 복사용 관찰일지 (관찰내용·배움 읽기·교사 지원)" text={result.copyReady} defaultOpen optional onCopied={refreshCopyHistory} />
+              <B2QuickAdjust result={result} input={rawText} childName={selectedChild?.name} onApply={(next) => setResult((prev) => mergeQuickAdjustResult(prev, next))} />
               {reviewMode && result.copyReady && (
                 <ReviewComparePanel result={result} input={rawText} childName={selectedChild?.name} resultId={reviewIdRef.current} onCopied={refreshCopyHistory} />
               )}

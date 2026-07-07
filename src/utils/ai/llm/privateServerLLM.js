@@ -8,6 +8,7 @@
 export const PRIVATE_SERVER_KEYS = {
   URL: 'sw_admin_llm_server_url',     // 예: http://localhost:11434/v1
   MODEL: 'sw_admin_llm_server_model', // 예: qwen2.5:7b-instruct
+  MODEL_14B: 'sw_admin_llm_server_model_14b',
 };
 
 export const PRIVATE_SERVER_DEFAULTS = {
@@ -28,13 +29,15 @@ export function getServerConfig() {
     return {
       url: String(localStorage.getItem(PRIVATE_SERVER_KEYS.URL) || '').trim().replace(/\/$/, ''),
       model: String(localStorage.getItem(PRIVATE_SERVER_KEYS.MODEL) || '').trim() || 'qwen2.5:7b-instruct',
+      model14b: String(localStorage.getItem(PRIVATE_SERVER_KEYS.MODEL_14B) || '').trim() || 'qwen2.5:14b-instruct',
     };
-  } catch { return { url: '', model: '' }; }
+  } catch { return { url: '', model: 'qwen2.5:7b-instruct', model14b: 'qwen2.5:14b-instruct' }; }
 }
-export function setServerConfig({ url, model } = {}) {
+export function setServerConfig({ url, model, model14b } = {}) {
   try {
     if (url != null) localStorage.setItem(PRIVATE_SERVER_KEYS.URL, String(url).trim());
     if (model != null) localStorage.setItem(PRIVATE_SERVER_KEYS.MODEL, String(model).trim());
+    if (model14b != null) localStorage.setItem(PRIVATE_SERVER_KEYS.MODEL_14B, String(model14b).trim());
   } catch {}
   _autoUrl = null; _autoChecked = false; // 관리자 변경 시 자동 감지 캐시 초기화
 }
@@ -64,6 +67,24 @@ async function ping(url) {
     return res.ok;
   } catch { return false; }
   finally { if (timer) clearTimeout(timer); }
+}
+
+export async function listServerModels() {
+  const url = await resolveServerUrl();
+  if (!url) return [];
+  try {
+    const res = await fetchWithTimeout(`${url}/models`, { method: 'GET' }, 3000);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json?.data || json?.models || []).map((item) => String(item?.id || item?.name || item || '')).filter(Boolean);
+  } catch { return []; }
+}
+
+export async function hasServerModel(model) {
+  const target = String(model || '').trim().toLowerCase();
+  if (!target) return false;
+  const models = await listServerModels();
+  return models.some((item) => item.toLowerCase() === target || item.toLowerCase().startsWith(`${target}:`));
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = PRIVATE_SERVER_DEFAULTS.timeoutMs) {
@@ -98,8 +119,9 @@ export const privateServerAdapter = {
     return ok ? { ok: true } : { ok: false, error: '서버 연결 실패' };
   },
   // messages → 텍스트(JSON 기대). 프롬프트·응답은 저장하지 않고 반환만.
-  generate: async ({ messages, schema, timeoutMs = PRIVATE_SERVER_DEFAULTS.timeoutMs, retries = PRIVATE_SERVER_DEFAULTS.retries } = {}) => {
-    const { model } = getServerConfig();
+  generate: async ({ messages, schema, model: modelOverride, timeoutMs = PRIVATE_SERVER_DEFAULTS.timeoutMs, retries = PRIVATE_SERVER_DEFAULTS.retries, temperature = PRIVATE_SERVER_DEFAULTS.temperature, maxTokens = PRIVATE_SERVER_DEFAULTS.maxTokens } = {}) => {
+    const { model: configuredModel } = getServerConfig();
+    const model = String(modelOverride || configuredModel).trim();
     const url = await resolveServerUrl();
     if (!url) throw new Error('server-not-configured');
     let lastError = null;
@@ -111,8 +133,8 @@ export const privateServerAdapter = {
           body: JSON.stringify({
             model,
             messages,
-            temperature: PRIVATE_SERVER_DEFAULTS.temperature,
-            max_tokens: PRIVATE_SERVER_DEFAULTS.maxTokens,
+            temperature,
+            max_tokens: maxTokens,
             stream: false,
             response_format: schema ? { type: 'json_object' } : undefined,
           }),

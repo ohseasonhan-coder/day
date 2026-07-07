@@ -29,8 +29,10 @@ const TPL = {
 };
 const INPUT = '지우가 "다시 할래"라며 무너진 블록 탑을 다시 차근차근 쌓았다.';
 const GOOD_JSON = JSON.stringify({
-  learningReading: '지우는 뜻대로 되지 않아도 다시 시도하며 스스로 방법을 찾아가는 끈기를 보였다.',
-  supportAndNextPlan: '받침이 넓은 블록을 더해 주고, 다시 세우는 과정을 말로 격려한다.',
+  learningTheme: 'retry',
+  learningReading: '원아 A는 탑이 무너진 뒤에도 다시 시도하며 방법을 이어 갔다.',
+  supportAction: 'retry_material',
+  supportAndNextPlan: '비슷한 시도를 이어 갈 수 있도록 크기와 형태가 다른 재료를 곁에 마련한다.',
 });
 
 beforeEach(() => localStorage.clear());
@@ -123,19 +125,19 @@ describe('AI 생성 필드 경로 — 규칙/7B 분리·audit·fallback', () => 
   const base = { input: INPUT, childName: '지우', ruleObservation: INPUT, ruleSupport: '블록을 더 제공한다.' };
 
   test('7B 정상 응답: audit 통과분만 learningReading/support에 삽입, observation은 규칙 고정', async () => {
-    const r = await generateAIFieldValues({ ...base, adapter: createMockAdapter({ response: GOOD_JSON }) });
-    expect(r.engineUsed).toBe('mock-llm');
+    const r = await generateAIFieldValues({ ...base, engine: 'private-server-7b', adapter: createMockAdapter({ response: GOOD_JSON }) });
+    expect(r.engineUsed).toBe('private-server-7b');
     expect(r.values.observation).toBe(INPUT);                 // 7B가 관찰내용을 덮어쓰지 않음
-    expect(r.values.learningReading).toContain('끈기');
-    expect(r.values.supportAndNextPlan).toContain('격려한다');
+    expect(r.values.learningReading).toContain('다시 시도');
+    expect(r.values.supportAndNextPlan).toContain('재료');
   });
 
   test('7B가 사실 추가(또래) 시 audit 차단 → B안 값이 필드에 들어감', async () => {
-    const bad = JSON.stringify({ learningReading: '지우는 친구와 협력하며 놀이했다.', supportAndNextPlan: '블록을 제공한다.' });
-    const r = await generateAIFieldValues({ ...base, adapter: createMockAdapter({ response: bad }) });
-    expect(r.engineUsed).toBe('rule');
-    expect(r.fallbackReason).toContain('fact_addition_peer');
-    expect(r.values.learningReading).toMatch(/끈기|시도/);     // 규칙 B안 배움 읽기
+    const bad = JSON.stringify({ ...JSON.parse(GOOD_JSON), learningReading: '원아 A는 친구와 협력하며 다시 시도했다.' });
+    const r = await generateAIFieldValues({ ...base, engine: 'private-server-7b', adapter: createMockAdapter({ response: bad }) });
+    expect(r.engineUsed).toBe('rule-b2');
+    expect(r.fallbackReason).toMatch(/new_concrete_fact|fact_addition_peer/);
+    expect(r.values.learningReading).toMatch(/방법|시도/);     // B2 배움 읽기
   });
 
   test('7B 서버 미설정/오류 → B안 fallback이 문서 필드에 들어감', async () => {
@@ -145,7 +147,7 @@ describe('AI 생성 필드 경로 — 규칙/7B 분리·audit·fallback', () => 
     __resetAutoDetect();
     try {
       const r = await generateAIFieldValues({ ...base, engine: 'private-server-7b' }); // 실제 어댑터, 서버 없음
-      expect(r.engineUsed).toBe('rule');
+      expect(r.engineUsed).toBe('rule-b2');
       expect(r.values.learningReading).toBeTruthy();
       expect(r.values.observation).toBe(INPUT);
     } finally {
@@ -155,7 +157,7 @@ describe('AI 생성 필드 경로 — 규칙/7B 분리·audit·fallback', () => 
   });
 
   test('직접 입력 필드는 AI가 덮어쓰지 않음', async () => {
-    const r = await generateAIFieldValues({ ...base, adapter: createMockAdapter({ response: GOOD_JSON }), manualValues: { learningReading: '교사가 직접 쓴 배움 읽기.' } });
+    const r = await generateAIFieldValues({ ...base, engine: 'private-server-7b', adapter: createMockAdapter({ response: GOOD_JSON }), manualValues: { learningReading: '교사가 직접 쓴 배움 읽기.' } });
     expect(r.values.learningReading).toBe('교사가 직접 쓴 배움 읽기.');
   });
 });

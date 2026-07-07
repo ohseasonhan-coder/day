@@ -19,6 +19,7 @@ import { extractDocxText, extractHwpxText, classifyFormFile } from '../utils/doc
 import EngineComparePanel from '../components/EngineComparePanel';
 import EngineReviewReport from '../components/EngineReviewReport';
 import DocTemplateStudio from '../components/DocTemplateStudio';
+import { isB3Enabled, setB3Enabled } from '../utils/ai/b3/config';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -60,6 +61,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [newClassYear, setNewClassYear] = useState(String(new Date().getFullYear()));
   const [newClassAge,  setNewClassAge]  = useState('3');
   const [saved, setSaved]         = useState(false);
+  const [b3Enabled, setB3EnabledState] = useState(() => isB3Enabled());
   const [notifyPermission, setNotifyPermission] = useState(() =>
     ('Notification' in window) ? Notification.permission : 'unsupported'
   );
@@ -628,6 +630,35 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               }}>
                 📖 사용법 간단 안내 다시 보기
               </button>
+            </SettingCard>
+
+            <SettingCard title="교사 기록 언어 엔진 2.0">
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ paddingRight: 10 }}>
+                  <div style={{ fontSize:14, fontWeight:800 }}>B2 사실 보존 엔진</div>
+                  <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2, lineHeight:1.6 }}>
+                    관찰 사실과 허용 의미를 먼저 정하고 결과를 검수합니다. 일반 사용자는 B2가 기본으로 적용됩니다.
+                  </div>
+                </div>
+                <span style={{ flexShrink:0, padding:'5px 10px', borderRadius:100, background:'var(--primary-light)', color:'var(--primary)', fontSize:12, fontWeight:800 }}>기본 적용</span>
+              </div>
+            </SettingCard>
+
+            <SettingCard title="사례기반 문장 엔진 B3 (검토 기능)">
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ paddingRight: 10 }}>
+                  <div style={{ fontSize:14, fontWeight:800 }}>비식별 안전 사례로 문장 다양화</div>
+                  <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2, lineHeight:1.6 }}>
+                    B2의 사실과 허용 의미를 유지하면서 여러 문장 후보를 비교합니다. 외부 AI나 모델을 사용하지 않습니다.
+                  </div>
+                </div>
+                <button onClick={() => { const next = !b3Enabled; setB3Enabled(next); setB3EnabledState(next); }} aria-label="B3 사례기반 문장 엔진 사용" style={{
+                  width:44, height:24, borderRadius:12, flexShrink:0, border:'none', padding:0,
+                  background:b3Enabled ? 'var(--primary)' : 'var(--gray-300)', position:'relative', transition:'background 0.2s',
+                }}>
+                  <span style={{ width:18, height:18, background:'var(--white)', borderRadius:'50%', position:'absolute', top:3, left:b3Enabled ? 23 : 3, transition:'left 0.2s' }} />
+                </button>
+              </div>
             </SettingCard>
 
             {/* 온디바이스 AI 다듬기 (실험실) — 지원 환경(데스크탑+크롬 내장 AI)에서만 노출 */}

@@ -1,14 +1,6 @@
-// 문장 엔진 어댑터(5단계) — UI와 엔진 호출을 분리한다.
-//
-// 엔진 종류:
-//   rule               : 기존 규칙 기반(기본값 — 일반 사용자 경로, 무변경)
-//   embedded-local-llm : 앱 내장형 로컬 LLM(WebLLM, 기본 실험 대상)
-//   chrome-builtin     : 브라우저 내장 window.LanguageModel(선택적 보조 어댑터 — 주 엔진 아님)
-//   auto               : embedded 사용 가능 시 LLM, 실패·미지원이면 rule fallback
-//
-// 흐름: 입력 → 사실 카드 → LLM 생성(JSON) → 파싱/형식 검사 → observationAudit →
-//       통과 시 복사용 3단 반영 / 실패·미지원이면 규칙 기반 B안 fallback(사유는 개발 정보로만).
-// 원문·프롬프트·LLM 전문 출력은 어디에도 장기 저장하지 않는다(반환값으로만 전달).
+// 공개 엔진은 rule-b2/local-7b/private-server-7b/private-server-14b/auto로 제한한다.
+// 모든 공개 LLM 경로는 B2 제한 입력과 audit을 거치며 실패하면 rule-b2로 복귀한다.
+// 아래 레거시 어댑터는 기존 테스트와 호환을 위해서만 유지하며 UI에는 노출하지 않는다.
 import { buildAuditedCopyReady } from '../copyReadyObservation';
 import { extractFactCard } from './factCard';
 import { buildMessages, OUTPUT_SCHEMA } from './promptBuilder';
@@ -16,9 +8,11 @@ import { parseLLMJson, validateLLMOutput } from './postProcess';
 import { embeddedAdapter } from './embeddedLLM';
 import { privateServerAdapter } from './privateServerLLM';
 import { detectOnDeviceCapability } from '../../ondeviceLLM';
+import { runConstrainedB2LLM } from '../b2/llmBridge';
 
-export const ENGINE_IDS = ['rule', 'embedded-local-llm', 'private-server-7b', 'chrome-builtin', 'auto'];
-export const DEFAULT_ENGINE = 'rule'; // 일반 사용자 기본 — LLM은 검토 flag에서만 시험
+export const ENGINE_IDS = ['rule-b2', 'local-7b', 'private-server-7b', 'private-server-14b', 'auto'];
+export const LEGACY_ENGINE_IDS = ['rule', 'embedded-local-llm', 'chrome-builtin'];
+export const DEFAULT_ENGINE = 'rule-b2';
 
 // 브라우저 내장 모델은 "선택적" 어댑터로만 등록(구조화 JSON 생성 미지원 → generate는 미구현 상태 보고).
 const chromeAdapter = {
@@ -34,7 +28,9 @@ const chromeAdapter = {
 
 const REGISTRY = {
   'embedded-local-llm': embeddedAdapter,
-  'private-server-7b': privateServerAdapter, // 개인 PC 7B 서버(관리자 설정 시에만 ready)
+  'local-7b': privateServerAdapter,
+  'private-server-7b': privateServerAdapter,
+  'private-server-14b': privateServerAdapter,
   'chrome-builtin': chromeAdapter,
 };
 // 테스트·확장용 — mock 어댑터 주입
@@ -53,8 +49,21 @@ function assembleCopy(observation, learning, support) {
 //  - 규칙 기반 B안(buildAuditedCopyReady)은 항상 함께 계산해 비교·fallback에 사용.
 export async function generateObservationWithEngine({
   input = '', childName = '', observation = '', support = '',
-  engine = DEFAULT_ENGINE, adapter: overrideAdapter = null,
+  engine = DEFAULT_ENGINE, adapter: overrideAdapter = null, reviewMode,
 } = {}) {
+  if (ENGINE_IDS.includes(engine)) {
+    const legacyFallback = buildAuditedCopyReady({ observation, support, input, childName });
+    return runConstrainedB2LLM({
+      input,
+      childName,
+      observation,
+      fallbackCopyReady: legacyFallback.copyReady,
+      engine,
+      adapter: overrideAdapter,
+      reviewMode,
+    });
+  }
+
   // 규칙 기반 B안 — 항상 준비(즉시 제공/fallback/비교용)
   const rule = buildAuditedCopyReady({ observation, support, input, childName });
   const base = { copyReady: rule.copyReady, audit: rule.audit, engineUsed: 'rule', ruleCopyReady: rule.copyReady };

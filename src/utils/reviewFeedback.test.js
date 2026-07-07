@@ -66,6 +66,7 @@ describe('로컬 저장 — 화이트리스트·200건 제한·키 분리', () =
     const raw = localStorage.getItem(REVIEW_KEYS.DATA);
     expect(raw).not.toContain('블록으로 높은 탑');             // 원문 미저장
     expect(raw).not.toContain('지우가');                       // 이름 포함 원문 미저장
+    expect(raw).not.toContain('좋아요');                       // 자유 메모도 저장하지 않음
     expect(list[0].selections).toEqual(['use_as_is']);
   });
 

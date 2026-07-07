@@ -39,7 +39,7 @@ run('Ollama 7B 실제 30건 이상 품질·fallback·속도 검증', async () =>
       engine: 'private-server-7b',
     });
     const elapsedMs = Date.now() - started;
-    const b = parseTargetSections(result.ruleCopyReady);
+    const b = parseTargetSections(result.b2CopyReady);
     const c = parseTargetSections(result.copyReady);
     const bScore = scoreCopyReady(b);
     const cScore = scoreCopyReady(c);
@@ -54,7 +54,7 @@ run('Ollama 7B 실제 30건 이상 품질·fallback·속도 검증', async () =>
       auditWarnings: result.audit?.warnings || [],
       bCopyScore: bScore.score,
       cCopyScore: cScore.score,
-      b: result.ruleCopyReady,
+      b: result.b2CopyReady,
       c: result.copyReady,
     });
   }

@@ -1,6 +1,7 @@
 import {
   privateServerAdapter, setServerConfig, resolveServerUrl, __resetAutoDetect, DEFAULT_SERVER_CANDIDATES,
 } from './ai/llm/privateServerLLM';
+import { runConstrainedB2LLM } from './ai/b2/llmBridge';
 
 describe('private-server-7b 오류 처리', () => {
   const originalFetch = global.fetch;
@@ -44,6 +45,43 @@ describe('private-server-7b 오류 처리', () => {
     const output = await privateServerAdapter.generate({ messages: [], retries: 1 });
     expect(output).toContain('learningReading');
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('auto 모델 우선순위', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  test('검토 모드 auto는 준비된 14B를 7B보다 먼저 선택한다', async () => {
+    setServerConfig({
+      url: 'http://localhost:11434/v1',
+      model: 'qwen2.5:7b-instruct',
+      model14b: 'qwen2.5:14b-instruct',
+    });
+    global.fetch = jest.fn(async (url, options = {}) => {
+      if (String(url).endsWith('/models')) {
+        return { ok: true, json: async () => ({ data: [{ id: 'qwen2.5:14b-instruct' }, { id: 'qwen2.5:7b-instruct' }] }) };
+      }
+      const body = JSON.parse(options.body || '{}');
+      expect(body.model).toBe('qwen2.5:14b-instruct');
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: JSON.stringify({
+          learningTheme: 'retry',
+          learningReading: '원아 A는 탑이 무너진 뒤에도 다시 시도하며 방법을 이어 갔다.',
+          supportAction: 'retry_material',
+          supportAndNextPlan: '비슷한 시도를 이어 갈 수 있도록 크기와 형태가 다른 재료를 곁에 마련한다.',
+        }) } }] }),
+      };
+    });
+    const input = '지우가 탑이 무너지자 다시 차근차근 쌓았다.';
+    const result = await runConstrainedB2LLM({ input, childName: '지우', observation: input, engine: 'auto', reviewMode: true });
+    expect(result.engineUsed).toBe('private-server-14b');
+    expect(result.llmMeta.accepted).toBe(true);
   });
 });
 
@@ -98,4 +136,3 @@ describe('로컬 서버 자동 감지(설정 0회)', () => {
     expect(await resolveServerUrl()).not.toBeNull(); // 재감지 성공
   });
 });
-
