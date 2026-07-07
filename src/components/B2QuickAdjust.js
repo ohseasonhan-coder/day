@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { B2_ADJUSTMENTS } from '../utils/ai/b2/config';
 import { adjustB2 } from '../utils/ai/b2/engine';
 import { adjustB3 } from '../utils/ai/b3/engine';
+import { adjustB4 } from '../utils/ai/b4/engine';
 
 export default function B2QuickAdjust({ result, input, childName, onApply }) {
   const [busy, setBusy] = useState('');
   if (!result?.b2?.enabled) return null;
 
+  const questions = result.b4?.questions || result.b3?.questions || result.b2.questions || [];
+
   const apply = (mode) => {
     setBusy(mode);
-    const adjust = result?.b3?.enabled ? adjustB3 : adjustB2;
+    const adjust = result?.b4?.enabled ? adjustB4 : (result?.b3?.enabled ? adjustB3 : adjustB2);
     const adjusted = adjust({
       input,
       childName,
@@ -32,9 +35,9 @@ export default function B2QuickAdjust({ result, input, childName, onApply }) {
           </button>
         ))}
       </div>
-      {((result.b3?.questions || result.b2.questions) || []).length > 0 && (
+      {questions.length > 0 && (
         <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-          기록을 보완하려면: {(result.b3?.questions || result.b2.questions).join(' · ')}
+          기록을 보완하려면: {questions.join(' · ')}
         </div>
       )}
     </div>

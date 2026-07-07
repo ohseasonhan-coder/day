@@ -48,14 +48,16 @@ import {
 const mergeQuickAdjustResult = (previous, next) => {
   const b2 = next.b2 || next;
   const usesB3 = next.trace?.engine === 'rule-b3';
+  const usesB4 = next.b4Trace?.engine === 'rule-b4' && next.engineUsed === 'rule-b4';
   return {
     ...previous,
     copyReady: next.copyReady,
     b2CopyReady: next.b2CopyReady || b2.copyReady,
     copyReadyAudit: next.audit,
-    sentenceEngine: next.engineUsed || (usesB3 ? 'rule-b3' : 'rule-b2'),
+    sentenceEngine: next.engineUsed || (usesB4 ? 'rule-b4' : (usesB3 ? 'rule-b3' : 'rule-b2')),
     b2: { enabled: true, questions: b2.questions || [], trace: b2.trace || {} },
-    b3: usesB3 ? { enabled: true, questions: next.questions || [], trace: next.trace } : previous.b3,
+    b3: next.b3 ? { enabled: true, questions: next.b3.questions || [], trace: next.b3.trace, copyReady: next.b3.copyReady } : (usesB3 ? { enabled: true, questions: next.questions || [], trace: next.trace, copyReady: next.copyReady } : previous.b3),
+    b4: next.b4Trace ? { enabled: true, questions: next.questions || [], trace: next.b4Trace, copyReady: next.b4CopyReady || next.copyReady } : previous.b4,
   };
 };
 

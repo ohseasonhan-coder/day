@@ -20,6 +20,7 @@ import EngineComparePanel from '../components/EngineComparePanel';
 import EngineReviewReport from '../components/EngineReviewReport';
 import DocTemplateStudio from '../components/DocTemplateStudio';
 import { isB3Enabled, setB3Enabled } from '../utils/ai/b3/config';
+import { B4_STYLE_PROFILES, getB4StyleProfile, isB4Enabled, setB4Enabled, setB4StyleProfile } from '../utils/ai/b4/config';
 
 // ── 문서 종류별 기본 섹션 목록 (양식 매핑용) ───────────────────────────────────────
 export const DOC_SECTION_MAP = {
@@ -62,6 +63,8 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [newClassAge,  setNewClassAge]  = useState('3');
   const [saved, setSaved]         = useState(false);
   const [b3Enabled, setB3EnabledState] = useState(() => isB3Enabled());
+  const [b4Enabled, setB4EnabledState] = useState(() => isB4Enabled());
+  const [b4StyleProfile, setB4StyleProfileState] = useState(() => getB4StyleProfile());
   const [notifyPermission, setNotifyPermission] = useState(() =>
     ('Notification' in window) ? Notification.permission : 'unsupported'
   );
@@ -658,6 +661,33 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                 }}>
                   <span style={{ width:18, height:18, background:'var(--white)', borderRadius:'50%', position:'absolute', top:3, left:b3Enabled ? 23 : 3, transition:'left 0.2s' }} />
                 </button>
+              </div>
+            </SettingCard>
+
+            <SettingCard title="B4 의미 그래프·담화 계획 엔진 (검토 기능)">
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap: 12 }}>
+                <div style={{ paddingRight: 10 }}>
+                  <div style={{ fontSize:14, fontWeight:800 }}>사건 흐름을 먼저 계획한 뒤 문장화</div>
+                  <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2, lineHeight:1.6 }}>
+                    B2/B3를 유지한 상태에서, 관찰 메모의 핵심 사건과 보조 사건을 고른 뒤 배움 읽기와 지원 계획만 더 정돈합니다. 실패하면 B3 또는 B2 결과를 그대로 사용합니다.
+                  </div>
+                </div>
+                <button onClick={() => { const next = !b4Enabled; setB4Enabled(next); setB4EnabledState(next); }} aria-label="B4 의미 그래프 엔진 사용" style={{
+                  width:44, height:24, borderRadius:12, flexShrink:0, border:'none', padding:0,
+                  background:b4Enabled ? 'var(--primary)' : 'var(--gray-300)', position:'relative', transition:'background 0.2s',
+                }}>
+                  <span style={{ width:18, height:18, background:'var(--white)', borderRadius:'50%', position:'absolute', top:3, left:b4Enabled ? 23 : 3, transition:'left 0.2s' }} />
+                </button>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color:'var(--text-secondary)', marginBottom: 5 }}>B4 문체 프로필</div>
+                <select value={b4StyleProfile} onChange={(e) => { setB4StyleProfile(e.target.value); setB4StyleProfileState(e.target.value); }}
+                  style={{ width:'100%', padding:'9px 10px', borderRadius:10, border:'1px solid var(--border)', background:'var(--white)', color:'var(--text-primary)', fontSize:13 }}>
+                  {B4_STYLE_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+                </select>
+                <div style={{ fontSize: 11.5, color:'var(--text-tertiary)', marginTop: 5 }}>
+                  문체는 문장 길이와 연결 표현만 바꾸며, 사실·테마·지원 계획의 의미는 바꾸지 않습니다.
+                </div>
               </div>
             </SettingCard>
 

@@ -63,6 +63,7 @@ export const SYNC_EXCLUDED_KEYS = [
   'sw_shared_doc_forms', 'sw_admin_llm_server_url', 'sw_admin_llm_server_model', 'sw_admin_llm_server_model_14b',
   'sw_b2_sentence_engine',
   'sw_b3_case_engine_enabled',
+  'sw_b4_discourse_engine_enabled', 'sw_b4_style_profile', 'sw_b4_recent_patterns', 'sw_b4_teacher_preference_profile',
 ];
 
 export function getDeviceId() {

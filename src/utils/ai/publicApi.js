@@ -20,6 +20,8 @@ import { getB2SentenceEngine } from './b2/config';
 import { runConstrainedB2LLM } from './b2/llmBridge';
 import { isB3Enabled } from './b3/config';
 import { generateB3 } from './b3/engine';
+import { isB4Enabled } from './b4/config';
+import { generateB4 } from './b4/engine';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
 
@@ -57,16 +59,19 @@ export async function processRecord(options = {}) {
     input: options.rawText,
     childName: options.childName,
   });
+  const b4Enabled = isB4Enabled();
   const b3Enabled = isB3Enabled();
-  const sentenceResult = b3Enabled
-    ? generateB3({ input: options.rawText, childName: options.childName, observation: resolved.observation, fallbackCopyReady: current.copyReady })
-    : await runConstrainedB2LLM({
+  const sentenceResult = b4Enabled
+    ? generateB4({ input: options.rawText, childName: options.childName, observation: resolved.observation, fallbackCopyReady: current.copyReady })
+    : (b3Enabled
+      ? generateB3({ input: options.rawText, childName: options.childName, observation: resolved.observation, fallbackCopyReady: current.copyReady })
+      : await runConstrainedB2LLM({
       input: options.rawText,
       childName: options.childName,
       observation: resolved.observation,
       fallbackCopyReady: current.copyReady,
       engine: getB2SentenceEngine(),
-    });
+    }));
   const b2 = sentenceResult.b2;
   return {
     ...resolved,
@@ -78,7 +83,8 @@ export async function processRecord(options = {}) {
     sentenceEngine: sentenceResult.engineUsed,
     llmMeta: sentenceResult.llmMeta,
     b2: { enabled: true, questions: b2.questions, trace: b2.trace },
-    b3: b3Enabled ? { enabled: true, questions: sentenceResult.questions, trace: sentenceResult.trace } : null,
+    b3: sentenceResult.b3 ? { enabled: true, questions: sentenceResult.b3.questions || [], trace: sentenceResult.b3.trace, copyReady: sentenceResult.b3.copyReady } : (b3Enabled ? { enabled: true, questions: sentenceResult.questions, trace: sentenceResult.trace, copyReady: sentenceResult.copyReady } : null),
+    b4: b4Enabled ? { enabled: true, questions: sentenceResult.questions || [], trace: sentenceResult.b4Trace, copyReady: sentenceResult.b4CopyReady || sentenceResult.copyReady } : null,
     aiAnalysis: analysis,
     modularDrafts,
   };

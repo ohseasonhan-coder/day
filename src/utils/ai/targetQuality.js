@@ -79,6 +79,21 @@ function nearDuplicate(a, b) {
 // 목표 복사용(col7) 문자열 → 3섹션 분해. "관찰내용:" / "배움 읽기:" / "교사 지원 및 다음 계획:" 및 [대괄호] 형식 모두 처리.
 export function parseTargetSections(text) {
   const t = String(text || '').replace(/\r/g, '');
+  const grabKo = (labels) => {
+    for (const label of labels) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(?:\\[${escaped}\\]|${escaped}\\s*[:：])\\s*([\\s\\S]*?)(?=(?:\\n?\\s*(?:\\[(?:관찰내용|배움 읽기|교사 지원 및 다음 계획)\\]|(?:관찰내용|배움 읽기|교사 지원 및 다음 계획)\\s*[:：]))|$)`);
+      const m = t.match(re);
+      if (m) return clean(m[1]);
+    }
+    return '';
+  };
+  const ko = {
+    observation: grabKo(['관찰내용']),
+    learning: grabKo(['배움 읽기', '배움읽기']),
+    support: grabKo(['교사 지원 및 다음 계획', '교사 지원', '지원 계획', '다음 계획']),
+  };
+  if (ko.observation || ko.learning || ko.support) return ko;
   const grab = (labels) => {
     for (const label of labels) {
       const re = new RegExp(`(?:\\[${label}\\]|${label}\\s*[:：])\\s*([\\s\\S]*?)(?=(?:\\n?\\s*(?:\\[(?:관찰내용|배움 읽기|교사 지원[^\\]]*)\\]|(?:관찰내용|배움 읽기|교사 지원[^:：]*)\\s*[:：]))|$)`);
