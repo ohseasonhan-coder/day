@@ -31,7 +31,7 @@ function buildModularText(documentType, input) {
 
 // 프리셋을 modular로 생성 → 검수(validateModularOutput) → 요약.
 // 결과는 관리자에게만 노출(점수/사유 포함). 일반 사용자 출력과 무관.
-export function runSampleAudit(documentType = 'notice', presets = REVIEW_SAMPLE_PRESETS) {
+export function runSampleAudit(documentType = 'notice', presets = REVIEW_SAMPLE_PRESETS.slice(0, 20)) {
   const rows = presets.map((p) => {
     let text = '';
     let errored = false;

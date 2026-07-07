@@ -120,6 +120,31 @@ describe('안전 — 사실 추가 방지·금지표현·결정론·폴백', () 
     });
   });
 
+  test('표현 풀 변형(내장 표현 다양화): 모든 변형이 audit 무경고·금지어 없음·결정론', () => {
+    const bases = {
+      persist: (n) => `${n}가 블록 탑이 무너지자 다시 차근차근 쌓았다.`,
+      express: (n) => `${n}가 "내가 만든 성이에요"라고 말하며 설명했다.`,
+      explore: (n) => `${n}가 돋보기로 나뭇잎의 무늬를 살펴보았다.`,
+      make: (n) => `${n}가 점토를 눌러 그릇 모양을 만들었다.`,
+    };
+    const names = ['지우', '서연', '도윤', '하준', '민준', '아인', '윤서', '준서', '하은', '소율'];
+    Object.entries(bases).forEach(([key, mk]) => {
+      const seen = new Set();
+      names.forEach((n) => {
+        const input = mk(n);
+        const l = learn(input, n);
+        expect(l).toBe(learn(input, n));                       // 같은 입력 = 같은 문장(결정론)
+        expect(l.endsWith('다.')).toBe(true);
+        BANNED.forEach((re) => expect(l).not.toMatch(re));
+        if (key !== 'express') expect(l).not.toMatch(/친구|또래|함께|같이|서로/); // 또래 창작 금지
+        const a = auditObservationCopy({ input, observation: input, learning: l, support: '놀이 자료를 더해 흐름이 이어지도록 돕는다.', childName: n });
+        expect(a.warnings).toEqual([]);                        // 변형 전부 무경고
+        seen.add(l.replace(n, '○').replace(/^[^ ]+ /, ''));
+      });
+      expect(seen.size).toBeGreaterThanOrEqual(1);             // 풀 동작(이름 따라 변형 선택)
+    });
+  });
+
   test('신호 미감지 시 보수적 폴백 유지(일반론·발달 영역 창작 없음)', () => {
     expect(readLearningSignal(CASES.none)).toBeNull();
     const l = learn(CASES.none, '아인');

@@ -138,6 +138,103 @@ OBSREPORT=1 CI=true npx react-scripts test src/utils/ai.observationReport.test.j
 - **리포트**: 패널 내 "검토 리포트" — 검토 건수, A/B별 그대로 사용·표현 수정·사실 다름·자연스러움·지원 계획 비율, B안 선호율, 수정률·평균 수정 길이·섹션 집중도, 최근 20건 반복 유형, 사실 오류 시 audit 코드 빈도. **원문·메모 미출력.**
 - **개인정보**: 첫 진입 시 "이 기기에만 저장·외부 미전송" 안내 + 상시 푸터 문구 + "검토 데이터 삭제" 즉시 삭제.
 
+---
+
+# 5단계 — 앱 내장형 로컬 LLM 엔진 (POC)
+
+> 목표: Chrome `window.LanguageModel` 의존 없이, 앱이 자체적으로 로컬 LLM을 실행해
+> 배움 읽기·교사 지원을 생성. 규칙 엔진은 사실 카드 추출·검수·fallback으로 유지.
+
+## 런타임·모델
+- **런타임**: WebLLM(@mlc-ai/web-llm, Apache-2.0) — WebGPU 로컬 추론, JSON 스키마 강제(XGrammar),
+  모델 가중치 브라우저 Cache Storage 자동 캐시. 대안 비교: Transformers.js(WASM fallback 있으나
+  1B+ 생성은 실용 불가, 스키마 강제 없음), wllama(CPU 전용, 느림). → WebGPU 대상(크롬·엣지 = 앱 공식 지원 브라우저)에 최적.
+- **모델**: `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` (Apache-2.0, 상업 사용 가능, 한국어 생성 가능한 최소급).
+  ⚠ Qwen2.5-**3B**는 연구 라이선스라 금지. 가중치는 Git/번들 미포함 — 최초 "엔진 준비" 시 1회 다운로드.
+- **번들 영향**: web-llm은 dynamic import 지연 청크(원시 5.9MB, 검토 패널에서만 로드). main +8.4kB(어댑터 호출부만).
+
+## 구조 (src/utils/ai/llm/)
+```
+입력 메모 → factCard.js(사실 카드 추출·정규화, 규칙)
+         → promptBuilder.js(카드만 직렬화 + JSON 스키마 강제)
+         → embeddedLLM.js(WebLLM 어댑터: idle/need-download/preparing/ready/unsupported/error)
+         → postProcess.js(JSON 파싱→형식·길이·반복·금지어→사실카드 발화 대조→observationAudit)
+         → 통과: 복사용 3단 반영(관찰내용은 항상 규칙 결과) / 실패·미지원: 규칙 B안 fallback(사유는 개발 정보)
+engineAdapter.js: rule(기본) | embedded-local-llm | chrome-builtin(선택 보조) | auto
+```
+- LLM 담당: **배움 읽기 + 교사 지원 및 다음 계획만**. 관찰내용은 규칙 결과 고정(발화·사실 보존).
+- 원문 전체를 LLM에 자유 전달하지 않음 — 사실 카드 필드만(이름/행동/발화/재료/또래/실지원/다음가능성/금지요소/작성규칙).
+- 원문·프롬프트·LLM 전문 출력은 저장하지 않음(반환값 전달만).
+- UI: 검토 flag 안 "AI 문장 엔진(실험)" 섹션 — 준비(진행률)/미지원/실패/저장공간부족 구분, C안 카드로만 표시(A/B 미덮어쓰기), 모델 삭제 버튼.
+- 테스트: mock 어댑터(ai.llmEngine.test, 17건) — CI에서 모델 다운로드 없음.
+
+---
+
+# 5.5단계 — 실기기 검증 결과 + 관리자 서식 관리 MVP
+
+## 실기기 모델 검증 (Intel Gen-12LP iGPU · Chrome 148 · WebGPU 하드웨어)
+- 모델 `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` · 런타임 web-llm **0.2.84(정확 고정)** · 원본: HF CDN(가중치 30샤드) + raw.githubusercontent(mlc wasm, v0_2_84 일치).
+- 실측: 다운로드+초기화 **177초 / 840MB**, 새로고침 후 캐시 재초기화 **27초**, 생성 37초~2분(iGPU 기준 — 느림).
+- **개인정보 경계(실측)**: 전 요청 GET·관찰기록/프롬프트 미포함, 생성 중 외부 요청 **0건**,
+  외부 fetch 전면 차단(오프라인 시뮬레이션)에서 초기화·생성 **성공(차단 시도 0건)**, 모델 삭제 시 **840MB 전량 회수**.
+- 품질(실측 2건, 20건 배터리는 미완): C안이 B안보다 나은 사례 0건 — ① 발화 사례: audit 통과했으나 해석 얕음
+  ② 또래 사례: 기계적 반복 → **후처리 차단 실전 작동** → B안 자동 유지. 사실 추가·발화 훼손·금지어 0건.
+- **판정: C안(1.5B) 확대 보류** — 안전 파이프라인은 전부 실증, 품질은 모델 한계. 다음 수순 = 개인 PC 7B 서버
+  (`private-server-7b` 어댑터 준비 완료: OpenAI 호환 로컬 서버, 관리자 URL 설정 시에만 ready, 미설정·오류 시 B안).
+- 공급망: 버전 정확 고정 완료. 차기 과제 — 모델 매니페스트(SHA256) 문서화·자체 호스팅 전환.
+
+## 관리자 전용 문서 서식 관리 MVP (docTemplates)
+- 블록 서식(문단/표/줄바꿈/체크박스/안내/필드) + 공통 필드 사전 15종(auto/manual/ai · 엔진 rule/7b/manual/none).
+- 권한: isMaster 재사용 — UI 아닌 **저장 계층 전 변이 함수에서 재검사**. 교사는 공개 서식만 조회.
+- 미정의 {{태그}} 저장 차단 / observation은 규칙 고정(7B 미덮어쓰기) / learningReading·support는 audit 통과분만,
+  실패·미연결 시 B안 / 직접 입력은 AI가 덮어쓰지 않음 / 인스턴스는 원본 불변·값 장기 미저장(복사만).
+- 저장: `sw_shared_doc_forms`(기기 공용, 동기화·백업 제외). 7B 서버 주소 `sw_admin_llm_server_url`(관리자 전용, 교사 미노출).
+- 다음 단계: DOCX/PDF/한글 출력, dailyRoutine류 엔진 연결, 문서 인스턴스 보관함, 7B 서버 실검증.
+
+## 설정 0회·내장 표현 풀 (5.5 후속 — "사용자 설정 없는 AI")
+- **자동 감지**: 관리자 주소 미설정 시 같은 PC 표준 주소(Ollama 11434, LM Studio 1234)를 AI 사용 시점에 1회 탐지(세션 캐시).
+  실증: 주소 삭제 상태에서 `GET /v1/models` 자동 탐지 → `POST /chat/completions` 실생성 확인. 서버 없으면 조용히 규칙 엔진.
+- **7B → 내장 코드(증류) 판정**: 7B 모델 자체 내장은 불가(4.7GB·속도). scripts/distill7b.mjs로 템플릿 증류를 실측한 결과
+  **품질 미달 폐기**(환각·중국어 혼입·조각문·또래 창작). 대신 표현 풀을 수작업 정제해 내장 — persist/express/explore/make에
+  결정론적 2변형(pickBy), 전 변형 audit 무경고 가드 테스트. 용량 +0.5KB, 설정 0회, 즉시·오프라인.
+- **문체 가드(style_mismatch)**: '습니다/것입니다/기회를 얻었다/향상되었다' 류 차단 — 실검증에서 통과했던 유형이
+  보강 후 실전 차단 확인(콘솔 '[로컬 LLM 검수 탈락] style_mismatch').
+
+---
+
+# 6단계 — 규칙 엔진 고도화: LLM 없이 LLM급 (5단 파이프라인)
+
+```
+입력 메모 → 사실 카드(llm/factCard: 3분리 — observedFacts/safeMeanings/forbidden)
+         → 의미·상황 판정(planner/situationJudge: trigger+required+excluded+needPeer, primary+secondary)
+         → 문장 계획(planner/sentencePlanner: observationPlan/learningPlan/supportPlan + blockedClaims)
+         → 렌더링(planner/sentenceRenderer: 결정론 변형, emotionOnly 가드, 계획 밖 의미 추가 금지)
+         → audit·fallback(observationAudit + rules/blockedClaims 근거 대조)
+```
+
+## 선언형 규칙(src/utils/ai/rules/)
+- **themes.js** — 19테마(기존 17 + 갈등·사과 + 질문·설명): id/category/trigger/required/excluded/needPeer/
+  priority(배열 순서)/coexist/충돌규칙(excluded로 양보 선언)/allowed·blockedClaims/learningVariants(결정론 2변형)/
+  secondary(보조문장)/supportVariants(상황 연결 계획형 2종)/testCases. **새 규칙 = 항목 추가만.**
+- **blockedClaims.js** — 근거 기반 금지 주장: 감정 단정(evidence로 입력 감정 있으면 면제)/의도 추정(발화 있으면 면제)/
+  발달·성취 단정(무조건)/문체(습니다·기회를 얻었)/일반론 지원(GENERIC_SUPPORT). audit·렌더러·7B 후처리가 공유.
+
+## 핵심 규칙 변경(사실 충실성)
+- persist: '무너지/넘어지' **단독 발화 제거**(재시도 단서 필수) — 울음만 있는 입력에서 "시도 이어감" 창작 방지.
+- persist excluded=/미안|사과|화해|다툰/ — 화해 맥락의 "다시(놀이 재개)"를 conflict에 양보(선언형 충돌 처리).
+- 부정 감정만+회복 없음(emotionOnly): recover 비활성(required) + '즐거움' 계열 변형 회피(렌더러 가드).
+  '놀라워(감탄)'는 부정 감정으로 취급하지 않음.
+- 구어체 일반화: 조사 생략('차례 기다렸다가'), 활용형(그렸/건네주/들여다보/버티/그네/녹아 등) 트리거 확장.
+
+## audit 보강(근거 대조)
+- major 추가: emotion_fabricated / intent_speculation / development_claim (blockedClaims 대조, 입력 근거 시 면제)
+- minor 추가: achievement_claim / style_formal / learning_support_duplicate(토큰 80% 중복) / generic_support(일반론 단독)
+
+## 자유입력 55건 리포트(ai.ruleEngine.test — CI 상시)
+Safety 98.4 · Copy-Ready 98.9 · 자연스러움 100% · 개인화 100% · 신호감지 91% · SAFE(일반론) 9%(희박·부정감정 의도적)
+· 배움 문형 고유율 69% · 중대 오류 0 · 금지 표현 0 · 결정론 검증 통과.
+게이트: SAFE≤20%, 감지≥80%, Safety≥95, 고유율≥55, major=0.
+
 ## 품질 게이트(개발 판단 기준 — 코드 반영 전 필독)
 1. **fact_mismatch("사실과 다름") > 0이면** 규칙 확장보다 **사실 보존 원인 분석 우선**(리포트의 audit 코드 빈도부터).
 2. **need_natural("더 자연스럽게")이 반복되면** 해당 표현 유형을 분류해 표현 풀 개선 후보로 축적(즉시 엔진 수정 금지).

@@ -13,3 +13,12 @@ release/
 # 로컬 골든 데이터셋(비식별 전 원본 기반) — 추적 제외
 data/golden_local/
 *.local.json
+*.local.md
+
+# 로컬 LLM 모델 가중치 — Git/번들 커밋 금지(런타임에 기기 캐시로만 저장)
+*.gguf
+*.onnx
+*.safetensors
+*.wasm.bin
+models/
+model_cache/
