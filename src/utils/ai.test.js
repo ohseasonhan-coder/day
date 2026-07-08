@@ -26,11 +26,12 @@ async function expectBasicQuality(rawText, childName = '하준') {
   });
   // 관찰일지는 문어체 종결
   expect(res.observation).toMatch(/(다|요)[.!]?$/);
-  // 관찰일지 평가도 항상 생성되고 발달적 해석 문장이어야 함
+  // 관찰일지 평가도 항상 생성되고 발달적 해석 또는(갈등 등 민감 상황) 보수적 지원 서술이어야 함
+  // — 갈등·전이 상황에서는 contextGuard가 발달 단정 대신 "지원할 필요" 중심의 보수 평가로 대체한다(의미 오염 차단 정책).
   expect(typeof res.evaluation).toBe('string');
   expect(res.evaluation.trim().length).toBeGreaterThan(0);
   expect(res.evaluation).not.toContain('🔚');
-  expect(res.evaluation).toMatch(/발달|성장|형성|향상|자라|키워|길러/);
+  expect(res.evaluation).toMatch(/발달|성장|형성|향상|자라|키워|길러|지원할 필요|경험이 나타|경험을 지원/);
   return res;
 }
 

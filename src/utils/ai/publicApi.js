@@ -22,6 +22,7 @@ import { isB3Enabled } from './b3/config';
 import { generateB3 } from './b3/engine';
 import { isB4Enabled } from './b4/config';
 import { generateB4 } from './b4/engine';
+import { applyContextGuard } from './b4/contextGuard';
 
 export { RECORD_QUALITY_SAMPLES, TONE_OPTIONS };
 
@@ -73,11 +74,33 @@ export async function processRecord(options = {}) {
       engine: getB2SentenceEngine(),
     }));
   const b2 = sentenceResult.b2;
+  // 문서 맥락 의미 오염 차단(전이·갈등/시범 상황): 평가·알림장·누리과정·copyReady 섹션을
+  // 원문 근거와 대조해 소독. trace에는 비식별 코드만 남는다(원문·전문 미저장).
+  const guardedDocs = applyContextGuard({
+    input: options.rawText,
+    childName: options.childName,
+    result: {
+      evaluation: resolved.evaluation,
+      support: resolved.support,
+      parent: resolved.parent,
+      curriculumBasis: resolved.curriculumBasis,
+      observation: resolved.observation,
+      copyReady: sentenceResult.copyReady,
+    },
+  });
+  const g = guardedDocs.result;
   return {
     ...resolved,
+    evaluation: g.evaluation,
+    support: g.support,
+    parent: g.parent,
+    parentStatus: g.parentStatus || null,
+    curriculumBasis: g.curriculumBasis,
+    curriculumStatus: g.curriculumStatus || null,
+    contextGuard: guardedDocs.trace,
     // 복사용 관찰일지(관찰내용/배움 읽기/교사 지원 및 다음 계획) — 생성 직후 자동 검수 연결.
     // 통과=그대로 / 경미=안전 정리 / 중대(발화손실·사실추가 등)=사실 보존 폴백.
-    copyReady: sentenceResult.copyReady,
+    copyReady: g.copyReady || sentenceResult.copyReady,
     b2CopyReady: sentenceResult.b2CopyReady,
     copyReadyAudit: sentenceResult.audit,
     sentenceEngine: sentenceResult.engineUsed,

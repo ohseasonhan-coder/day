@@ -1,4 +1,5 @@
 import { extractB3FactsShape } from '../b3/caseSearch';
+import { detectSituationTypes } from './contextGuard';
 
 const clean = (value) => String(value || '').trim().replace(/\s{2,}/g, ' ');
 const unique = (values) => [...new Set(values.filter(Boolean))];
@@ -149,6 +150,8 @@ export function buildB4EventGraph({ card = {}, b2Plan = {} } = {}) {
     factsShape,
     themeIds,
     sparse,
+    // 상황 유형(전이·갈등/시범 등) — 문서 맥락 불일치 테마 차단(contextGuard)의 판정 근거
+    situationTypes: detectSituationTypes(source),
     flags: {
       hasPeer: /(친구|또래)/.test(source) || factsShape.includes('peer_interaction') || hasTag(actionNodes, 'peer'),
       hasSpeech: speech.length > 0,

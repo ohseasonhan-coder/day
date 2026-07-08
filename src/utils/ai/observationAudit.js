@@ -24,7 +24,15 @@ const endsProperly = (s) => /[.!?]["”']?$/.test(clean(s));
 const hasPeerWord = (s) => /(친구|또래|함께|같이|서로)/.test(String(s));
 
 const MAJOR = new Set(['speech_lost', 'fact_addition_peer', 'fact_addition_speech', 'negative_or_diagnostic', 'support_asserts_done', 'josa_error',
-  'emotion_fabricated', 'intent_speculation', 'development_claim']);
+  'emotion_fabricated', 'intent_speculation', 'development_claim',
+  'unsupported_topic', 'actor_role_mismatch', 'unsupported_resolution', 'document_context_mismatch']);
+
+// 사과·울음·대답·시범만으로 생성해선 안 되는 확대 해석(원문 근거가 있으면 면제)
+const UNSUPPORTED_RESOLUTION = [
+  [/(관계(가|를) 회복|화해로 이어|갈등이 해결|사이가 좋아졌)/, /(화해했|화해하고)/],
+  [/(감정 조절(에 성공|을 잘 해|능력))/, null],
+  [/(자신감(이 (생겼|높아|자랐)|을 얻었))/, null],
+];
 
 function messageFor(code, extra) {
   switch (code) {
@@ -48,6 +56,12 @@ function messageFor(code, extra) {
     case 'style_formal': return '관찰일지 문체와 어긋남(합쇼체·상투구)';
     case 'learning_support_duplicate': return '배움 읽기와 지원 계획이 같은 내용을 반복함';
     case 'generic_support': return '지원 계획이 상황과 연결되지 않은 일반론임';
+    case 'unsupported_topic': return '원문 근거 없는 주제(놀이 참여·즐거움·격려·능력 향상 등) 생성';
+    case 'actor_role_mismatch': return '화자·행동 주체가 원문과 다르게 바뀜';
+    case 'unsupported_resolution': return '사과·울음·대답만으로 회복·성공·발달 의미를 확대함';
+    case 'document_context_mismatch': return '문서 맥락과 맞지 않는 평가·교육과정 연결';
+    case 'curriculum_mapping_without_evidence': return '근거 없는 누리과정 자동 연결(교사 선택 필요)';
+    case 'target_child_required': return '알림장 대상 원아 미지정(다인 등장) — 생성 보류';
     default: return code;
   }
 }
@@ -116,6 +130,12 @@ export function auditObservationCopy({ input = '', observation = '', learning = 
 
   // 13) 일반론 지원(상황과 연결되지 않은 상투구 단독)
   if (sup && GENERIC_SUPPORT.test(sup)) push('generic_support');
+
+  // 14) 확대 해석 차단 — 사과·울음·대답만으로 회복·성공·자신감 생성 금지(근거 있으면 면제)
+  const combined = `${learn} ${sup}`;
+  if (UNSUPPORTED_RESOLUTION.some(([pat, ev]) => pat.test(combined) && !(ev && ev.test(clean(input))))) {
+    push('unsupported_resolution');
+  }
 
   const severity = codes.some((c) => MAJOR.has(c)) ? 'major' : (codes.length ? 'minor' : 'none');
   const majorN = details.filter((d) => d.severity === 'major').length;
