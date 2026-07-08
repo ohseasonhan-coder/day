@@ -10,6 +10,14 @@
 //
 // trace에는 비식별 코드만 남긴다(원문·이름·발화·생성 전문 저장 금지).
 import { getChildren } from '../../storage';
+import {
+  detectChildcareDomainTerms,
+  detectDomainTermMisreads,
+  detectEpisodeMixing,
+  removeOtherChildNames,
+  safeEpisodeTrace,
+  segmentChildcareEpisodes,
+} from './childcareDomainGuard';
 
 const clean = (s) => String(s || '').trim();
 
@@ -151,6 +159,8 @@ export function guardText({ text, input, situations = null, targetChild = '' } =
   const cls = situationClass(sits);
   const codes = [];
   const topics = detectUnsupportedTopics(text, input);
+  const domainGuard = detectDomainTermMisreads({ input, text });
+  const episodeGuard = detectEpisodeMixing({ input, text, targetChild, knownNames: knownChildNames() });
   const activeBlock = [
     ...(cls.conflict ? CONTEXT_BLOCK.conflict : []),
     ...(cls.demo ? CONTEXT_BLOCK.demo : []),
@@ -164,7 +174,15 @@ export function guardText({ text, input, situations = null, targetChild = '' } =
   if (detectUnsupportedResolution(text, input)) codes.push('unsupported_resolution');
   codes.push(...checkActorRoles(input, text));
   if (checkEmotionOwnership(input, text, targetChild)) codes.push('actor_role_mismatch');
-  return { ok: codes.length === 0, codes: [...new Set(codes)], blockedTopics };
+  if (!domainGuard.ok) {
+    codes.push(...domainGuard.codes);
+    blockedTopics.push(...domainGuard.blockedTopics);
+  }
+  if (!episodeGuard.ok) {
+    codes.push(...episodeGuard.codes);
+    blockedTopics.push(...episodeGuard.blockedTopics);
+  }
+  return { ok: codes.length === 0, codes: [...new Set(codes)], blockedTopics: [...new Set(blockedTopics)] };
 }
 
 // ── 보수적 대체 문장(허용 범위 내) ─────────────────────────────────────────
@@ -204,6 +222,10 @@ export function conservativeLearning({ situations, childName }) {
   return '';
 }
 
+function conservativeParentNotice() {
+  return '오늘 관찰된 상황은 원에서 다시 살펴보며, 필요한 지원을 이어 가겠습니다.';
+}
+
 // 문장 단위 소독 — 오염 문장만 제거하고 사실 문장은 보존(전체 폴백은 최후 수단)
 export function scrubSentences({ text, input, situations, targetChild = '' } = {}) {
   const t = clean(text);
@@ -233,15 +255,37 @@ function namesInInput(input) {
   });
   return [...found];
 }
+
+function stripGenericHomeRequest(text = '') {
+  return clean(text)
+    .split(/(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+/)
+    .map(clean)
+    .filter((sentence) => sentence && !/(가정에서도|집에서도|부모님께서도|가정과\s*연계|함께\s*연습해\s*주세요|시도해\s*주세요|격려해\s*주세요|媛\?뺤뿉\?쒕룄)/.test(sentence))
+    .join(' ')
+    .trim();
+}
 export function guardParentNotice({ input, parent, childName } = {}) {
+  const episodeGuard = detectEpisodeMixing({ input, text: parent, targetChild: clean(childName), knownNames: knownChildNames() });
+  if (episodeGuard.codes?.includes('target_child_required')) {
+    return { status: 'target_child_required', reason: 'multiple_children_detected', text: '', codes: ['target_child_required'] };
+  }
   const others = namesInInput(input).filter((n) => n !== clean(childName));
   if (others.length >= 1 && !clean(childName)) {
     return { status: 'target_child_required', reason: 'multiple_children_detected', text: '', codes: ['target_child_required'] };
   }
-  let text = clean(parent);
+  let text = removeOtherChildNames(parent, input, clean(childName), knownChildNames());
   // 다른 유아 이름 자동 비식별('친구')
   others.forEach((n) => { text = text.replace(new RegExp(`${n}(이가|가|이는|는|이의|의|이를|를|이|에게)?`, 'g'), (m) => m.replace(n, '친구').replace(/^친구이/, '친구')); });
   const g = guardText({ text, input, targetChild: clean(childName) });
+  if (!g.ok && g.codes.includes('generic_home_request_without_source')) {
+    const withoutHomeRequest = stripGenericHomeRequest(text);
+    if (withoutHomeRequest) {
+      const retry = guardText({ text: withoutHomeRequest, input, targetChild: clean(childName) });
+      if (retry.ok || retry.codes.every((code) => code === 'generic_home_request_without_source')) {
+        return { status: 'ok', text: withoutHomeRequest, codes: [], blockedTopics: [] };
+      }
+    }
+  }
   return { status: g.ok ? 'ok' : 'sanitized', text: g.ok ? text : '', codes: g.codes, blockedTopics: g.blockedTopics };
 }
 
@@ -254,14 +298,16 @@ export function guardCurriculumBasis({ input, curriculumBasis, situations = null
   const sits = situations || detectSituationTypes(input);
   const cls = situationClass(sits);
   const itemText = `${curriculumBasis.category || ''} ${curriculumBasis.item || ''}`;
+  const domainTerms = detectChildcareDomainTerms(input);
+  const unsupportedDomainMapping = domainTerms.length > 0 && /(신체|건강|안전|발달|능력|질병|자기\s*조절|누리과정|교육과정|보육과정)/.test(itemText);
   const diseaseLike = /(질병|건강 습관|예방)/.test(itemText);
   const noEvidence = CURRICULUM_EVIDENCE.some(([pat, ev]) => pat.test(itemText) && !ev.test(clean(input)));
-  if ((cls.conflict || cls.demo) || (diseaseLike && noEvidence)) {
+  if ((cls.conflict || cls.demo) || (diseaseLike && noEvidence) || unsupportedDomainMapping) {
     return {
       basis: null,
       status: 'curriculum_mapping_required',
       reason: 'insufficient_curriculum_evidence',
-      codes: ['curriculum_mapping_without_evidence'],
+      codes: ['curriculum_mapping_without_evidence', ...(unsupportedDomainMapping ? ['unsupported_curriculum_mapping'] : [])],
     };
   }
   return { basis: curriculumBasis, status: 'ok' };
@@ -271,9 +317,17 @@ export function guardCurriculumBasis({ input, curriculumBasis, situations = null
 // 반환: { result(치환된 사본), trace } — trace에는 비식별 코드만.
 export function applyContextGuard({ input = '', childName = '', result = {} } = {}) {
   const situations = detectSituationTypes(input);
+  const episodeTrace = safeEpisodeTrace(segmentChildcareEpisodes({ input, targetChild: childName, knownNames: knownChildNames() }));
+  const domainTerms = detectChildcareDomainTerms(input);
   const cls = situationClass(situations);
-  const trace = { fallback: false, fallbackReason: '', blockedTopics: [], codes: [], situations };
+  const trace = { fallback: false, fallbackReason: '', blockedTopics: [], codes: [], situations, domainTermIds: domainTerms.map((term) => term.id), episodeTrace };
   const out = { ...result };
+  if (episodeTrace.status === 'target_child_required') {
+    out.parent = '';
+    out.parentStatus = { status: 'target_child_required', reason: 'multiple_children_detected' };
+    trace.codes.push('target_child_required');
+    trace.blockedTopics.push('multiple_children_detected');
+  }
   if (!cls.conflict && !cls.demo) {
     // 일반 상황: 전역 안전망만(관계 회복·누리과정 근거·화자 교체)
     const g = guardText({ text: `${out.evaluation || ''} ${out.parent || ''}`, input, situations, targetChild: childName });
@@ -317,7 +371,7 @@ export function applyContextGuard({ input = '', childName = '', result = {} } = 
     if (clean(scrubbed.text).length >= 12) {
       out.parent = scrubbed.text;
     } else {
-      out.parent = '';
+      out.parent = conservativeParentNotice();
       out.parentStatus = { status: 'needs_teacher_review', reason: 'document_context_mismatch' };
     }
   } else {

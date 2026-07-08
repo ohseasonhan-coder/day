@@ -309,7 +309,46 @@ const adversarialRows = adversarialSeeds.slice(0, 80).map((row, index) => {
   ];
 });
 
-const allRows = [...rows, ...qualityRows, ...contrastRows, ...compositionRows, ...multiPlanRows, ...adversarialRows];
+const childcareDomainRows = [
+  ['b4d_001', 'adversarial_domain_gongsoo_ball', '하준', '하준이가 등원하며 교사에게 공수로 인사하였다.', 'greeting'],
+  ['b4d_002', 'adversarial_domain_gongsoo_physical', '민서', '민서가 교실에 들어오며 공수 자세로 "안녕하세요"라고 말했다.', 'greeting'],
+  ['b4d_003', 'adversarial_domain_belly_bow_body', '시온', '시온이가 등원 후 배꼽인사를 하였다.', 'greeting'],
+  ['b4d_004', 'adversarial_domain_belly_bow_safety', '유나', '유나가 선생님을 보고 배꼽 인사를 하였다.', 'greeting'],
+  ['b4d_005', 'adversarial_domain_discussion_freeplay', '도윤', '도윤이가 이야기나누기 시간에 손을 들고 "비가 와요"라고 말했다.', 'group_discussion'],
+  ['b4d_006', 'adversarial_domain_discussion_roleplay', '라온', '라온이가 이야기 나누기 시간에 친구의 말을 듣고 고개를 끄덕였다.', 'group_discussion'],
+  ['b4d_007', 'adversarial_domain_basic_health', '서아', '서아가 기본생활습관 이야기 중 손 씻는 순서를 들었다.', 'basic_life_habit'],
+  ['b4d_008', 'adversarial_domain_basic_safety', '지우', '지우가 기본 생활 습관 시간에 줄을 서서 기다렸다.', 'basic_life_habit'],
+  ['b4d_009', 'adversarial_multi_child_hajun_only', '하준', '하준이가 등원하며 공수로 인사하였다. 시이가 이야기나누기 시간에 "친구가 제일 좋아요"라고 말했다.', 'greeting'],
+  ['b4d_010', 'adversarial_multi_child_sii_only', '시이', '하준이가 등원하며 공수로 인사하였다. 시이가 이야기나누기 시간에 "친구가 제일 좋아요"라고 말했다.', 'group_discussion'],
+  ['b4d_011', 'adversarial_target_child_mismatch', '윤재', '윤재가 배꼽인사를 하였다. 하린이가 "저도 할래요"라고 말했다.', 'greeting'],
+  ['b4d_012', 'adversarial_target_child_mismatch', '하린', '윤재가 배꼽인사를 하였다. 하린이가 "저도 할래요"라고 말했다.', 'language'],
+  ['b4d_013', 'adversarial_episode_mixing_speech', '가온', '가온이가 공수로 인사하였다. 다온이가 이야기나누기에서 "바람이 불어요"라고 말했다.', 'greeting'],
+  ['b4d_014', 'adversarial_episode_mixing_speech', '다온', '가온이가 공수로 인사하였다. 다온이가 이야기나누기에서 "바람이 불어요"라고 말했다.', 'group_discussion'],
+  ['b4d_015', 'adversarial_home_request', '서준', '서준이가 등원하며 공수로 인사하였다.', 'greeting'],
+  ['b4d_016', 'adversarial_home_request', '아린', '아린이가 이야기나누기 시간에 "손을 씻어요"라고 말했다.', 'group_discussion'],
+  ['b4d_017', 'adversarial_curriculum_mapping', '지안', '지안이가 배꼽인사를 하며 교사를 바라보았다.', 'greeting'],
+  ['b4d_018', 'adversarial_curriculum_mapping', '이든', '이든이가 기본생활습관 시간에 차례를 기다렸다.', 'basic_life_habit'],
+  ['b4d_019', 'adversarial_greeting_participation', '소율', '소율이가 등원길에 공수로 인사하였다.', 'greeting'],
+  ['b4d_020', 'adversarial_greeting_participation', '로아', '로아가 배꼽인사 후 교실로 들어왔다.', 'greeting'],
+  ['b4d_021', 'adversarial_basic_self_control', '예준', '예준이가 기본생활습관 이야기 중 자기 차례를 기다렸다.', 'basic_life_habit'],
+  ['b4d_022', 'adversarial_basic_ability_growth', '채원', '채원이가 기본생활습관 시간에 양말 정리 순서를 들었다.', 'basic_life_habit'],
+  ['b4d_023', 'adversarial_discussion_curriculum', '시우', '시우가 이야기나누기 시간에 "친구와 나눠요"라고 말했다.', 'group_discussion'],
+  ['b4d_024', 'adversarial_discussion_peer_reaction', '하율', '하율이가 이야기나누기 시간에 손을 들었다.', 'group_discussion'],
+  ['b4d_025', 'adversarial_multiple_children_no_target', '', '하준이가 공수로 인사하였다. 시이가 "친구가 좋아요"라고 말했다.', 'greeting'],
+  ['b4d_026', 'adversarial_multiple_children_no_target', '', '윤재가 배꼽인사를 하였다. 민서가 이야기나누기에서 손을 들었다.', 'greeting'],
+  ['b4d_027', 'adversarial_domain_typo_spacing', '태오', '태오가 배 꼽 인사 대신 배꼽인사를 다시 해 보았다.', 'greeting'],
+  ['b4d_028', 'adversarial_domain_spacing', '은우', '은우가 이야기 나누기 시간에 손을 들고 말했다.', 'group_discussion'],
+  ['b4d_029', 'adversarial_domain_compound', '유준', '유준이가 기본 생활 습관 활동에서 인사말을 들었다.', 'basic_life_habit'],
+  ['b4d_030', 'adversarial_domain_compound', '서윤', '서윤이가 등원하며 공수 인사를 하였다.', 'greeting'],
+  ['b4d_031', 'adversarial_episode_complex', '하준', '하준이가 등원하며 배꼽인사를 하였다. 시이가 블록을 정리하고 "다 했어요"라고 말했다. 하준이는 교사를 보고 다시 인사하였다.', 'greeting'],
+  ['b4d_032', 'adversarial_episode_complex', '시이', '하준이가 등원하며 배꼽인사를 하였다. 시이가 블록을 정리하고 "다 했어요"라고 말했다. 하준이는 교사를 보고 다시 인사하였다.', 'selfhelp'],
+  ['b4d_033', 'adversarial_no_home_evidence', '나은', '나은이가 이야기나누기 시간에 "오늘 비 와요"라고 말했다.', 'group_discussion'],
+  ['b4d_034', 'adversarial_no_curriculum_evidence', '민준', '민준이가 공수로 인사하며 교실에 들어왔다.', 'greeting'],
+  ['b4d_035', 'adversarial_other_child_name_parent', '지호', '지호가 기본생활습관 시간에 손을 들었다. 유찬이가 "저요"라고 말했다.', 'basic_life_habit'],
+  ['b4d_036', 'adversarial_other_child_name_parent', '유찬', '지호가 기본생활습관 시간에 손을 들었다. 유찬이가 "저요"라고 말했다.', 'group_discussion'],
+];
+
+const allRows = [...rows, ...qualityRows, ...contrastRows, ...compositionRows, ...multiPlanRows, ...adversarialRows, ...childcareDomainRows];
 
 export const B4_SYNTHETIC_CASES = allRows.map(([id, tag, name, input, expectedTheme]) => ({ id, tag, name, input, expectedTheme }));
 export default B4_SYNTHETIC_CASES;

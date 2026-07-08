@@ -24,6 +24,13 @@ import { buildB4CandidateDiscoursePlans } from './ai/b4/multiDiscoursePlan';
 import { compressCandidate } from './ai/b4/semanticCompressor';
 import { planContrastiveRanker } from './ai/b4/planContrastiveRanker';
 import { buildB4LoraMetadata, evaluateB4LoraStartReadiness } from './ai/b4/loraPreparation';
+import {
+  detectChildcareDomainTerms,
+  detectDomainTermMisreads,
+  detectEpisodeMixing,
+  segmentChildcareEpisodes,
+} from './ai/b4/childcareDomainGuard';
+import { guardCurriculumBasis, guardParentNotice, guardText } from './ai/b4/contextGuard';
 import { parseTargetSections, scoreCopyReady } from './ai/targetQuality';
 import { processRecord } from './ai/publicApi';
 import { buildComparison, getReviewEntries, saveReviewEntry } from './reviewFeedback';
@@ -65,14 +72,77 @@ describe('B4 eventGraph와 discoursePlan', () => {
   });
 });
 
+describe('B4 childcare domain and target-child guards', () => {
+  const mixedInput = '하준이가 등원하며 교사에게 공수로 인사하였다. 시이가 이야기나누기 시간에 "친구가 제일 좋아요"라고 말했다.';
+
+  test('보육 현장 용어는 공/신체활동이 아니라 인사·일과 맥락으로 해석한다', () => {
+    const terms = detectChildcareDomainTerms('하준이가 배꼽인사와 공수를 하였다. 기본생활습관 이야기나누기를 했다.');
+    expect(terms.map((term) => term.id)).toEqual(expect.arrayContaining([
+      'gongsoo_greeting',
+      'belly_bow_greeting',
+      'basic_life_habit',
+      'group_discussion_routine',
+    ]));
+    expect(detectDomainTermMisreads({
+      input: '하준이가 등원하며 공수로 인사하였다.',
+      text: '하준이는 공을 이용한 신체운동 놀이에 참여하였다.',
+    }).codes).toContain('domain_term_misread');
+  });
+
+  test('다중 원아 입력은 대상 원아가 없으면 target_child_required로 보류한다', () => {
+    const segmented = segmentChildcareEpisodes({ input: mixedInput });
+    expect(segmented.status).toBe('target_child_required');
+    expect(segmented.reason).toBe('multiple_children_detected');
+    const parentGuard = guardParentNotice({ input: mixedInput, parent: '오늘 공수와 이야기나누기를 잘했습니다.', childName: '' });
+    expect(parentGuard.codes).toContain('target_child_required');
+  });
+
+  test('대상 원아 문서에 다른 원아의 발화와 에피소드가 섞이면 차단한다', () => {
+    const hajunMix = detectEpisodeMixing({
+      input: mixedInput,
+      targetChild: '하준',
+      text: '하준이는 등원 인사 후 "친구가 제일 좋아요"라고 말하였다.',
+    });
+    expect(hajunMix.codes).toContain('episode_mixing');
+    const siiMix = detectEpisodeMixing({
+      input: mixedInput,
+      targetChild: '시이',
+      text: '시이는 공수로 인사하고 이야기나누기에서 자신의 생각을 말하였다.',
+    });
+    expect(siiMix.codes).toContain('episode_mixing');
+  });
+
+  test('근거 없는 교육과정 매핑과 가정 연계 일반문구를 차단한다', () => {
+    const curriculum = guardCurriculumBasis({
+      input: '하준이가 등원하며 공수로 인사하였다.',
+      curriculumBasis: { category: '신체운동·건강', item: '안전하게 이동하며 신체 조절 능력을 기른다' },
+    });
+    expect(curriculum.codes).toEqual(expect.arrayContaining(['unsupported_curriculum_mapping']));
+    const genericHome = guardText({
+      input: '하준이가 등원하며 공수로 인사하였다.',
+      targetChild: '하준',
+      text: '가정에서도 함께 연습해 주세요.',
+    });
+    expect(genericHome.codes).toContain('generic_home_request_without_source');
+  });
+
+  test('B4 생성 trace는 에피소드 메타데이터만 남기고 원문 전문을 저장하지 않는다', () => {
+    const result = generateB4({ input: mixedInput, childName: '하준', observation: mixedInput });
+    const traceText = JSON.stringify(result.b4Trace);
+    expect(result.b4Trace.eventGraph.episodeTrace.selectedEpisodeIds.length).toBeGreaterThan(0);
+    expect(traceText).not.toContain('친구가 제일 좋아요');
+    expect(traceText).not.toContain(mixedInput);
+  });
+});
+
 describe('B4 200건 이상 의미 그래프 회귀', () => {
   test('사실 보존, 후보 제한, 담화 계획, fallback을 집계한다', () => {
-    expect(ALL.length).toBeGreaterThanOrEqual(600);
+    expect(ALL.length).toBeGreaterThanOrEqual(630);
     expect(APPROVED_PHRASE_BANK.length).toBeGreaterThanOrEqual(25);
     expect(CONTRAST_SETS.length).toBeGreaterThanOrEqual(112);
     expect(TEACHER_APPROVED_CONSTRUCTION_BANK.length).toBeGreaterThanOrEqual(8);
     const rows = ALL.map((item) => ({ item, b2: runB2(item), b3: runB3(item), b4: runB4(item) }));
-    expect(rows.filter(({ item }) => String(item.tag || '').startsWith('adversarial_')).length).toBeGreaterThanOrEqual(80);
+    expect(rows.filter(({ item }) => String(item.tag || '').startsWith('adversarial_')).length).toBeGreaterThanOrEqual(110);
     let b2FactSafe = 0; let b3FactSafe = 0; let b4FactSafe = 0;
     let discourseSuccess = 0; let focusSelected = 0; let candidateTotal = 0; let rejectedTotal = 0;
     let connectorErrors = 0; let quality = 0; let sparseTotal = 0; let sparseConservative = 0;
@@ -311,7 +381,7 @@ describe('B4 200건 이상 의미 그래프 회귀', () => {
     expect(report.contrastSetAppliedRate).toBeGreaterThanOrEqual(70);
     expect(report.supportSpecificRate).toBeGreaterThanOrEqual(80);
     expect(report.supportGenericRate).toBeLessThanOrEqual(5);
-    expect(report.adversarialCaseCount).toBeGreaterThanOrEqual(80);
+    expect(report.adversarialCaseCount).toBeGreaterThanOrEqual(110);
     expect(report.adversarialBlockedRate).toBeGreaterThanOrEqual(5);
     expect(report.meaningUnitSuccessRate).toBe(100);
     expect(report.meaningEvidenceLinkRate).toBe(100);

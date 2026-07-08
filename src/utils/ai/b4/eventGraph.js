@@ -1,5 +1,6 @@
 import { extractB3FactsShape } from '../b3/caseSearch';
 import { detectSituationTypes } from './contextGuard';
+import { detectChildcareDomainTerms, domainThemeIds, safeEpisodeTrace, segmentChildcareEpisodes } from './childcareDomainGuard';
 
 const clean = (value) => String(value || '').trim().replace(/\s{2,}/g, ' ');
 const unique = (values) => [...new Set(values.filter(Boolean))];
@@ -30,13 +31,21 @@ export function extractB4Speech(text = '') {
 
 export function detectB4Signals(text = '') {
   const source = clean(text);
-  return unique(SIGNALS.filter((signal) => signal.re.test(source)).map((signal) => signal.tag));
+  const domainTags = domainThemeIds(source).map((theme) => theme.replace('basic_life_habit', 'self_care'));
+  const signalTags = SIGNALS.filter((signal) => {
+    if (source.includes('공수') && signal.tag === 'movement' && !/(공을|공놀이|공으로)/.test(source)) return false;
+    return signal.re.test(source);
+  }).map((signal) => signal.tag);
+  return unique([...signalTags, ...domainTags]);
 }
 
 export function detectB4Themes(text = '', b2ThemeIds = []) {
   const source = clean(text);
-  const detected = SIGNALS.filter((signal) => signal.re.test(source)).map((signal) => signal.theme);
-  const themes = unique([...detected, ...(b2ThemeIds || [])]);
+  const detected = SIGNALS.filter((signal) => {
+    if (source.includes('공수') && signal.theme === 'movement' && !/(공을|공놀이|공으로)/.test(source)) return false;
+    return signal.re.test(source);
+  }).map((signal) => signal.theme);
+  const themes = unique([...detected, ...domainThemeIds(source), ...(b2ThemeIds || [])]);
   if (themes.includes('emotion_recovery')) return themes.filter((id) => id !== 'emotion_expression');
   return themes;
 }
@@ -65,6 +74,8 @@ function firstNode(nodes, tag) {
 
 export function buildB4EventGraph({ card = {}, b2Plan = {} } = {}) {
   const source = clean(card.source || '');
+  const domainTerms = detectChildcareDomainTerms(source);
+  const episodeTrace = safeEpisodeTrace(segmentChildcareEpisodes({ input: source, targetChild: card.name }));
   const facts = (card.facts || []).filter((fact) => clean(fact.text));
   const b2ThemeIds = b2Plan.meta?.themeIds || [];
   const factsShape = extractB3FactsShape(card);
@@ -150,6 +161,8 @@ export function buildB4EventGraph({ card = {}, b2Plan = {} } = {}) {
     factsShape,
     themeIds,
     sparse,
+    domainTermIds: domainTerms.map((term) => term.id),
+    episodeTrace,
     // 상황 유형(전이·갈등/시범 등) — 문서 맥락 불일치 테마 차단(contextGuard)의 판정 근거
     situationTypes: detectSituationTypes(source),
     flags: {
@@ -158,6 +171,8 @@ export function buildB4EventGraph({ card = {}, b2Plan = {} } = {}) {
       hasTeacherSupport: /(교사|선생님)/.test(source) || factsShape.includes('actual_teacher_support'),
       hasEmotion: hasTag(actionNodes, 'emotion'),
       hasRecovery: hasTag(actionNodes, 'recovery'),
+      hasDomainTerms: domainTerms.length > 0,
+      needsTargetChild: episodeTrace.status === 'target_child_required',
     },
   };
 }
