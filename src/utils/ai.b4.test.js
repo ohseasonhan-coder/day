@@ -24,6 +24,18 @@ import { buildB4CandidateDiscoursePlans } from './ai/b4/multiDiscoursePlan';
 import { compressCandidate } from './ai/b4/semanticCompressor';
 import { planContrastiveRanker } from './ai/b4/planContrastiveRanker';
 import { buildB4LoraMetadata, evaluateB4LoraStartReadiness } from './ai/b4/loraPreparation';
+import {
+  detectChildcareDomainTerms,
+  detectDomainTermMisreads,
+  detectEpisodeMixing,
+  segmentChildcareEpisodes,
+} from './ai/b4/childcareDomainGuard';
+import {
+  detectObjectMentionRoles,
+  detectObjectThemeOverreach,
+  hasBlockPlayEvidence,
+} from './ai/b4/objectMentionGuard';
+import { guardCurriculumBasis, guardParentNotice, guardText } from './ai/b4/contextGuard';
 import { parseTargetSections, scoreCopyReady } from './ai/targetQuality';
 import { processRecord } from './ai/publicApi';
 import { buildComparison, getReviewEntries, saveReviewEntry } from './reviewFeedback';
@@ -65,14 +77,144 @@ describe('B4 eventGraph와 discoursePlan', () => {
   });
 });
 
+describe('B4 childcare domain and target-child guards', () => {
+  const mixedInput = '하준이가 등원하며 교사에게 공수로 인사하였다. 시이가 이야기나누기 시간에 "친구가 제일 좋아요"라고 말했다.';
+
+  test('보육 현장 용어는 공/신체활동이 아니라 인사·일과 맥락으로 해석한다', () => {
+    const terms = detectChildcareDomainTerms('하준이가 배꼽인사와 공수를 하였다. 기본생활습관 이야기나누기를 했다.');
+    expect(terms.map((term) => term.id)).toEqual(expect.arrayContaining([
+      'gongsoo_greeting',
+      'belly_bow_greeting',
+      'basic_life_habit',
+      'group_discussion_routine',
+    ]));
+    expect(detectDomainTermMisreads({
+      input: '하준이가 등원하며 공수로 인사하였다.',
+      text: '하준이는 공을 이용한 신체운동 놀이에 참여하였다.',
+    }).codes).toContain('domain_term_misread');
+  });
+
+  test('다중 원아 입력은 대상 원아가 없으면 target_child_required로 보류한다', () => {
+    const segmented = segmentChildcareEpisodes({ input: mixedInput });
+    expect(segmented.status).toBe('target_child_required');
+    expect(segmented.reason).toBe('multiple_children_detected');
+    const parentGuard = guardParentNotice({ input: mixedInput, parent: '오늘 공수와 이야기나누기를 잘했습니다.', childName: '' });
+    expect(parentGuard.codes).toContain('target_child_required');
+  });
+
+  test('대상 원아 문서에 다른 원아의 발화와 에피소드가 섞이면 차단한다', () => {
+    const hajunMix = detectEpisodeMixing({
+      input: mixedInput,
+      targetChild: '하준',
+      text: '하준이는 등원 인사 후 "친구가 제일 좋아요"라고 말하였다.',
+    });
+    expect(hajunMix.codes).toContain('episode_mixing');
+    const siiMix = detectEpisodeMixing({
+      input: mixedInput,
+      targetChild: '시이',
+      text: '시이는 공수로 인사하고 이야기나누기에서 자신의 생각을 말하였다.',
+    });
+    expect(siiMix.codes).toContain('episode_mixing');
+  });
+
+  test('근거 없는 교육과정 매핑과 가정 연계 일반문구를 차단한다', () => {
+    const curriculum = guardCurriculumBasis({
+      input: '하준이가 등원하며 공수로 인사하였다.',
+      curriculumBasis: { category: '신체운동·건강', item: '안전하게 이동하며 신체 조절 능력을 기른다' },
+    });
+    expect(curriculum.codes).toEqual(expect.arrayContaining(['unsupported_curriculum_mapping']));
+    const genericHome = guardText({
+      input: '하준이가 등원하며 공수로 인사하였다.',
+      targetChild: '하준',
+      text: '가정에서도 함께 연습해 주세요.',
+    });
+    expect(genericHome.codes).toContain('generic_home_request_without_source');
+  });
+
+  test('B4 생성 trace는 에피소드 메타데이터만 남기고 원문 전문을 저장하지 않는다', () => {
+    const result = generateB4({ input: mixedInput, childName: '하준', observation: mixedInput });
+    const traceText = JSON.stringify(result.b4Trace);
+    expect(result.b4Trace.eventGraph.episodeTrace.selectedEpisodeIds.length).toBeGreaterThan(0);
+    expect(traceText).not.toContain('친구가 제일 좋아요');
+    expect(traceText).not.toContain(mixedInput);
+  });
+});
+
+describe('B4 object mention role guard', () => {
+  const caseD = '하준이가 의자를 놓으며 “앉아서 찍으려면 의자가 필요해”라고 말한다. 도연이가 의자를 들고 와 옆에 내려놓자 “여기로 조금 더 와”라고 말하며 하준이가 의자를 옆으로 옮긴다. 도연이가 의자를 들자 하준이도 도연이의 의자를 잡고 하준이의 의자 옆에 내려놓는다. 하준이가 “카메라는 어디다 놓지?”라고 말하자 도연이가 “벽돌블록 위에 놓자”라고 말한다.';
+  const forbidden = /(블록\s*놀이|블록놀이|블록을\s*활용|블록으로\s*(구성|만들)|그림책|즐겁|몰입|관심을\s*보|흥미|의사소통\s*영역\s*발달|언어\s*능력|표현\s*확장|교사(가|는|은)?[^.]{0,28}(자료|공간)[^.]{0,18}(마련|제공|준비))/;
+
+  test('벽돌블록은 블록놀이가 아니라 카메라 위치 제안의 받침으로 판정한다', () => {
+    const roles = detectObjectMentionRoles(caseD);
+    expect(hasBlockPlayEvidence(caseD)).toBe(false);
+    expect(roles).toEqual(expect.arrayContaining([
+      expect.objectContaining({ object: '벽돌블록', role: 'support_surface', blockedTheme: 'blockPlay' }),
+      expect.objectContaining({ object: '카메라', role: 'location_question' }),
+      expect.objectContaining({ object: '의자', role: 'space_component' }),
+    ]));
+
+    const card = buildB2FactCard({ input: caseD, childName: '하준' });
+    const graph = buildB4EventGraph({ card, b2Plan: { meta: { themeIds: [] } } });
+    expect(graph.themeIds).not.toContain('make');
+    expect(graph.objectMentionRoles).toEqual(expect.arrayContaining([
+      expect.objectContaining({ object: '벽돌블록', role: 'support_surface', evidenceType: 'object_location_suggestion' }),
+    ]));
+    expect(graph.flags.hasObjectThemeRisk).toBe(true);
+  });
+
+  test('사물 언급을 놀이 주제로 확장한 문장을 audit에서 차단한다', () => {
+    const bad = detectObjectThemeOverreach({
+      input: caseD,
+      text: '하준이는 블록놀이에 즐겁게 몰입하였다. 가정에서도 그림책을 함께 읽어 주세요. 교사가 자료와 공간을 마련해 주었다.',
+    });
+    expect(bad.codes).toEqual(expect.arrayContaining([
+      'object_as_theme_overreach',
+      'unsupported_material_activity',
+      'unsupported_home_extension',
+      'unsupported_engagement_emotion',
+      'unsupported_topic',
+    ]));
+    const guarded = guardText({
+      input: caseD,
+      targetChild: '하준',
+      text: '하준이는 블록을 활용하여 촬영 놀이에 몰입하였다.',
+    });
+    expect(guarded.ok).toBe(false);
+    expect(guarded.codes).toEqual(expect.arrayContaining(['object_as_theme_overreach', 'unsupported_engagement_emotion']));
+  });
+
+  test('기준 D 생성 결과는 촬영 놀이 공간 구성과 연결되고 금지 주장을 만들지 않는다', () => {
+    const result = generateB4({ input: caseD, childName: '하준', observation: caseD });
+    const allText = `${result.copyReady} ${result.sections?.support || ''}`;
+    expect(allText).not.toMatch(forbidden);
+    expect(allText).toMatch(/의자|카메라|위치|공간|놓/);
+    expect(JSON.stringify(result.b4Trace.eventGraph.objectMentionRoles)).not.toContain('벽돌블록 위에 놓자');
+    expect(JSON.stringify(result.b4Trace.eventGraph.objectMentionRoles)).toContain('support_surface');
+  });
+
+  test('알림장에서는 다른 원아 이름과 발화를 대상 원아 발화처럼 쓰지 않는다', async () => {
+    setB4Enabled(true);
+    const result = await processRecord({ childName: '하준', rawText: caseD, classAge: 5, recordType: 'observe' });
+    const parent = result.parent || '';
+    expect(parent).not.toMatch(forbidden);
+    expect(parent).not.toContain('도연');
+    expect(parent).not.toContain('벽돌블록 위에 놓자');
+    expect(parent).not.toMatch(/하준[^.]{0,20}벽돌블록 위에 놓자/);
+    expect(`${result.evaluation || ''} ${result.support || ''} ${result.copyReady || ''}`).not.toMatch(forbidden);
+    expect(result.contextGuard.objectMentionTrace).toEqual(expect.arrayContaining([
+      expect.objectContaining({ object: '벽돌블록', role: 'support_surface' }),
+    ]));
+  });
+});
+
 describe('B4 200건 이상 의미 그래프 회귀', () => {
   test('사실 보존, 후보 제한, 담화 계획, fallback을 집계한다', () => {
-    expect(ALL.length).toBeGreaterThanOrEqual(600);
+    expect(ALL.length).toBeGreaterThanOrEqual(655);
     expect(APPROVED_PHRASE_BANK.length).toBeGreaterThanOrEqual(25);
     expect(CONTRAST_SETS.length).toBeGreaterThanOrEqual(112);
     expect(TEACHER_APPROVED_CONSTRUCTION_BANK.length).toBeGreaterThanOrEqual(8);
     const rows = ALL.map((item) => ({ item, b2: runB2(item), b3: runB3(item), b4: runB4(item) }));
-    expect(rows.filter(({ item }) => String(item.tag || '').startsWith('adversarial_')).length).toBeGreaterThanOrEqual(80);
+    expect(rows.filter(({ item }) => String(item.tag || '').startsWith('adversarial_')).length).toBeGreaterThanOrEqual(135);
     let b2FactSafe = 0; let b3FactSafe = 0; let b4FactSafe = 0;
     let discourseSuccess = 0; let focusSelected = 0; let candidateTotal = 0; let rejectedTotal = 0;
     let connectorErrors = 0; let quality = 0; let sparseTotal = 0; let sparseConservative = 0;
@@ -311,7 +453,7 @@ describe('B4 200건 이상 의미 그래프 회귀', () => {
     expect(report.contrastSetAppliedRate).toBeGreaterThanOrEqual(70);
     expect(report.supportSpecificRate).toBeGreaterThanOrEqual(80);
     expect(report.supportGenericRate).toBeLessThanOrEqual(5);
-    expect(report.adversarialCaseCount).toBeGreaterThanOrEqual(80);
+    expect(report.adversarialCaseCount).toBeGreaterThanOrEqual(135);
     expect(report.adversarialBlockedRate).toBeGreaterThanOrEqual(5);
     expect(report.meaningUnitSuccessRate).toBe(100);
     expect(report.meaningEvidenceLinkRate).toBe(100);

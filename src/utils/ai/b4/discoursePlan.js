@@ -1,6 +1,46 @@
 const unique = (values) => [...new Set(values.filter(Boolean))];
 
 export const B4_THEME_LANGUAGE = {
+  greeting: {
+    claims: ['인사 상황에서 정해진 예절 동작을 시도함', '등원 흐름 안에서 인사를 표현함'],
+    blocked: ['공놀이를 함', '신체운동 능력이 향상됨', '안전하게 이동함', '발달 수준이 향상됨'],
+    learning: '등원 상황에서 인사하는 흐름을 경험하였다',
+    supportFocus: 'greeting_routine',
+    supports: [
+      { id: 'greeting_model', text: '등원 시 교사가 짧은 인사말과 공수 자세를 다시 보여 주며 인사 흐름을 이어 가 본다' },
+      { id: 'greeting_choice', text: '등원 상황에서 말 인사와 공수 인사 중 아이가 따라 해 볼 수 있는 방식을 짧게 제안해 본다' },
+    ],
+  },
+  basic_life_habit: {
+    claims: ['생활 속 약속이나 일과를 경험함', '기본생활습관과 관련된 상황에 참여함'],
+    blocked: ['자기 조절 능력이 향상됨', '신체운동·건강 발달로 연결됨', '안전교육 성과로 평가됨'],
+    learning: '생활 속 약속과 일과를 경험하였다',
+    supportFocus: 'daily_routine',
+    supports: [
+      { id: 'daily_routine_prompt', text: '같은 일과가 반복되는 순간에 짧은 말과 시범으로 필요한 행동을 다시 안내해 본다' },
+      { id: 'daily_routine_visual', text: '생활습관 상황에서 순서나 방법을 확인할 수 있는 간단한 단서를 가까이에 두고 반복해 본다' },
+    ],
+  },
+  courtesy: {
+    claims: ['예절 표현을 경험함', '상황에 맞는 인사 방식을 시도함'],
+    blocked: ['사회성 발달이 향상됨', '바른 인성이 형성됨', '예절 능력이 완성됨'],
+    learning: '상황에 맞는 예절 표현을 경험하였다',
+    supportFocus: 'courtesy_expression',
+    supports: [
+      { id: 'courtesy_words', text: '인사나 감사 표현이 필요한 순간에 사용할 수 있는 짧은 말을 교사가 먼저 들려주어 본다' },
+      { id: 'courtesy_routine', text: '반복되는 일과 속에서 같은 인사 표현을 자연스럽게 다시 시도해 볼 기회를 마련한다' },
+    ],
+  },
+  group_discussion: {
+    claims: ['이야기나누기 상황에서 자신의 생각을 말로 표현함', '친구와 교사의 말을 들으며 대화 흐름에 참여함'],
+    blocked: ['자유놀이에 즐겁게 참여함', '의사소통 발달이 향상됨', '토의 능력이 발달함'],
+    learning: '이야기나누기 상황에서 말과 듣기의 흐름을 경험하였다',
+    supportFocus: 'group_discussion_flow',
+    supports: [
+      { id: 'discussion_turn', text: '이야기나누기 시간에 말할 순서와 들을 순서를 짧게 확인하며 참여 흐름을 이어 가 본다' },
+      { id: 'discussion_prompt', text: '아이의 발화를 다시 들려 주고 관련된 선택 질문을 덧붙여 이야기 흐름을 이어 가 본다' },
+    ],
+  },
   retry: {
     claims: ['다시 시도함', '방법을 바꾸어 이어 감'],
     blocked: ['자신감 향상', '문제 해결 능력 향상'],
@@ -164,7 +204,8 @@ export const B4_THEME_LANGUAGE = {
 };
 
 const THEME_PRIORITY = [
-  'conflict', 'emotion_recovery', 'emotion_expression', 'retry', 'question', 'peer_share',
+  'conflict', 'emotion_recovery', 'emotion_expression', 'greeting', 'basic_life_habit',
+  'courtesy', 'group_discussion', 'retry', 'question', 'peer_share',
   'peer_help', 'rules', 'change_explore', 'roleplay', 'make', 'story', 'selfhelp',
   'movement', 'compare', 'language',
 ];

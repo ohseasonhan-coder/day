@@ -22,3 +22,6 @@ data/golden_local/
 *.wasm.bin
 models/
 model_cache/
+
+.vercel
+.env*

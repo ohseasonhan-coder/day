@@ -17,6 +17,7 @@ import { planContrastiveRanker, scorePlanOutcome } from './planContrastiveRanker
 import { lintSurfaceText, polishSurfaceText, surfaceIssueSummary } from './sentenceLinter';
 import { judgeTeacherStyle } from './teacherStyleJudge';
 import { contrastiveRankCandidates } from './contrastiveRanker';
+import { guardText } from './contextGuard';
 
 const clean = (value) => String(value || '').trim().replace(/\s{2,}/g, ' ');
 const unique = (values) => [...new Set(values.filter(Boolean))];
@@ -476,6 +477,10 @@ function safetyFor(candidate, context) {
   if (/회복|안정|진정|다시 놀이/.test(candidate.text) && !context.graph.flags.hasRecovery && context.plan.primaryTheme === 'emotion_expression') reasons.push('recovery_fabrication');
   if (candidate.section === 'support' && !context.graph.flags.hasTeacherSupport && SUPPORT_DONE.test(candidate.text)) reasons.push('support_done_without_evidence');
   if (candidate.section === 'observation' && /(느꼈|생각|의도|발달|능력)/.test(candidate.text)) reasons.push('observation_interpretation');
+  if (context.graph.flags?.hasDomainTerms || context.graph.flags?.hasObjectThemeRisk) {
+    const contextGuard = guardText({ text: candidate.text, input: context.card.source, targetChild: context.card.name });
+    if (!contextGuard.ok) reasons.push(...contextGuard.codes);
+  }
   const safetyScore = Math.max(0, 100 - reasons.length * 34);
   return { safetyScore, reasons };
 }
@@ -642,6 +647,9 @@ function graphForTrace(graph = {}) {
     themeIds: graph.themeIds || [],
     sparse: !!graph.sparse,
     flags: graph.flags || {},
+    domainTermIds: graph.domainTermIds || [],
+    objectMentionRoles: graph.objectMentionRoles || [],
+    episodeTrace: graph.episodeTrace || null,
     nodes: (graph.nodes || []).map((node) => ({
       id: node.id,
       type: node.type,
@@ -993,6 +1001,7 @@ function generateB4CoreSingle({ input = '', childName = '', observation = '', fa
   const plan = buildB4DiscoursePlan({ graph, card });
   const meaningUnits = buildB4MeaningUnits({ card, graph, plan });
   const meaningStats = meaningUnitEvidenceStats(meaningUnits);
+  if (graph.flags?.needsTargetChild) return fallbackB4({ b3, b2, graph, plan, meaningUnits, reason: 'target_child_required', mode, styleProfile });
   if (mode === 'facts_only') {
     const factsOnly = generateB2({ input, childName, observation, fallbackCopyReady, mode: 'facts_only' });
     return {
@@ -1208,6 +1217,7 @@ function generateB4Core({ input = '', childName = '', observation = '', fallback
   const plan = buildB4DiscoursePlan({ graph, card });
   const meaningUnits = buildB4MeaningUnits({ card, graph, plan });
   const meaningStats = meaningUnitEvidenceStats(meaningUnits);
+  if (graph.flags?.needsTargetChild) return fallbackB4({ b3, b2, graph, plan, meaningUnits, reason: 'target_child_required', mode, styleProfile });
   if (plan.sparse) return fallbackB4({ b3, b2, graph, plan, meaningUnits, reason: 'insufficient_information', mode, styleProfile });
 
   const baseline = runPlanOutcome({ card, graph, plan, meaningUnits, mode, styleProfile });

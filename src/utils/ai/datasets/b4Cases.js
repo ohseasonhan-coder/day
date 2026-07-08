@@ -309,7 +309,75 @@ const adversarialRows = adversarialSeeds.slice(0, 80).map((row, index) => {
   ];
 });
 
-const allRows = [...rows, ...qualityRows, ...contrastRows, ...compositionRows, ...multiPlanRows, ...adversarialRows];
+const childcareDomainRows = [
+  ['b4d_001', 'adversarial_domain_gongsoo_ball', '하준', '하준이가 등원하며 교사에게 공수로 인사하였다.', 'greeting'],
+  ['b4d_002', 'adversarial_domain_gongsoo_physical', '민서', '민서가 교실에 들어오며 공수 자세로 "안녕하세요"라고 말했다.', 'greeting'],
+  ['b4d_003', 'adversarial_domain_belly_bow_body', '시온', '시온이가 등원 후 배꼽인사를 하였다.', 'greeting'],
+  ['b4d_004', 'adversarial_domain_belly_bow_safety', '유나', '유나가 선생님을 보고 배꼽 인사를 하였다.', 'greeting'],
+  ['b4d_005', 'adversarial_domain_discussion_freeplay', '도윤', '도윤이가 이야기나누기 시간에 손을 들고 "비가 와요"라고 말했다.', 'group_discussion'],
+  ['b4d_006', 'adversarial_domain_discussion_roleplay', '라온', '라온이가 이야기 나누기 시간에 친구의 말을 듣고 고개를 끄덕였다.', 'group_discussion'],
+  ['b4d_007', 'adversarial_domain_basic_health', '서아', '서아가 기본생활습관 이야기 중 손 씻는 순서를 들었다.', 'basic_life_habit'],
+  ['b4d_008', 'adversarial_domain_basic_safety', '지우', '지우가 기본 생활 습관 시간에 줄을 서서 기다렸다.', 'basic_life_habit'],
+  ['b4d_009', 'adversarial_multi_child_hajun_only', '하준', '하준이가 등원하며 공수로 인사하였다. 시이가 이야기나누기 시간에 "친구가 제일 좋아요"라고 말했다.', 'greeting'],
+  ['b4d_010', 'adversarial_multi_child_sii_only', '시이', '하준이가 등원하며 공수로 인사하였다. 시이가 이야기나누기 시간에 "친구가 제일 좋아요"라고 말했다.', 'group_discussion'],
+  ['b4d_011', 'adversarial_target_child_mismatch', '윤재', '윤재가 배꼽인사를 하였다. 하린이가 "저도 할래요"라고 말했다.', 'greeting'],
+  ['b4d_012', 'adversarial_target_child_mismatch', '하린', '윤재가 배꼽인사를 하였다. 하린이가 "저도 할래요"라고 말했다.', 'language'],
+  ['b4d_013', 'adversarial_episode_mixing_speech', '가온', '가온이가 공수로 인사하였다. 다온이가 이야기나누기에서 "바람이 불어요"라고 말했다.', 'greeting'],
+  ['b4d_014', 'adversarial_episode_mixing_speech', '다온', '가온이가 공수로 인사하였다. 다온이가 이야기나누기에서 "바람이 불어요"라고 말했다.', 'group_discussion'],
+  ['b4d_015', 'adversarial_home_request', '서준', '서준이가 등원하며 공수로 인사하였다.', 'greeting'],
+  ['b4d_016', 'adversarial_home_request', '아린', '아린이가 이야기나누기 시간에 "손을 씻어요"라고 말했다.', 'group_discussion'],
+  ['b4d_017', 'adversarial_curriculum_mapping', '지안', '지안이가 배꼽인사를 하며 교사를 바라보았다.', 'greeting'],
+  ['b4d_018', 'adversarial_curriculum_mapping', '이든', '이든이가 기본생활습관 시간에 차례를 기다렸다.', 'basic_life_habit'],
+  ['b4d_019', 'adversarial_greeting_participation', '소율', '소율이가 등원길에 공수로 인사하였다.', 'greeting'],
+  ['b4d_020', 'adversarial_greeting_participation', '로아', '로아가 배꼽인사 후 교실로 들어왔다.', 'greeting'],
+  ['b4d_021', 'adversarial_basic_self_control', '예준', '예준이가 기본생활습관 이야기 중 자기 차례를 기다렸다.', 'basic_life_habit'],
+  ['b4d_022', 'adversarial_basic_ability_growth', '채원', '채원이가 기본생활습관 시간에 양말 정리 순서를 들었다.', 'basic_life_habit'],
+  ['b4d_023', 'adversarial_discussion_curriculum', '시우', '시우가 이야기나누기 시간에 "친구와 나눠요"라고 말했다.', 'group_discussion'],
+  ['b4d_024', 'adversarial_discussion_peer_reaction', '하율', '하율이가 이야기나누기 시간에 손을 들었다.', 'group_discussion'],
+  ['b4d_025', 'adversarial_multiple_children_no_target', '', '하준이가 공수로 인사하였다. 시이가 "친구가 좋아요"라고 말했다.', 'greeting'],
+  ['b4d_026', 'adversarial_multiple_children_no_target', '', '윤재가 배꼽인사를 하였다. 민서가 이야기나누기에서 손을 들었다.', 'greeting'],
+  ['b4d_027', 'adversarial_domain_typo_spacing', '태오', '태오가 배 꼽 인사 대신 배꼽인사를 다시 해 보았다.', 'greeting'],
+  ['b4d_028', 'adversarial_domain_spacing', '은우', '은우가 이야기 나누기 시간에 손을 들고 말했다.', 'group_discussion'],
+  ['b4d_029', 'adversarial_domain_compound', '유준', '유준이가 기본 생활 습관 활동에서 인사말을 들었다.', 'basic_life_habit'],
+  ['b4d_030', 'adversarial_domain_compound', '서윤', '서윤이가 등원하며 공수 인사를 하였다.', 'greeting'],
+  ['b4d_031', 'adversarial_episode_complex', '하준', '하준이가 등원하며 배꼽인사를 하였다. 시이가 블록을 정리하고 "다 했어요"라고 말했다. 하준이는 교사를 보고 다시 인사하였다.', 'greeting'],
+  ['b4d_032', 'adversarial_episode_complex', '시이', '하준이가 등원하며 배꼽인사를 하였다. 시이가 블록을 정리하고 "다 했어요"라고 말했다. 하준이는 교사를 보고 다시 인사하였다.', 'selfhelp'],
+  ['b4d_033', 'adversarial_no_home_evidence', '나은', '나은이가 이야기나누기 시간에 "오늘 비 와요"라고 말했다.', 'group_discussion'],
+  ['b4d_034', 'adversarial_no_curriculum_evidence', '민준', '민준이가 공수로 인사하며 교실에 들어왔다.', 'greeting'],
+  ['b4d_035', 'adversarial_other_child_name_parent', '지호', '지호가 기본생활습관 시간에 손을 들었다. 유찬이가 "저요"라고 말했다.', 'basic_life_habit'],
+  ['b4d_036', 'adversarial_other_child_name_parent', '유찬', '지호가 기본생활습관 시간에 손을 들었다. 유찬이가 "저요"라고 말했다.', 'group_discussion'],
+];
+
+const objectMentionRows = [
+  ['b4o_001', 'adversarial_object_theme_surface_block', '하준', '하준이가 의자를 놓으며 "앉아서 찍으려면 의자가 필요해"라고 말하였다. 도연이가 의자를 옆에 내려놓자 하준이가 "카메라는 어디다 놓지?"라고 말했고 도연이가 "벽돌블록 위에 놓자"라고 말했다.', 'roleplay'],
+  ['b4o_002', 'adversarial_object_theme_surface_block', '민서', '민서가 휴대폰 장난감을 들고 "여기에 세우자"라고 말하며 블록 위에 올려놓았다.', 'roleplay'],
+  ['b4o_003', 'adversarial_object_theme_surface_block', '지우', '지우가 "카메라가 넘어져"라고 말하고 블록을 받침처럼 아래에 두었다.', 'roleplay'],
+  ['b4o_004', 'adversarial_object_theme_location_block', '서아', '서아가 "인형 의자는 어디에 둘까?"라고 말하며 블록 옆에 인형 의자를 놓았다.', 'roleplay'],
+  ['b4o_005', 'adversarial_object_theme_location_block', '유나', '유나가 작은 카메라를 들고 "블록 위가 잘 보여"라고 말하였다.', 'roleplay'],
+  ['b4o_006', 'adversarial_object_theme_chair', '도윤', '도윤이가 의자를 무대 앞에 놓고 친구에게 "여기 앉아"라고 말했다.', 'roleplay'],
+  ['b4o_007', 'adversarial_object_theme_chair', '라온', '라온이가 의자를 옆으로 옮기며 "찍을 자리는 여기야"라고 말했다.', 'roleplay'],
+  ['b4o_008', 'adversarial_object_theme_camera', '시온', '시온이가 "카메라는 어디에 둘까?"라고 말하고 친구를 바라보았다.', 'language'],
+  ['b4o_009', 'adversarial_object_theme_camera', '이든', '이든이가 카메라 장난감을 테이블 위에 놓으며 "여기서 보자"라고 말했다.', 'roleplay'],
+  ['b4o_010', 'adversarial_object_theme_book', '채원', '채원이가 그림책을 책상 위에 올려놓고 다른 놀잇감을 찾았다.', 'selfhelp'],
+  ['b4o_011', 'adversarial_object_theme_book', '로운', '로운이가 그림책을 바구니 옆으로 옮기며 "여기는 자리야"라고 말했다.', 'language'],
+  ['b4o_012', 'adversarial_object_theme_ball', '아린', '아린이가 공을 선반 위에 올려놓고 "여기 두자"라고 말했다.', 'language'],
+  ['b4o_013', 'adversarial_object_theme_ball', '유준', '유준이가 공이 굴러가지 않게 바구니 안에 넣어 두었다.', 'selfhelp'],
+  ['b4o_014', 'adversarial_object_theme_material_surface', '소율', '소율이가 종이를 컵 아래에 깔며 "물이 안 묻게 하자"라고 말했다.', 'language'],
+  ['b4o_015', 'adversarial_object_theme_material_surface', '지안', '지안이가 나무 조각 위에 작은 인형을 세우고 "여기 서 있어"라고 말했다.', 'roleplay'],
+  ['b4o_016', 'adversarial_object_theme_peer_speech', '하린', '하린이가 의자를 놓자 친구가 "블록 위에 카메라를 놓자"라고 말했다.', 'roleplay'],
+  ['b4o_017', 'adversarial_object_theme_peer_speech', '예린', '예린이가 "의자가 필요해"라고 말했고 친구가 "카메라는 블록 위"라고 말했다.', 'roleplay'],
+  ['b4o_018', 'adversarial_object_theme_no_interest', '준서', '준서가 카메라 장난감을 선반에서 꺼내 테이블 위에 놓았다.', 'roleplay'],
+  ['b4o_019', 'adversarial_object_theme_no_interest', '윤재', '윤재가 벽돌블록을 바닥에 내려놓고 그 위에 작은 상자를 올렸다.', 'language'],
+  ['b4o_020', 'adversarial_object_theme_home_extension', '서진', '서진이가 "여기 앉아서 찍자"라고 말하며 의자 두 개를 나란히 놓았다.', 'roleplay'],
+  ['b4o_021', 'adversarial_object_theme_home_extension', '도하', '도하가 "카메라 자리는 여기"라고 말하고 책상 모서리를 가리켰다.', 'language'],
+  ['b4o_022', 'adversarial_object_theme_actual_block_ok', '민준', '민준이가 블록을 쌓아 카메라 받침대를 만들고 "여기 놓자"라고 말했다.', 'make'],
+  ['b4o_023', 'adversarial_object_theme_actual_block_ok', '은우', '은우가 블록으로 긴 길을 만들고 자동차를 올려놓았다.', 'make'],
+  ['b4o_024', 'adversarial_object_theme_typo', '태오', '태오가 벽돌 블럭 위에 카메라 놓자고 말함', 'roleplay'],
+  ['b4o_025', 'adversarial_object_theme_typo', '해나', '해나 의자 옆으로 옴기고 "여기서 찍자"라고 함', 'roleplay'],
+  ['b4o_026', 'adversarial_object_theme_unrelated_activity', '모아', '모아가 그림책을 친구 자리 옆에 두고 "여기 앉아"라고 말했다.', 'language'],
+];
+
+const allRows = [...rows, ...qualityRows, ...contrastRows, ...compositionRows, ...multiPlanRows, ...adversarialRows, ...childcareDomainRows, ...objectMentionRows];
 
 export const B4_SYNTHETIC_CASES = allRows.map(([id, tag, name, input, expectedTheme]) => ({ id, tag, name, input, expectedTheme }));
 export default B4_SYNTHETIC_CASES;
