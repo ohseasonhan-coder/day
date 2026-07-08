@@ -348,7 +348,36 @@ const childcareDomainRows = [
   ['b4d_036', 'adversarial_other_child_name_parent', '유찬', '지호가 기본생활습관 시간에 손을 들었다. 유찬이가 "저요"라고 말했다.', 'group_discussion'],
 ];
 
-const allRows = [...rows, ...qualityRows, ...contrastRows, ...compositionRows, ...multiPlanRows, ...adversarialRows, ...childcareDomainRows];
+const objectMentionRows = [
+  ['b4o_001', 'adversarial_object_theme_surface_block', '하준', '하준이가 의자를 놓으며 "앉아서 찍으려면 의자가 필요해"라고 말하였다. 도연이가 의자를 옆에 내려놓자 하준이가 "카메라는 어디다 놓지?"라고 말했고 도연이가 "벽돌블록 위에 놓자"라고 말했다.', 'roleplay'],
+  ['b4o_002', 'adversarial_object_theme_surface_block', '민서', '민서가 휴대폰 장난감을 들고 "여기에 세우자"라고 말하며 블록 위에 올려놓았다.', 'roleplay'],
+  ['b4o_003', 'adversarial_object_theme_surface_block', '지우', '지우가 "카메라가 넘어져"라고 말하고 블록을 받침처럼 아래에 두었다.', 'roleplay'],
+  ['b4o_004', 'adversarial_object_theme_location_block', '서아', '서아가 "인형 의자는 어디에 둘까?"라고 말하며 블록 옆에 인형 의자를 놓았다.', 'roleplay'],
+  ['b4o_005', 'adversarial_object_theme_location_block', '유나', '유나가 작은 카메라를 들고 "블록 위가 잘 보여"라고 말하였다.', 'roleplay'],
+  ['b4o_006', 'adversarial_object_theme_chair', '도윤', '도윤이가 의자를 무대 앞에 놓고 친구에게 "여기 앉아"라고 말했다.', 'roleplay'],
+  ['b4o_007', 'adversarial_object_theme_chair', '라온', '라온이가 의자를 옆으로 옮기며 "찍을 자리는 여기야"라고 말했다.', 'roleplay'],
+  ['b4o_008', 'adversarial_object_theme_camera', '시온', '시온이가 "카메라는 어디에 둘까?"라고 말하고 친구를 바라보았다.', 'language'],
+  ['b4o_009', 'adversarial_object_theme_camera', '이든', '이든이가 카메라 장난감을 테이블 위에 놓으며 "여기서 보자"라고 말했다.', 'roleplay'],
+  ['b4o_010', 'adversarial_object_theme_book', '채원', '채원이가 그림책을 책상 위에 올려놓고 다른 놀잇감을 찾았다.', 'selfhelp'],
+  ['b4o_011', 'adversarial_object_theme_book', '로운', '로운이가 그림책을 바구니 옆으로 옮기며 "여기는 자리야"라고 말했다.', 'language'],
+  ['b4o_012', 'adversarial_object_theme_ball', '아린', '아린이가 공을 선반 위에 올려놓고 "여기 두자"라고 말했다.', 'language'],
+  ['b4o_013', 'adversarial_object_theme_ball', '유준', '유준이가 공이 굴러가지 않게 바구니 안에 넣어 두었다.', 'selfhelp'],
+  ['b4o_014', 'adversarial_object_theme_material_surface', '소율', '소율이가 종이를 컵 아래에 깔며 "물이 안 묻게 하자"라고 말했다.', 'language'],
+  ['b4o_015', 'adversarial_object_theme_material_surface', '지안', '지안이가 나무 조각 위에 작은 인형을 세우고 "여기 서 있어"라고 말했다.', 'roleplay'],
+  ['b4o_016', 'adversarial_object_theme_peer_speech', '하린', '하린이가 의자를 놓자 친구가 "블록 위에 카메라를 놓자"라고 말했다.', 'roleplay'],
+  ['b4o_017', 'adversarial_object_theme_peer_speech', '예린', '예린이가 "의자가 필요해"라고 말했고 친구가 "카메라는 블록 위"라고 말했다.', 'roleplay'],
+  ['b4o_018', 'adversarial_object_theme_no_interest', '준서', '준서가 카메라 장난감을 선반에서 꺼내 테이블 위에 놓았다.', 'roleplay'],
+  ['b4o_019', 'adversarial_object_theme_no_interest', '윤재', '윤재가 벽돌블록을 바닥에 내려놓고 그 위에 작은 상자를 올렸다.', 'language'],
+  ['b4o_020', 'adversarial_object_theme_home_extension', '서진', '서진이가 "여기 앉아서 찍자"라고 말하며 의자 두 개를 나란히 놓았다.', 'roleplay'],
+  ['b4o_021', 'adversarial_object_theme_home_extension', '도하', '도하가 "카메라 자리는 여기"라고 말하고 책상 모서리를 가리켰다.', 'language'],
+  ['b4o_022', 'adversarial_object_theme_actual_block_ok', '민준', '민준이가 블록을 쌓아 카메라 받침대를 만들고 "여기 놓자"라고 말했다.', 'make'],
+  ['b4o_023', 'adversarial_object_theme_actual_block_ok', '은우', '은우가 블록으로 긴 길을 만들고 자동차를 올려놓았다.', 'make'],
+  ['b4o_024', 'adversarial_object_theme_typo', '태오', '태오가 벽돌 블럭 위에 카메라 놓자고 말함', 'roleplay'],
+  ['b4o_025', 'adversarial_object_theme_typo', '해나', '해나 의자 옆으로 옴기고 "여기서 찍자"라고 함', 'roleplay'],
+  ['b4o_026', 'adversarial_object_theme_unrelated_activity', '모아', '모아가 그림책을 친구 자리 옆에 두고 "여기 앉아"라고 말했다.', 'language'],
+];
+
+const allRows = [...rows, ...qualityRows, ...contrastRows, ...compositionRows, ...multiPlanRows, ...adversarialRows, ...childcareDomainRows, ...objectMentionRows];
 
 export const B4_SYNTHETIC_CASES = allRows.map(([id, tag, name, input, expectedTheme]) => ({ id, tag, name, input, expectedTheme }));
 export default B4_SYNTHETIC_CASES;

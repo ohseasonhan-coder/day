@@ -477,7 +477,7 @@ function safetyFor(candidate, context) {
   if (/회복|안정|진정|다시 놀이/.test(candidate.text) && !context.graph.flags.hasRecovery && context.plan.primaryTheme === 'emotion_expression') reasons.push('recovery_fabrication');
   if (candidate.section === 'support' && !context.graph.flags.hasTeacherSupport && SUPPORT_DONE.test(candidate.text)) reasons.push('support_done_without_evidence');
   if (candidate.section === 'observation' && /(느꼈|생각|의도|발달|능력)/.test(candidate.text)) reasons.push('observation_interpretation');
-  if (context.graph.flags?.hasDomainTerms) {
+  if (context.graph.flags?.hasDomainTerms || context.graph.flags?.hasObjectThemeRisk) {
     const contextGuard = guardText({ text: candidate.text, input: context.card.source, targetChild: context.card.name });
     if (!contextGuard.ok) reasons.push(...contextGuard.codes);
   }
@@ -648,6 +648,7 @@ function graphForTrace(graph = {}) {
     sparse: !!graph.sparse,
     flags: graph.flags || {},
     domainTermIds: graph.domainTermIds || [],
+    objectMentionRoles: graph.objectMentionRoles || [],
     episodeTrace: graph.episodeTrace || null,
     nodes: (graph.nodes || []).map((node) => ({
       id: node.id,

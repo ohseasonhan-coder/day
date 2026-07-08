@@ -7,6 +7,10 @@
 //   document_context_mismatch        — 상황과 무관한 평가·교육과정 연결(하원 갈등→놀이 참여 등)
 //   curriculum_mapping_without_evidence — 원문 근거 없는 누리과정 자동 연결(보류 상태로 전환)
 //   target_child_required            — 다인 등장 알림장에서 대상 원아 미지정
+//   object_as_theme_overreach        — 사물 언급을 놀이 주제로 과잉 해석
+//   unsupported_material_activity    — 실제 활동 근거 없는 재료·사물 활동명 생성
+//   unsupported_home_extension       — 원문과 무관한 가정연계 문구 생성
+//   unsupported_engagement_emotion   — 근거 없는 즐거움·몰입·흥미 생성
 //
 // trace에는 비식별 코드만 남긴다(원문·이름·발화·생성 전문 저장 금지).
 import { getChildren } from '../../storage';
@@ -18,6 +22,7 @@ import {
   safeEpisodeTrace,
   segmentChildcareEpisodes,
 } from './childcareDomainGuard';
+import { detectObjectMentionRoles, detectObjectThemeOverreach, safeObjectMentionTrace } from './objectMentionGuard';
 
 const clean = (s) => String(s || '').trim();
 
@@ -160,6 +165,7 @@ export function guardText({ text, input, situations = null, targetChild = '' } =
   const codes = [];
   const topics = detectUnsupportedTopics(text, input);
   const domainGuard = detectDomainTermMisreads({ input, text });
+  const objectGuard = detectObjectThemeOverreach({ input, text });
   const episodeGuard = detectEpisodeMixing({ input, text, targetChild, knownNames: knownChildNames() });
   const activeBlock = [
     ...(cls.conflict ? CONTEXT_BLOCK.conflict : []),
@@ -172,11 +178,19 @@ export function guardText({ text, input, situations = null, targetChild = '' } =
   if (contextHits.length) codes.push('document_context_mismatch');
   if (blockedTopics.length) codes.push('unsupported_topic');
   if (detectUnsupportedResolution(text, input)) codes.push('unsupported_resolution');
+  if (/(가정에서도|집에서도|부모님께서도|가정과\s*연계|함께\s*연습해\s*주세요|시도해\s*주세요|격려해\s*주세요)/.test(clean(text))) {
+    codes.push('generic_home_request_without_source');
+    blockedTopics.push('homeExtension');
+  }
   codes.push(...checkActorRoles(input, text));
   if (checkEmotionOwnership(input, text, targetChild)) codes.push('actor_role_mismatch');
   if (!domainGuard.ok) {
     codes.push(...domainGuard.codes);
     blockedTopics.push(...domainGuard.blockedTopics);
+  }
+  if (!objectGuard.ok) {
+    codes.push(...objectGuard.codes);
+    blockedTopics.push(...objectGuard.blockedTopics);
   }
   if (!episodeGuard.ok) {
     codes.push(...episodeGuard.codes);
@@ -224,6 +238,27 @@ export function conservativeLearning({ situations, childName }) {
 
 function conservativeParentNotice() {
   return '오늘 관찰된 상황은 원에서 다시 살펴보며, 필요한 지원을 이어 가겠습니다.';
+}
+
+function hasCameraSpaceSetup(input = '') {
+  const roles = detectObjectMentionRoles(input);
+  return roles.some((role) => ['카메라', '의자'].includes(role.object) || role.role === 'support_surface');
+}
+
+function conservativeObjectEvaluation({ input, childName }) {
+  if (!hasCameraSpaceSetup(input)) return '';
+  const t = topicOfName(childName);
+  return `${t} 촬영 놀이를 준비하며 필요한 물건의 위치를 말로 정하고, 의자와 카메라를 어디에 둘지 또래와 함께 조정하였다.`;
+}
+
+function conservativeObjectSupport({ input }) {
+  if (!hasCameraSpaceSetup(input)) return '';
+  return '촬영 놀이에 필요한 의자, 카메라, 받침대의 위치를 유아들이 함께 정해 볼 수 있도록 공간과 위치를 생각해 보는 질문을 제공한다.';
+}
+
+function conservativeObjectLearning({ input, childName }) {
+  if (!hasCameraSpaceSetup(input)) return '';
+  return `${topicOfName(childName)} 놀이에 필요한 물건의 위치를 말로 정하며 공간을 구성해 보았다.`;
 }
 
 // 문장 단위 소독 — 오염 문장만 제거하고 사실 문장은 보존(전체 폴백은 최후 수단)
@@ -319,8 +354,10 @@ export function applyContextGuard({ input = '', childName = '', result = {} } = 
   const situations = detectSituationTypes(input);
   const episodeTrace = safeEpisodeTrace(segmentChildcareEpisodes({ input, targetChild: childName, knownNames: knownChildNames() }));
   const domainTerms = detectChildcareDomainTerms(input);
+  const objectMentionTrace = safeObjectMentionTrace(detectObjectMentionRoles(input));
+  const hasObjectThemeRisk = objectMentionTrace.some((role) => role.blockedTheme);
   const cls = situationClass(situations);
-  const trace = { fallback: false, fallbackReason: '', blockedTopics: [], codes: [], situations, domainTermIds: domainTerms.map((term) => term.id), episodeTrace };
+  const trace = { fallback: false, fallbackReason: '', blockedTopics: [], codes: [], situations, domainTermIds: domainTerms.map((term) => term.id), objectMentionTrace, episodeTrace };
   const out = { ...result };
   if (episodeTrace.status === 'target_child_required') {
     out.parent = '';
@@ -328,7 +365,7 @@ export function applyContextGuard({ input = '', childName = '', result = {} } = 
     trace.codes.push('target_child_required');
     trace.blockedTopics.push('multiple_children_detected');
   }
-  if (!cls.conflict && !cls.demo) {
+  if (!cls.conflict && !cls.demo && !hasObjectThemeRisk) {
     // 일반 상황: 전역 안전망만(관계 회복·누리과정 근거·화자 교체)
     const g = guardText({ text: `${out.evaluation || ''} ${out.parent || ''}`, input, situations, targetChild: childName });
     const cur = guardCurriculumBasis({ input, curriculumBasis: out.curriculumBasis, situations });
@@ -349,10 +386,10 @@ export function applyContextGuard({ input = '', childName = '', result = {} } = 
   };
 
   // 1) 보육일지 평가
-  out.evaluation = sanitizeField(out.evaluation, conservativeEvaluation({ situations, input, childName }));
+  out.evaluation = sanitizeField(out.evaluation, conservativeEvaluation({ situations, input, childName }) || conservativeObjectEvaluation({ input, childName }));
 
   // 2) 교사 지원계획
-  out.support = sanitizeField(out.support, conservativeSupport({ situations }));
+  out.support = sanitizeField(out.support, conservativeSupport({ situations }) || conservativeObjectSupport({ input }));
 
   // 3) 알림장
   const parentGuard = guardParentNotice({ input, parent: out.parent, childName });
@@ -371,7 +408,9 @@ export function applyContextGuard({ input = '', childName = '', result = {} } = 
     if (clean(scrubbed.text).length >= 12) {
       out.parent = scrubbed.text;
     } else {
-      out.parent = conservativeParentNotice();
+      out.parent = hasCameraSpaceSetup(input)
+        ? `${topicOfName(childName)} 촬영 놀이를 준비하며 필요한 물건의 위치를 말로 표현하고, 친구와 함께 자리를 조정해 보았습니다.`
+        : conservativeParentNotice();
       out.parentStatus = { status: 'needs_teacher_review', reason: 'document_context_mismatch' };
     }
   } else {
@@ -392,9 +431,9 @@ export function applyContextGuard({ input = '', childName = '', result = {} } = 
   const obsGuard = guardText({ text: sec.observation, input, situations, targetChild: childName });
   if (!obsGuard.ok) { sec.observation = clean(out.observation) || sec.observation; dirty = true; record(obsGuard.codes, obsGuard.blockedTopics); }
   const learnGuard = guardText({ text: sec.learning, input, situations, targetChild: childName });
-  if (!learnGuard.ok) { sec.learning = conservativeLearning({ situations, childName }); dirty = true; record(learnGuard.codes, learnGuard.blockedTopics); }
+  if (!learnGuard.ok) { sec.learning = conservativeLearning({ situations, childName }) || conservativeObjectLearning({ input, childName }); dirty = true; record(learnGuard.codes, learnGuard.blockedTopics); }
   const csGuard = guardText({ text: sec.support, input, situations, targetChild: childName });
-  if (!csGuard.ok) { sec.support = conservativeSupport({ situations }); dirty = true; record(csGuard.codes, csGuard.blockedTopics); }
+  if (!csGuard.ok) { sec.support = conservativeSupport({ situations }) || conservativeObjectSupport({ input }); dirty = true; record(csGuard.codes, csGuard.blockedTopics); }
   if (dirty) out.copyReady = assembleSections(sec);
 
   trace.codes = [...new Set(trace.codes)];
