@@ -35,7 +35,7 @@ import {
   detectObjectThemeOverreach,
   hasBlockPlayEvidence,
 } from './ai/b4/objectMentionGuard';
-import { guardCurriculumBasis, guardParentNotice, guardText } from './ai/b4/contextGuard';
+import { checkActorRoles, guardCurriculumBasis, guardParentNotice, guardText } from './ai/b4/contextGuard';
 import { parseTargetSections, scoreCopyReady } from './ai/targetQuality';
 import { processRecord } from './ai/publicApi';
 import { buildComparison, getReviewEntries, saveReviewEntry } from './reviewFeedback';
@@ -188,6 +188,8 @@ describe('B4 object mention role guard', () => {
     const allText = `${result.copyReady} ${result.sections?.support || ''}`;
     expect(allText).not.toMatch(forbidden);
     expect(allText).toMatch(/의자|카메라|위치|공간|놓/);
+    // 화자·행동 주체 보존 — 도연이의 발화("벽돌블록 위에 놓자")가 하준이 발화로 바뀌지 않는다
+    expect(checkActorRoles(caseD, result.copyReady)).toEqual([]);
     expect(JSON.stringify(result.b4Trace.eventGraph.objectMentionRoles)).not.toContain('벽돌블록 위에 놓자');
     expect(JSON.stringify(result.b4Trace.eventGraph.objectMentionRoles)).toContain('support_surface');
   });
@@ -201,9 +203,82 @@ describe('B4 object mention role guard', () => {
     expect(parent).not.toContain('벽돌블록 위에 놓자');
     expect(parent).not.toMatch(/하준[^.]{0,20}벽돌블록 위에 놓자/);
     expect(`${result.evaluation || ''} ${result.support || ''} ${result.copyReady || ''}`).not.toMatch(forbidden);
+    // 교사 지원계획은 촬영 놀이 공간 구성(의자·카메라·위치)과 직접 연결되어야 한다
+    expect(result.support).toMatch(/촬영|카메라|의자|위치|공간|자리/);
     expect(result.contextGuard.objectMentionTrace).toEqual(expect.arrayContaining([
       expect.objectContaining({ object: '벽돌블록', role: 'support_surface' }),
     ]));
+  });
+
+  test('적대적 사물 언급 입력 25건+ — 생성 결과가 사물 언급을 놀이 주제·감정·가정연계로 확장하지 않는다', () => {
+    const objectCases = B4_SYNTHETIC_CASES.filter((row) => row.id.startsWith('b4o_'));
+    expect(objectCases.length).toBeGreaterThanOrEqual(25);
+    const failures = [];
+    objectCases.forEach((item) => {
+      const result = generateB4({ input: item.input, childName: item.name, observation: item.input });
+      const text = `${result.copyReady} ${result.sections?.support || ''}`;
+      const check = (re, label) => { if (re.test(text)) failures.push(`${item.id}:${label}`); };
+      // 전 사례 공통: 원문에 근거 없는 즐거움·몰입·흥미·가정연계 금지
+      check(/즐겁|몰입|흥미|관심을\s*보|가정에서도|집에서도/, 'emotion_or_home');
+      if (!item.tag.includes('actual_block_ok')) {
+        check(/블록\s*놀이|블록놀이|블록을\s*활용|블록으로\s*(구성|만들)/, 'block_play');
+        check(/(그림책|동화책)(을|이)?\s*(함께\s*)?(읽|이야기\s*나누)/, 'book_reading');
+        check(/사진을\s*찍었|촬영하였|촬영했다/, 'actual_photography');
+      }
+    });
+    expect(failures).toEqual([]);
+  });
+
+  // 오염 출력 차단 — 스펙 7유형(사물→주제 확장/위치→재료 활용/받침→주제/화자 교체/무관 활동/감정/가정연계)
+  const CONTAMINATED = [
+    // 1) 사물명이 놀이 주제로 잘못 확장
+    ['object_theme', '지우가 "카메라가 넘어져"라고 말하고 블록을 받침처럼 아래에 두었다.', '지우는 블록놀이에 참여하여 구조물을 만들었다.', 'object_as_theme_overreach'],
+    ['object_theme', '윤재가 벽돌블록을 바닥에 내려놓고 그 위에 작은 상자를 올렸다.', '윤재는 블록을 활용하여 놀이를 이어 갔다.', 'object_as_theme_overreach'],
+    ['object_theme', '해나가 의자를 옆으로 옮기고 "여기서 찍자"라고 말했다.', '해나는 의자 놀이에 흥미를 보였다.', 'object_as_theme_overreach'],
+    ['object_theme', '시온이가 "카메라는 어디에 둘까?"라고 말하고 친구를 바라보았다.', '시온이는 사진을 찍으며 촬영하였다.', 'object_as_theme_overreach'],
+    // 2) 위치 제안이 재료 활용 놀이로 변환
+    ['location_to_material', '도연이가 "벽돌블록 위에 놓자"라고 말했다.', '도연이는 블록으로 구성 놀이를 하였다.', 'unsupported_material_activity'],
+    ['location_to_material', '태오가 벽돌 블럭 위에 카메라 놓자고 말함', '태오는 블럭 놀이를 하며 작품을 만들었다.', 'unsupported_material_activity'],
+    ['location_to_material', '민서가 휴대폰 장난감을 들고 "여기에 세우자"라고 말하며 블록 위에 올려놓았다.', '민서는 블록을 활용하여 만들기 활동을 하였다.', 'unsupported_material_activity'],
+    ['location_to_material', '서아가 "인형 의자는 어디에 둘까?"라고 말하며 블록 옆에 인형 의자를 놓았다.', '서아는 블록 구조물을 완성하였다.', 'unsupported_material_activity'],
+    // 3) 받침·보관으로 쓰인 물건이 놀이 주제로 변환
+    ['surface_to_theme', '지안이가 나무 조각 위에 작은 인형을 세우고 "여기 서 있어"라고 말했다.', '지안이는 놀이에 몰입하며 즐겁게 참여하였다.', 'unsupported_engagement_emotion'],
+    ['surface_to_theme', '준서가 카메라 장난감을 선반에서 꺼내 테이블 위에 놓았다.', '준서는 촬영하며 사진을 찍었다.', 'object_as_theme_overreach'],
+    ['surface_to_theme', '아린이가 공을 선반 위에 올려놓고 "여기 두자"라고 말했다.', '아린이는 공놀이를 즐겼다.', 'object_as_theme_overreach'],
+    // 4) 친구 발화가 대상 원아 발화로 교체
+    ['peer_speech_swap', '하준이가 "카메라는 어디다 놓지?"라고 말하자 도연이가 "벽돌블록 위에 놓자"라고 말한다.', '하준이가 "벽돌블록 위에 놓자"라고 말하였다.', 'actor_role_mismatch'],
+    ['peer_speech_swap', '예린이가 "의자가 필요해"라고 말했고 소이가 "카메라는 블록 위"라고 말했다.', '예린이가 "카메라는 블록 위"라고 말했다.', 'actor_role_mismatch'],
+    ['peer_speech_swap', '하린이가 의자를 놓자 도윤이가 "블록 위에 카메라를 놓자"라고 말했다.', '하린이는 "블록 위에 카메라를 놓자"라고 말하며 자리를 정했다.', 'actor_role_mismatch'],
+    ['peer_speech_swap', '하준이가 의자를 놓았다. 도연이가 "벽돌블록 위에 놓자"라고 말했다.', '하준이는 "벽돌블록 위에 놓자"라고 말하였다.', 'actor_role_mismatch'],
+    ['peer_name_exposure', '하준이가 의자를 놓았다. 도연이가 "벽돌블록 위에 놓자"라고 말했다.', '하준이는 도연이와 함께 자리를 정했다.', 'target_child_mismatch', '하준'],
+    // 5) 그림책·블록·공·카메라 등 무관 활동 생성
+    ['unrelated_activity', '하준이가 의자를 놓으며 "앉아서 찍으려면 의자가 필요해"라고 말한다.', '그림책을 함께 읽으며 이야기를 나누었다.', 'object_as_theme_overreach'],
+    ['unrelated_activity', '채원이가 그림책을 책상 위에 올려놓고 다른 놀잇감을 찾았다.', '채원이는 그림책 읽기에 집중하였다.', 'object_as_theme_overreach'],
+    ['unrelated_activity', '도하가 "카메라 자리는 여기"라고 말하고 책상 모서리를 가리켰다.', '도하는 그림책 이야기를 나누었다.', 'object_as_theme_overreach'],
+    ['unrelated_activity', '서진이가 "여기 앉아서 찍자"라고 말하며 의자 두 개를 나란히 놓았다.', '서진이는 공놀이를 하며 뛰어다녔다.', 'object_as_theme_overreach'],
+    ['unrelated_activity', '모아가 그림책을 친구 자리 옆에 두고 "여기 앉아"라고 말했다.', '모아는 카메라로 사진을 찍으며 놀았다.', 'object_as_theme_overreach'],
+    // 6) 원문에 없는 즐거움·몰입·흥미 생성
+    ['engagement_emotion', '하준이가 "카메라는 어디다 놓지?"라고 말하자 도연이가 "벽돌블록 위에 놓자"라고 말한다.', '하준이는 활동에 즐겁게 몰입하였다.', 'unsupported_engagement_emotion'],
+    ['engagement_emotion', '이든이가 카메라 장난감을 테이블 위에 놓으며 "여기서 보자"라고 말했다.', '이든이는 촬영 놀이에 관심을 보였다.', 'unsupported_engagement_emotion'],
+    ['engagement_emotion', '유준이가 공이 굴러가지 않게 바구니 안에 넣어 두었다.', '유준이는 흥미를 느끼며 집중하여 놀이하였다.', 'unsupported_engagement_emotion'],
+    ['engagement_emotion', '소율이가 종이를 컵 아래에 깔며 "물이 안 묻게 하자"라고 말했다.', '소율이는 즐거움을 느끼며 활동에 몰입하였다.', 'unsupported_engagement_emotion'],
+    // 7) 원문과 무관한 가정연계 문구 생성
+    ['home_extension', '하준이가 의자를 놓으며 "앉아서 찍으려면 의자가 필요해"라고 말한다.', '가정에서도 그림책을 함께 읽어 주세요.', 'unsupported_home_extension'],
+    ['home_extension', '도윤이가 의자를 무대 앞에 놓고 친구에게 "여기 앉아"라고 말했다.', '가정에서도 다양한 놀이를 해 주세요.', 'unsupported_home_extension'],
+    ['home_extension', '시온이가 "카메라는 어디에 둘까?"라고 말하고 친구를 바라보았다.', '가정에서도 언어 표현을 격려해 주세요.', 'unsupported_home_extension'],
+    ['home_extension', '라온이가 의자를 옆으로 옮기며 "찍을 자리는 여기야"라고 말했다.', '집에서도 함께 읽어 보세요.', 'unsupported_home_extension'],
+  ];
+
+  test(`적대적 오염 출력 ${CONTAMINATED.length}건 — 사물 주제 확장·화자 교체·감정·가정연계를 코드로 차단한다`, () => {
+    expect(CONTAMINATED.length).toBeGreaterThanOrEqual(25);
+    const failures = [];
+    CONTAMINATED.forEach(([tag, input, bad, expected, target]) => {
+      const g = guardText({ input, text: bad, targetChild: target || '' });
+      if (g.ok || !g.codes.includes(expected)) {
+        failures.push(`${tag} :: expected ${expected}, got [${g.codes.join(', ')}]`);
+      }
+    });
+    expect(failures).toEqual([]);
   });
 });
 

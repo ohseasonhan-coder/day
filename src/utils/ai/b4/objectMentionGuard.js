@@ -5,7 +5,7 @@ const BLOCK_MENTION = /(벽돌\s*블록|벽돌블록|블럭|블록)/;
 const BLOCK_PLAY_EVIDENCE = /(벽돌\s*블록|벽돌블록|블럭|블록)[^.?!。]{0,24}(쌓|쌓아|만들|연결|끼우|구성|무너뜨|무너지|집|길|탑|성|다리)|(?:쌓|만들|연결|끼우|구성|무너뜨|무너지)[^.?!。]{0,18}(벽돌\s*블록|벽돌블록|블럭|블록)/;
 const BLOCK_SURFACE_EVIDENCE = /(벽돌\s*블록|벽돌블록|블럭|블록)[^.?!。]{0,16}(위에|위로|위)(?:[^.?!。]{0,14})?(놓|두|올리|받치|받침)|(?:놓|두|올리|받치)[^.?!。]{0,16}(벽돌\s*블록|벽돌블록|블럭|블록)[^.?!。]{0,8}(위에|위)/;
 const LOCATION_EVIDENCE = /(어디다|어디에|어디로|위치|자리|옆에|조금 더|내려놓|옮긴|옮기|놓지|놓자|두지|둘까)/;
-const CAMERA_PROP_EVIDENCE = /(카메라|촬영|찍으려면|찍으려고|찍는 놀이|촬영 놀이)/;
+const CAMERA_PROP_EVIDENCE = /(카메라|촬영|사진|찍으려|찍자|찍을|찍는|찍기)/;
 const ACTUAL_SHOOTING_EVIDENCE = /(사진을\s*찍|촬영하|찍었다|찍었|찍어 보|카메라로\s*찍)/;
 const CHAIR_SPACE_EVIDENCE = /(의자)[^.?!。]{0,20}(놓|내려놓|옮기|앉|자리|옆)/;
 
@@ -110,13 +110,18 @@ export function detectObjectThemeOverreach({ input = '', text = '' } = {}) {
 
   if (!out) return { ok: true, codes, blockedTopics };
 
-  const blockMentionWithoutPlay = BLOCK_MENTION.test(source) && !hasBlockPlayEvidence(source);
-  if (blockMentionWithoutPlay && textHasAny(out, /(블록\s*놀이|블록놀이|블럭\s*놀이|블록을\s*활용|블록으로\s*(구성|만들)|블록\s*구조물|블록\s*활동|블록으로\s*집|블록으로\s*길|블록으로\s*탑)/)) {
+  // 블록놀이 주장은 원문에 구성 행동(쌓기·만들기 등)이나 명시적 '블록놀이'가 있을 때만 허용 —
+  // 받침·위치 언급이든 원문에 블록이 아예 없든(무관 활동 창작) 모두 차단
+  const blockPlayAllowed = hasBlockPlayEvidence(source) || /(벽돌\s*블록|벽돌블록|블럭|블록)\s*놀이/.test(source);
+  if (!blockPlayAllowed && textHasAny(out, /(블록\s*놀이|블록놀이|블럭\s*놀이|블록을\s*활용|블록으로\s*(구성|만들)|블록\s*구조물|블록\s*활동|블록으로\s*집|블록으로\s*길|블록으로\s*탑)/)) {
     codes.push('object_as_theme_overreach', 'unsupported_material_activity');
     blockedTopics.push('blockPlay');
   }
 
-  if (!sourceHasAny(source, /그림책|책/) && textHasAny(out, /(그림책|책)\s*(읽|보기|활동|이야기|함께 읽)/)) {
+  // 그림책 활동 주장도 원문에 읽기·이야기 행동이 있을 때만 허용('책상'은 책 언급이 아님)
+  const bookActivityAllowed = sourceHasAny(source, /(그림책|동화책|책(?!상|꽂이|장))[^.?!。]{0,20}(읽|넘기|펼치|이야기|들었|들으|보(니|며|고|았))/)
+    || sourceHasAny(source, /(읽|펼치)[^.?!。]{0,12}(그림책|동화책|책)/);
+  if (!bookActivityAllowed && textHasAny(out, /(그림책|동화책|책)(을|이|과|도)?\s*(함께\s*)?(읽|보기|활동|이야기|펼치)/)) {
     codes.push('object_as_theme_overreach', 'unsupported_material_activity');
     blockedTopics.push('bookReading');
   }
@@ -124,6 +129,34 @@ export function detectObjectThemeOverreach({ input = '', text = '' } = {}) {
   if (CAMERA_PROP_EVIDENCE.test(source) && !ACTUAL_SHOOTING_EVIDENCE.test(source) && textHasAny(out, /(사진을\s*찍|촬영하였|촬영했다|카메라로\s*찍)/)) {
     codes.push('object_as_theme_overreach');
     blockedTopics.push('actualPhotography');
+  }
+
+  // 원문에 촬영 맥락 자체가 없는데 카메라·촬영 활동을 창작하는 경우
+  if (!CAMERA_PROP_EVIDENCE.test(source) && textHasAny(out, /(카메라|촬영\s*놀이|사진을\s*찍|촬영(하|했))/)) {
+    codes.push('object_as_theme_overreach', 'unsupported_material_activity');
+    blockedTopics.push('cameraPlay');
+  }
+
+  // 공놀이 주장은 원문에 공 놀이 행동(던지기·굴리기 등)이 있을 때만 허용(보관·정리 언급은 근거 아님)
+  const ballPlayAllowed = sourceHasAny(source, /(공을\s*(던|굴|차|주고받|잡)|공놀이|공으로\s*놀|공을\s*가지고)/);
+  if (!ballPlayAllowed && textHasAny(out, /(공놀이|공을\s*(가지고\s*놀|던지|굴리|차)|공으로\s*놀)/)) {
+    codes.push('object_as_theme_overreach', 'unsupported_material_activity');
+    blockedTopics.push('ballPlay');
+  }
+
+  // 의자를 놓은 것이 '의자놀이' 주제로 확장되는 경우
+  if (!sourceHasAny(source, /의자\s*놀이/) && textHasAny(out, /의자\s*놀이/)) {
+    codes.push('object_as_theme_overreach');
+    blockedTopics.push('chairPlay');
+  }
+
+  // 공간·위치 구성 장면의 지원계획이 장면과 무관한 언어 확장 일반론(짧은 문장 확장·표현 기회 제공)으로 흐르는 경우
+  const spaceSetupScene = (CAMERA_PROP_EVIDENCE.test(source) || BLOCK_SURFACE_EVIDENCE.test(source) || CHAIR_SPACE_EVIDENCE.test(source)) && LOCATION_EVIDENCE.test(source);
+  if (spaceSetupScene
+    && textHasAny(out, /(짧은\s*문장으로\s*확장|문장으로\s*확장해|말해\s*?볼\s*기회를\s*(자주\s*)?제공|표현\s*기회를\s*(자주\s*)?제공)/)
+    && !textHasAny(out, /(촬영|카메라|의자|받침|위치|공간|자리|놓)/)) {
+    codes.push('document_context_mismatch');
+    blockedTopics.push('genericLanguageSupport');
   }
 
   if (textHasAny(out, /(가정에서도|집에서도)[^.?!。]{0,36}(그림책|다양한\s*놀이|언어\s*표현|표현을\s*격려|함께\s*읽|함께\s*해\s*주세요)/)) {
