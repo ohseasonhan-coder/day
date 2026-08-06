@@ -11,7 +11,7 @@ import { backupToDrive, restoreFromDrive, getDriveMeta, isElectron, renderGoogle
 import { checkDriveStatus, pullFromDrive, pushToDrive } from '../utils/deviceSync';
 import { detectOnDeviceCapability } from '../utils/ondeviceLLM';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
-  isMaster, adminUpdateAccount, adminDeleteAccount, getAccountDataStats } from '../utils/auth';
+  isMaster, adminUpdateAccount, adminDeleteAccount, adminCreateAccount, getAccountDataStats } from '../utils/auth';
 import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -184,7 +184,17 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   // 관리자(마스터) 패널 — 같은 기기에 있는 회원 관리
   const [adminAccounts, setAdminAccounts] = useState(() => getAccounts());
   const [adminMsg, setAdminMsg] = useState(null);
+  const [newAccount, setNewAccount] = useState({ userId: '', password: '', displayName: '', plan: PLANS.FREE });
   const refreshAdminAccounts = () => setAdminAccounts(getAccounts());
+
+  const handleAdminCreate = async () => {
+    const res = await adminCreateAccount(newAccount.userId, newAccount.password, newAccount.displayName, newAccount.plan, currentUser);
+    if (!res.ok) { setAdminMsg({ ok: false, text: res.error }); return; }
+    refreshAdminAccounts();
+    setNewAccount({ userId: '', password: '', displayName: '', plan: PLANS.FREE });
+    setAdminMsg({ ok: true, text: `@${res.user.userId} 계정을 만들었어요. 만든 아이디·비밀번호를 본인에게 전달해 주세요(다시 확인할 수 없어요).` });
+    setTimeout(() => setAdminMsg(null), 6000);
+  };
 
   const handleAdminRename = (account) => {
     const name = window.prompt(`${account.displayName}의 새 이름을 입력하세요.`, account.displayName);
@@ -1829,6 +1839,30 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 14, background: 'var(--gray-50)', borderRadius: 10, padding: '10px 12px' }}>
                 ℹ️ 이 앱은 서버가 없어서 <b>이 기기(브라우저)에서 로그인한 적 있는 계정만</b> 보여요.
                 다른 기기에서만 쓰는 회원은 여기 나타나지 않습니다.
+                여기서 만든 계정은 <b>이 기기에서만</b> 로그인할 수 있어요 — 다른 기기에서 쓰려면 그 기기에서 새로 만들어야 해요.
+              </div>
+              <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: '12px 13px', marginBottom: 14 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 900, marginBottom: 8 }}>새 계정 만들기</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <input value={newAccount.userId} placeholder="아이디 (영문 소문자·숫자·_)"
+                    onChange={e => setNewAccount({ ...newAccount, userId: e.target.value })}
+                    style={{ flex: 1, minWidth: 140, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5 }} />
+                  <input value={newAccount.password} type="text" placeholder="비밀번호 (4자 이상)"
+                    onChange={e => setNewAccount({ ...newAccount, password: e.target.value })}
+                    style={{ flex: 1, minWidth: 140, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5 }} />
+                  <input value={newAccount.displayName} placeholder="표시 이름 (예: 김선생님)"
+                    onChange={e => setNewAccount({ ...newAccount, displayName: e.target.value })}
+                    style={{ flex: 1, minWidth: 140, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5 }} />
+                  <select value={newAccount.plan} onChange={e => setNewAccount({ ...newAccount, plan: e.target.value })}
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5 }}>
+                    <option value={PLANS.FREE}>무료</option>
+                    <option value={PLANS.PREMIUM}>프리미엄</option>
+                    <option value={PLANS.VIP}>VIP(영구 무료)</option>
+                  </select>
+                </div>
+                <button onClick={handleAdminCreate} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'white', fontSize: 12.5, fontWeight: 800 }}>
+                  계정 만들기
+                </button>
               </div>
               {adminAccounts.filter(a => a.userId !== 'master').length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-tertiary)', fontSize: 13 }}>

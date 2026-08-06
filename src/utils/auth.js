@@ -241,6 +241,42 @@ export function loginWithGoogle(profile) {
   return { ok: true, user: account };
 }
 
+// ── 관리자(마스터) 전용 — 같은 기기에 새 계정 만들기 ─────────────────────────
+// register()와 달리 현재 로그인 세션(관리자 자신)을 바꾸지 않는다 — 관리자가
+// 다른 사람 몫의 계정을 미리 만들어 둘 때 관리자 본인 세션이 그 계정으로
+// 바뀌어 버리면 안 되기 때문. 비밀번호는 register()와 동일하게 즉시 해시한다.
+export async function adminCreateAccount(userId, password, displayName, plan = PLANS.FREE, adminUser) {
+  if (!isMaster(adminUser)) return { ok: false, error: '관리자만 계정을 만들 수 있어요.' };
+  const userId2 = String(userId || '').trim().toLowerCase();
+  if (!userId2) return { ok: false, error: '아이디를 입력해 주세요.' };
+  if (userId2.length < 3) return { ok: false, error: '아이디는 3자 이상이어야 해요.' };
+  if (!/^[a-z0-9_]+$/.test(userId2))
+    return { ok: false, error: '아이디는 영문 소문자, 숫자, 밑줄(_)만 사용할 수 있어요.' };
+  if (!password || password.length < 4)
+    return { ok: false, error: '비밀번호는 4자 이상이어야 해요.' };
+  if (!displayName || !displayName.trim())
+    return { ok: false, error: '표시 이름을 입력해 주세요.' };
+
+  const accounts = getAccounts();
+  if (accounts.find(a => a.userId === userId2))
+    return { ok: false, error: '이미 사용 중인 아이디예요.' };
+
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(password, salt);
+  const user = {
+    userId: userId2,
+    passwordHash,
+    passwordSalt: salt,
+    passwordVersion: PASSWORD_VERSION,
+    displayName: displayName.trim(),
+    plan: Object.values(PLANS).includes(plan) ? plan : PLANS.FREE,
+    createdAt: new Date().toISOString(),
+    createdByAdmin: true,
+  };
+  saveAccountsInternal([...accounts, user]);
+  return { ok: true, user };
+}
+
 // ── 관리자(마스터) 전용 — 같은 기기에 있는 계정 관리 ─────────────────────────
 export function adminUpdateAccount(userId, updates) {
   const accounts = getAccounts();

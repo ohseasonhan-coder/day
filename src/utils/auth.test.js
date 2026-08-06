@@ -3,7 +3,8 @@ import path from 'path';
 import {
   register, login, changePassword, deleteAccount,
   getAccounts, getCurrentUser, logout,
-  PROD_MASTER_SEED, PASSWORD_VERSION,
+  PROD_MASTER_SEED, PASSWORD_VERSION, PLANS,
+  adminCreateAccount,
 } from './auth';
 import { hashPin } from './storage';
 
@@ -121,6 +122,42 @@ describe('보안: 비밀번호 변경/계정 삭제도 해시 기반', () => {
     expect((await deleteAccount('teacher6', 'nope')).ok).toBe(false);
     expect((await deleteAccount('teacher6', 'delpw12')).ok).toBe(true);
     expect(getAccounts().find(a => a.userId === 'teacher6')).toBeUndefined();
+  });
+});
+
+describe('관리자: 다른 사람 몫 계정 미리 만들기', () => {
+  const MASTER = { userId: 'master', role: 'master' };
+  const TEACHER = { userId: 'teacher_x' };
+
+  test('일반 사용자는 계정을 만들 수 없다', async () => {
+    const res = await adminCreateAccount('newbie1', 'pw1234', '새선생', PLANS.VIP, TEACHER);
+    expect(res.ok).toBe(false);
+    expect(getAccounts().find(a => a.userId === 'newbie1')).toBeUndefined();
+  });
+
+  test('관리자는 지정한 플랜으로 계정을 만들 수 있고, 비밀번호는 해시로만 저장된다', async () => {
+    const res = await adminCreateAccount('ssam01', 'Saem@2025', '쌤01', PLANS.VIP, MASTER);
+    expect(res.ok).toBe(true);
+    const acc = getAccounts().find(a => a.userId === 'ssam01');
+    expect(acc.plan).toBe(PLANS.VIP);
+    expect(acc).not.toHaveProperty('password');
+    expect(typeof acc.passwordHash).toBe('string');
+    // 새로 만든 계정 비밀번호로 실제 로그인도 된다
+    const loginRes = await login('ssam01', 'Saem@2025');
+    expect(loginRes.ok).toBe(true);
+  });
+
+  test('관리자가 다른 사람 몫 계정을 만들어도 관리자 자신의 로그인 세션은 그대로 유지된다', async () => {
+    localStorage.setItem('sw_session', JSON.stringify(MASTER));
+    await adminCreateAccount('ssam02', 'Saem@2025', '쌤02', PLANS.VIP, MASTER);
+    expect(getCurrentUser()?.userId).toBe('master'); // register()와 달리 세션이 바뀌지 않음
+  });
+
+  test('중복 아이디, 형식이 잘못된 아이디·짧은 비밀번호는 거부된다', async () => {
+    await adminCreateAccount('ssam03', 'Saem@2025', '쌤03', PLANS.VIP, MASTER);
+    expect((await adminCreateAccount('ssam03', 'other123', '중복', PLANS.FREE, MASTER)).ok).toBe(false);
+    expect((await adminCreateAccount('Bad ID', 'Saem@2025', '형식오류', PLANS.FREE, MASTER)).ok).toBe(false);
+    expect((await adminCreateAccount('ssam04', 'abc', '짧은비번', PLANS.FREE, MASTER)).ok).toBe(false);
   });
 });
 
