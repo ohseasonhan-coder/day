@@ -62,6 +62,8 @@ export const SYNC_EXCLUDED_KEYS = [
   // 서식 정의·7B 서버 설정(5.5단계) — 기기 공용/관리자 전용, 백업·동기화 제외
   'sw_shared_doc_forms', 'sw_admin_llm_server_url', 'sw_admin_llm_server_model', 'sw_admin_llm_server_model_14b',
   'sw_shared_rich_doc_templates',
+  // Gemini API 설정(관리자 전용) — API 키를 절대 백업·동기화하지 않는다
+  'sw_admin_gemini_api_key', 'sw_admin_gemini_model',
   'sw_b2_sentence_engine',
   'sw_b3_case_engine_enabled',
   'sw_b4_discourse_engine_enabled', 'sw_b4_style_profile', 'sw_b4_recent_patterns', 'sw_b4_teacher_preference_profile',

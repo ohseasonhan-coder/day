@@ -1,24 +1,27 @@
+import { getGeminiConfig } from '../llm/geminiLLM';
+
 export const B2_KEYS = {
   ENGINE: 'sw_b2_sentence_engine',
   REVIEW_DATA: 'sw_review_entries',
 };
 
-export const B2_LLM_ENGINES = ['rule-b2', 'local-7b', 'private-server-7b', 'private-server-14b', 'auto'];
+export const B2_LLM_ENGINES = ['rule-b2', 'local-7b', 'private-server-7b', 'private-server-14b', 'auto', 'gemini'];
 export const DEFAULT_B2_ENGINE = 'rule-b2';
 
+// 관리자가 엔진을 한 번도 직접 고른 적이 없으면(저장된 값 없음) Gemini 키가 설정돼 있는지로
+// 자동 판단한다 — 키만 저장하면 별도 선택 없이 바로 AI가 작성하고, 키가 없으면 규칙 엔진 그대로다.
+// 명시적으로 고른 값(규칙 엔진 포함)은 항상 그대로 저장되어 이 자동 판단보다 우선한다.
 export function getB2SentenceEngine() {
-  try {
-    const saved = localStorage.getItem(B2_KEYS.ENGINE);
-    return B2_LLM_ENGINES.includes(saved) ? saved : DEFAULT_B2_ENGINE;
-  } catch { return DEFAULT_B2_ENGINE; }
+  let saved = null;
+  try { saved = localStorage.getItem(B2_KEYS.ENGINE); } catch { saved = null; }
+  if (B2_LLM_ENGINES.includes(saved)) return saved;
+  try { if (getGeminiConfig().apiKey) return 'gemini'; } catch {}
+  return DEFAULT_B2_ENGINE;
 }
 
 export function setB2SentenceEngine(engine) {
   const next = B2_LLM_ENGINES.includes(engine) ? engine : DEFAULT_B2_ENGINE;
-  try {
-    if (next === DEFAULT_B2_ENGINE) localStorage.removeItem(B2_KEYS.ENGINE);
-    else localStorage.setItem(B2_KEYS.ENGINE, next);
-  } catch {}
+  try { localStorage.setItem(B2_KEYS.ENGINE, next); } catch {}
   return next;
 }
 

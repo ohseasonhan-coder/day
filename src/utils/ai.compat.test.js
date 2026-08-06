@@ -76,7 +76,7 @@ test('성장요약과 상담자료도 레거시 결과와 새 초안을 병행 �
   expect(consult.aiAnalysis.primaryCategory).toBeTruthy();
 });
 
-test('외부 API 호출 코드가 없다', () => {
+test('외부 API 호출 코드는 허용된 두 지점(로컬 7B, Gemini)으로만 제한된다', () => {
   const aiDir = path.join(__dirname, 'ai');
   const files = [];
   const walk = (dir) => {
@@ -87,14 +87,34 @@ test('외부 API 호출 코드가 없다', () => {
     });
   };
   walk(aiDir);
-  // 예외(5.5단계): privateServerLLM.js는 "관리자 본인 소유 PC의 로컬 7B 서버"로만 fetch한다.
+  const relPath = (f) => path.relative(aiDir, f).split(path.sep).join('/');
+
+  // 예외1(5.5단계): privateServerLLM.js는 "관리자 본인 소유 PC의 로컬 7B 서버"로만 fetch한다.
   //  - 제3자 유료 LLM API 아님(주소는 관리자가 직접 설정, 미설정 시 규칙 fallback)
   //  - 별도 가드: 해당 파일에 상용 API 도메인이 들어가면 실패한다.
-  files.filter((f) => f.endsWith('privateServerLLM.js')).forEach((f) => {
+  files.filter((f) => relPath(f) === 'llm/privateServerLLM.js').forEach((f) => {
     const src = fs.readFileSync(f, 'utf8');
     expect(src).not.toMatch(/openai\.com|anthropic|googleapis|api\.openai|generativelanguage|api\.mistral|openrouter/i);
   });
-  const source = files.filter((f) => !f.endsWith('privateServerLLM.js'))
-    .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+
+  // 예외2: geminiLLM.js는 관리자가 API 키를 직접 입력하고 엔진을 'gemini'로 선택했을 때만
+  // 쓰이는 유일한 실제 외부(Google) 호출 지점이다. Gemini 도메인만 허용하고 다른 상용 API는 금지한다.
+  files.filter((f) => relPath(f) === 'llm/geminiLLM.js').forEach((f) => {
+    const src = fs.readFileSync(f, 'utf8');
+    expect(src).toMatch(/generativelanguage\.googleapis\.com/);
+    expect(src).not.toMatch(/openai\.com|anthropic|api\.openai|api\.mistral|openrouter/i);
+  });
+
+  // 그 외 모든 파일은 실제 네트워크 호출(fetch/XMLHttpRequest/axios)이나 상용 API 참조를 가질 수 없다.
+  // b2/llmBridge.js·b2/config.js는 'gemini'를 엔진 id 문자열로만 참조(실제 fetch는 geminiLLM.js 전용)하므로
+  // 'gemini' 문자열만 예외로 허용하고 fetch(/axios 등은 그대로 금지 대상에 남긴다.
+  const ENGINE_ID_ONLY_FILES = ['b2/llmBridge.js', 'b2/config.js'];
+  const EXEMPT = ['llm/privateServerLLM.js', 'llm/geminiLLM.js'];
+  const source = files
+    .filter((f) => !EXEMPT.includes(relPath(f)))
+    .map((f) => {
+      const src = fs.readFileSync(f, 'utf8');
+      return ENGINE_ID_ONLY_FILES.includes(relPath(f)) ? src.replace(/gemini/gi, '') : src;
+    }).join('\n');
   expect(source).not.toMatch(/openai|gemini|claude|fetch\s*\(|XMLHttpRequest|axios/i);
 });

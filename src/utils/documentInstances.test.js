@@ -164,6 +164,20 @@ describe('권한', () => {
     const out = onRecordSaved({ record: RECORD, recordType: 'observe', user: MASTER });
     expect(out.created).toHaveLength(0);
   });
+
+  // 회귀: DEFAULT_AUTO_RULES에 항목이 없는 서식(내장 회의록, 관리자가 새로 만든 모든 커스텀 서식)을
+  // 연결하면 clone(undefined) → JSON.parse(undefined)에서 죽던 버그. 문서 작성실에서 "자동 생성 켜기"를
+  // 누르면 이 경로를 그대로 탄다.
+  test('기본 규칙이 없는 서식(예: 교사 회의록)도 자동 생성에 새로 연결할 수 있다', () => {
+    seed(MASTER);
+    expect(getAutoRules().builtin_meeting).toBeUndefined();
+    const r = setAutoRule('builtin_meeting', {
+      enabled: true, trigger: 'observationRecordSaved', sourceRecordType: 'observationRecord',
+      documentType: 'observationJournal', requires: { recordSaved: true, b4AuditPassed: false }, createMode: 'draft',
+    }, MASTER);
+    expect(r.ok).toBe(true);
+    expect(getAutoRules().builtin_meeting).toMatchObject({ enabled: true, trigger: 'observationRecordSaved' });
+  });
 });
 
 describe('문서함 그룹', () => {

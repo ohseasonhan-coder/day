@@ -8,6 +8,17 @@ import {
   setTemplatePublished, archiveTemplate, deleteTemplate, renderInstance, validateTemplate,
 } from '../utils/docTemplates';
 import { PRIVATE_SERVER_KEYS, getServerConfig, setServerConfig, privateServerAdapter } from '../utils/ai/llm/privateServerLLM';
+import { GEMINI_KEYS, getGeminiConfig, setGeminiConfig, geminiAdapter } from '../utils/ai/llm/geminiLLM';
+import { B2_LLM_ENGINES, getB2SentenceEngine, setB2SentenceEngine } from '../utils/ai/b2/config';
+
+const ENGINE_LABELS = {
+  'rule-b2': '규칙 엔진(기본, 외부 전송 없음)',
+  'local-7b': '로컬 7B(같은 PC)',
+  'private-server-7b': '개인 PC 서버(7B)',
+  'private-server-14b': '개인 PC 서버(14B)',
+  auto: '자동(개인 PC 서버 감지)',
+  gemini: 'Gemini API(외부·인터넷 전송)',
+};
 
 const btn = (primary) => ({ padding: '7px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: primary ? 'none' : '1px solid var(--border)', background: primary ? 'var(--primary)' : 'white', color: primary ? 'white' : 'var(--text-secondary)' });
 const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5 };
@@ -86,6 +97,9 @@ export default function DocTemplateStudio({ currentUser }) {
   const [msg, setMsg] = useState('');
   const [server, setServer] = useState(getServerConfig());
   const [serverState, setServerState] = useState('');
+  const [gemini, setGemini] = useState(getGeminiConfig());
+  const [geminiState, setGeminiState] = useState('');
+  const [sentenceEngine, setSentenceEngineState] = useState(getB2SentenceEngine());
   const refresh = () => setList(listTemplatesForAdmin(currentUser));
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500); };
 
@@ -96,6 +110,11 @@ export default function DocTemplateStudio({ currentUser }) {
     setServerState('확인 중…');
     const s = await privateServerAdapter.getStatus();
     setServerState(s.state === 'ready' ? '✅ 연결됨' : `❌ ${s.error || s.state}`);
+  };
+  const testGemini = async () => {
+    setGeminiState('확인 중…');
+    const s = await geminiAdapter.getStatus();
+    setGeminiState(s.state === 'ready' ? '✅ 연결됨' : `❌ ${s.error || s.state}`);
   };
 
   return (
@@ -123,6 +142,38 @@ export default function DocTemplateStudio({ currentUser }) {
           주소를 비워 두면 이 PC의 로컬 AI 서버(Ollama·LM Studio)를 자동으로 찾아 연결해요(설정 불필요).
           다른 PC 주소는 관리자 본인 소유 서버만 입력하세요. 서버가 없거나 연결 실패 시 자동으로 규칙 엔진 결과를 사용해요. ({PRIVATE_SERVER_KEYS.URL})
         </div>
+      </div>
+
+      {/* Gemini API 설정(관리자만 — 교사 화면 미노출). 이 경로는 인터넷을 통해 Google 서버로 전송됩니다. */}
+      <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>🔮 Gemini API 설정 — 선택(외부 전송)</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <input type="password" value={gemini.apiKey} placeholder="Gemini API 키"
+            onChange={(e) => setGemini({ ...gemini, apiKey: e.target.value })} style={{ ...inputStyle, flex: 2, minWidth: 220 }} />
+          <input value={gemini.model} placeholder="모델명 예: gemini-2.5-flash"
+            onChange={(e) => setGemini({ ...gemini, model: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
+          <button onClick={() => {
+            setGeminiConfig(gemini);
+            setSentenceEngineState(getB2SentenceEngine());
+            flash(gemini.apiKey ? 'Gemini 설정을 저장했어요. 이제 별도 선택 없이 자동으로 AI가 작성해요.' : 'Gemini 설정을 저장했어요.');
+          }} style={btn(true)}>저장</button>
+          <button onClick={testGemini} style={btn(false)}>연결 확인</button>
+          {geminiState && <span style={{ fontSize: 12, alignSelf: 'center' }}>{geminiState}</span>}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>
+          키를 저장하면 별도 선택 없이 자동으로 Gemini가 배움 읽기·교사 지원 문장을 작성해요(관찰내용은 항상 규칙 결과 그대로).
+          대상 원아·다른 원아 이름은 비식별화한 제한된 정보만 보내고, 응답이 안전 검수를 통과하지 못하거나 키가 없으면
+          자동으로 규칙 엔진 결과를 사용해요. ({GEMINI_KEYS.API_KEY})
+        </div>
+        <details style={{ marginTop: 6 }}>
+          <summary style={{ fontSize: 11, color: 'var(--text-tertiary)', cursor: 'pointer' }}>직접 엔진 선택(선택 사항 — 보통은 몰라도 돼요)</summary>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+            <select value={sentenceEngine} onChange={(e) => { const next = setB2SentenceEngine(e.target.value); setSentenceEngineState(next); flash('엔진을 변경했어요.'); }} style={{ ...inputStyle, width: 'auto' }}>
+              {B2_LLM_ENGINES.map((id) => <option key={id} value={id}>{ENGINE_LABELS[id] || id}</option>)}
+            </select>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>규칙 엔진을 선택하면 키가 있어도 AI를 쓰지 않아요.</span>
+          </div>
+        </details>
       </div>
 
       {!editing && (

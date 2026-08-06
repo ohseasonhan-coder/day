@@ -36,6 +36,12 @@ const TRIGGER_LABELS = {
   observationRecordSaved: '관찰 기록 저장 시', dailyRecordSaved: '하루 기록 저장 시',
   consultationRecordSaved: '상담 기록 저장 시',
 };
+const TRIGGER_TO_SOURCE = {
+  observationRecordSaved: 'observationRecord', dailyRecordSaved: 'dailyRecord', consultationRecordSaved: 'consultationRecord',
+};
+const TRIGGER_TO_DOC_TYPE = {
+  observationRecordSaved: 'observationJournal', dailyRecordSaved: 'dailyJournal', consultationRecordSaved: 'consultationRecord',
+};
 const INBOX_TABS = [
   ['autoToday', '오늘 자동 생성됨'], ['needsReview', '확인 필요'], ['drafting', '작성 중'],
   ['done', '완료'], ['manual', '서식에서 직접 생성'], ['archived', '보관됨'],
@@ -254,6 +260,7 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
   const [inboxTab, setInboxTab] = useState('autoToday');
   const [instanceOpen, setInstanceOpen] = useState(null); // 자동 생성 문서(인스턴스) 작업 화면
   const [inboxVersion, setInboxVersion] = useState(0);
+  const [connectTrigger, setConnectTrigger] = useState({}); // 서식별로 아직 연결 전 선택한 trigger
   const saveTimer = useRef(null);
   const inbox = useMemo(() => groupInstancesForInbox(currentUser), [currentUser, inboxVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const autoRules = useMemo(() => getAutoRules(), [inboxVersion]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -421,6 +428,42 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
                 );
               })}
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>지원 trigger: {AUTO_TRIGGERS.map((t) => TRIGGER_LABELS[t]).join(' / ')}</div>
+
+              {templates.filter((t) => !autoRules[t.templateId]).length > 0 && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 4 }}>서식을 자동 생성에 연결</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                    내가 만든 서식을 골라 언제 자동으로 채워질지 정하면, 그 다음부터는 선택 없이 기록을 저장할 때마다 자동으로 문서가 만들어져요.
+                  </div>
+                  {templates.filter((t) => !autoRules[t.templateId]).map((tpl) => (
+                    <div key={tpl.templateId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12.5, flexWrap: 'wrap' }}>
+                      <strong style={{ minWidth: 110 }}>{tpl.title}</strong>
+                      <select
+                        value={connectTrigger[tpl.templateId] || AUTO_TRIGGERS[0]}
+                        onChange={(e) => setConnectTrigger((prev) => ({ ...prev, [tpl.templateId]: e.target.value }))}
+                        style={{ ...inputStyle, height: 30, width: 'auto' }}>
+                        {AUTO_TRIGGERS.map((t) => <option key={t} value={t}>{TRIGGER_LABELS[t]}</option>)}
+                      </select>
+                      <button
+                        onClick={() => {
+                          const trigger = connectTrigger[tpl.templateId] || AUTO_TRIGGERS[0];
+                          if (!tpl.system && !tpl.published) setRichTemplatePublished(tpl.templateId, true, currentUser);
+                          const r = setAutoRule(tpl.templateId, {
+                            enabled: true, trigger, sourceRecordType: TRIGGER_TO_SOURCE[trigger],
+                            documentType: TRIGGER_TO_DOC_TYPE[trigger], requires: { recordSaved: true, b4AuditPassed: false }, createMode: 'draft',
+                          }, currentUser);
+                          if (!r.ok) { showToast(r.error, 'error'); return; }
+                          showToast(`"${tpl.title}" 서식을 자동 생성에 연결했어요.`, 'success');
+                          refresh();
+                          setInboxVersion((v) => v + 1);
+                        }}
+                        style={{ ...btn(true), marginLeft: 'auto', minHeight: 30 }}>
+                        자동 생성 켜기
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>

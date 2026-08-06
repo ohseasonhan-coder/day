@@ -1,6 +1,8 @@
 import { auditObservationCopy } from '../observationAudit';
 import { parseTargetSections } from '../targetQuality';
 import { getServerConfig, hasServerModel, privateServerAdapter } from '../llm/privateServerLLM';
+import { geminiAdapter, getGeminiConfig } from '../llm/geminiLLM';
+import { anonymizeOtherChildNames, restoreOtherChildNames } from '../llm/externalPrivacyGuard';
 import { isReviewModeEnabled } from '../../reviewFeedback';
 import { buildB2FactCard, buildB2SentencePlan, generateB2, judgeB2Themes } from './engine';
 import { DEFAULT_B2_ENGINE, resolveB2SentenceEngine } from './config';
@@ -194,6 +196,7 @@ function assembleCopy(observation, learning, support) {
 
 async function resolveEngine(engine, overrideAdapter) {
   if (overrideAdapter) return { adapter: overrideAdapter, engineId: engine, model: undefined };
+  if (engine === 'gemini') return { adapter: geminiAdapter, engineId: engine, model: getGeminiConfig().model };
   const config = getServerConfig();
   if (engine === 'private-server-14b') return { adapter: privateServerAdapter, engineId: engine, model: config.model14b };
   if (engine === 'local-7b' || engine === 'private-server-7b') return { adapter: privateServerAdapter, engineId: engine, model: config.model };
@@ -243,9 +246,14 @@ export async function runConstrainedB2LLM({
         ...messages,
         { role: 'system', content: '이전 출력은 형식 또는 안전 검사를 통과하지 못했다. 허용 id와 의미만 사용해 JSON 객체만 다시 반환한다.' },
       ];
+      // 인터넷을 통해 나가는 어댑터(예: gemini)에는 전송 직전 다른 원아 이름까지 비식별화한다
+      // (대상 원아 이름은 buildRestrictedLLMContext가 이미 '원아 A'로 치환했다). 응답은 복원 후 파싱한다.
+      const external = resolved.adapter?.external === true;
+      const anon = external ? anonymizeOtherChildNames(attemptMessages, { input, targetChild: childName }) : { messages: attemptMessages, nameMap: [] };
       // Adapter retries are disabled here. This layer owns the single allowed retry.
       // eslint-disable-next-line no-await-in-loop
-      const raw = await resolved.adapter.generate({ messages: attemptMessages, schema: B2_LLM_OUTPUT_SCHEMA, model: resolved.model, retries: 0, timeoutMs });
+      const rawSent = await resolved.adapter.generate({ messages: anon.messages, schema: B2_LLM_OUTPUT_SCHEMA, model: resolved.model, retries: 0, timeoutMs });
+      const raw = anon.nameMap.length ? restoreOtherChildNames(rawSent, anon.nameMap) : rawSent;
       const parsed = parseRestrictedLLMJson(raw);
       if (!parsed.ok) { lastReason = parsed.error; continue; }
       const validation = validateRestrictedLLMOutput({ data: parsed.data, context });

@@ -55,7 +55,9 @@ export function setAutoRule(templateId, patch, user = getCurrentUser()) {
   if (!isMaster(user)) return { ok: false, error: '관리자만 자동 생성 규칙을 변경할 수 있습니다.' };
   if (patch?.trigger && !AUTO_TRIGGERS.includes(patch.trigger)) return { ok: false, error: '지원하지 않는 trigger입니다.' };
   const stored = readJson(AUTO_RULES_KEY, {});
-  const base = stored[templateId] || clone(DEFAULT_AUTO_RULES[templateId]) || {
+  // DEFAULT_AUTO_RULES[templateId]가 없는 서식(내장 회의록·모든 커스텀 서식)도 연결할 수 있어야 하므로
+  // clone(undefined)로 JSON.parse가 터지지 않도록 존재 여부를 먼저 확인한다.
+  const base = stored[templateId] || (DEFAULT_AUTO_RULES[templateId] ? clone(DEFAULT_AUTO_RULES[templateId]) : null) || {
     enabled: false, trigger: AUTO_TRIGGERS[0], sourceRecordType: 'observationRecord',
     documentType: 'observationJournal', requires: { recordSaved: true, b4AuditPassed: true }, createMode: 'draft',
   };

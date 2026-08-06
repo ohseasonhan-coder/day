@@ -2,7 +2,7 @@
 
 This directory contains the modular local AI engine for SaemWork.
 
-The app does not call external LLM APIs. All analysis and draft generation run in the browser with deterministic rules.
+By default the app does not call external LLM APIs. All analysis and draft generation run in the browser with deterministic rules. An admin-only, opt-in Gemini engine exists (see "External LLM (opt-in)" below); it is inactive unless an admin explicitly sets an API key and selects it.
 
 ## Compatibility
 
@@ -156,9 +156,16 @@ Do not remove legacy fields unless every consuming screen has migrated.
     - 관찰일지 발화 보존 강화(2026-06): `createObservation`이 최종 단계에서 입력의 모든 따옴표 발화를 검사해, scene 프레임이 누락한 발화는 원문 문장 그대로 복원(`ensureSpeechPreserved`). 요약/순화/메타문장 없이 원문만. 작은/큰/한국어 따옴표 모두. 샘플 20건 재검수 결과 발화 실패 0·평균 96.1.
     - 단, 운영 기본값은 여전히 observation=legacy. 엄격 기준(샘플 30건+·factPreservation 28+) 충족 후 관리자 수동 전환.
 
+## External LLM (opt-in, 2026-08)
+
+- `llm/geminiLLM.js` is the **only** file allowed to call an external commercial API (Google's `generativelanguage.googleapis.com`). `ai.compat.test.js` enforces this — every other file is still banned from `fetch(`/`XMLHttpRequest`/`axios`/`openai`/`claude`/`gemini` references (with `b2/llmBridge.js`/`b2/config.js` allowed to reference the `'gemini'` engine id string only, never to call it directly).
+- Fully **inactive by default**: nothing is sent anywhere until an admin enters a Gemini API key via the admin-only settings panel (`DocTemplateStudio.js`, `isMaster` gated). Once a key is saved, `b2/config.js: getB2SentenceEngine()` automatically resolves to `'gemini'` — **no manual engine selection is required**. An explicit choice (including forcing `'rule-b2'`) always overrides the automatic key-based resolution, via a collapsed "직접 엔진 선택" control in the same panel.
+- Reuses the existing constrained-LLM pipeline (`b2/llmBridge.js: runConstrainedB2LLM`) unchanged: the request body is never raw prose — it's `buildRestrictedLLMContext`'s limited JSON (allowed theme/support-action ids + two short text slots), the target child's name is replaced with the label `원아 A` before sending and restored after, and the response must pass the same audit/validation (`validateRestrictedLLMOutput`, `auditObservationCopy`) as local engines or it's discarded and rule-b2 output is used instead.
+- Additional privacy layer for this engine only (`llm/externalPrivacyGuard.js`): because this adapter's traffic actually leaves the device (unlike the local-7B adapter), any *other* children's names mentioned in the input are also replaced with generic labels (`친구1`, `친구2`, ...) before the request and restored in the response, on top of the existing target-child anonymization.
+- API key lives in `localStorage` only (`sw_admin_gemini_api_key`), never synced/backed up (`storage.js: SYNC_EXCLUDED_KEYS`), never logged, never committed to source.
+
 ## Safety Rules
 
-- Do not add OpenAI, Gemini, Claude, or other external API calls.
 - Do not add a server.
 - Do not invent facts that are not present in the input.
 - Do not change actual child speech inside quotes.
