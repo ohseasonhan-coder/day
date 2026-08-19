@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage, getStorageUsage } from '../utils/storage';
+import { getChildren, getClasses, getRecords, getRecordsByDate, today, formatDateKo, CATEGORIES, getRoutines, getMedicines, getEvents, getConsults, getAutomationState, getBackupHistory, exportBackup, addBackupRecord, storage, getStorageUsage, getSiteContent } from '../utils/storage';
 import { buildWeeklySummary } from '../utils/planningDocs';
 import { PenLine, FileText, CheckSquare, ChevronRight, ChevronDown, Users, Clock3, ShieldCheck, AlertCircle, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, TrendingUp, Sparkles } from 'lucide-react';
 
@@ -11,6 +11,14 @@ const SERVICE_CARDS = [
   { title: '원내문서',          desc: '교육일지·회의록·평가서 자동완성',   icon: '📋', nav: 'internal' },
   { title: '평가제 준비',       desc: '누락 기록과 영역 균형 점검',       icon: '✅', nav: 'check' },
 ];
+
+// 관리자가 "사이트 관리"에서 편집한 값이 있으면 같은 순서의 카드 title/desc만 덮어쓴다(icon/nav는 유지).
+function mergeServiceCards(overrides) {
+  if (!Array.isArray(overrides) || !overrides.length) return SERVICE_CARDS;
+  return SERVICE_CARDS.map((card, i) => (overrides[i]
+    ? { ...card, title: overrides[i].title || card.title, desc: overrides[i].desc || card.desc }
+    : card));
+}
 
 const AVATAR_COLORS = ['#4F7FFF','#6C63FF','#FF8C42','#00B4D8','#4CAF50','#E91E9A','#FF5722','#607D8B'];
 function getAvatarColor(name) {
@@ -39,6 +47,8 @@ function childTopic(name) {
 }
 
 export default function TodayPage({ onNavigate, isDesktop }) {
+  // 관리자가 "사이트 관리"에서 편집한 대시보드 문구(기기 공용) — 없으면 기존 기본 문구 그대로.
+  const siteContent = getSiteContent();
   const [todayRecords, setTodayRecords] = useState([]);
   const [children, setChildren]         = useState([]);
   const [classes, setClasses]           = useState([]);
@@ -375,7 +385,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
     }}>
       <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 5 }}>{dateLabel} · {greeting} 👋</div>
       <div style={{ fontSize: isDesktop ? 26 : 24, fontWeight: 900, letterSpacing: '-0.9px', lineHeight: 1.25 }}>
-        {cl ? `${cl.name} 업무 자동화` : '오늘의 교사 업무'}
+        {cl ? `${cl.name}${siteContent.dashboardTaglineSuffix || ' 업무 자동화'}` : '오늘의 교사 업무'}
       </div>
       <div style={{ fontSize: 13, opacity: 0.82, marginTop: 5, lineHeight: 1.6 }}>
         {cl ? `${cl.year}학년도 · ${cl.age}세반 · 원아 ${children.length}명` : '반을 설정하면 자동화 현황을 볼 수 있어요'}
@@ -492,7 +502,7 @@ export default function TodayPage({ onNavigate, isDesktop }) {
 
   const ServiceCards = (
     <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10 }}>
-      {SERVICE_CARDS.map(item => (
+      {mergeServiceCards(siteContent.serviceCards).map(item => (
         <button key={item.title} onClick={() => onNavigate(item.nav)} className="card-lift" style={{
           background: 'var(--white)', border: '1px solid var(--border)',
           borderRadius: 16, padding: 14, textAlign: 'left',

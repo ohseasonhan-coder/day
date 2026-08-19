@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId, hasDriveContext } from './utils/storage';
+import { getClasses, getChildren, getRecords, getRecordsByDate, today, getActiveClassId, setActiveClassId, isOnboardingDone, getSettings, storage, getBackupJson, addBackupRecord, getGoogleClientId, hasDriveContext, getSiteContent } from './utils/storage';
 import { backupToDrive, getDriveMeta } from './utils/driveBackup';
 import { autoSyncOnStart } from './utils/deviceSync';
 import { emitSyncEvent } from './utils/driveBackup';
@@ -28,21 +28,25 @@ import ChecklistPage  from './pages/ChecklistPage';
 import InternalDocsPage from './pages/InternalDocsPage';
 import AutomationPage from './pages/AutomationPage';
 import DocumentStudioPage from './pages/DocumentStudioPage';
+import PublicPagesPage from './pages/PublicPagesPage';
 import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
 import LockScreen from './components/LockScreen';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles, MoreHorizontal, FileText } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles, MoreHorizontal, FileText, Globe } from 'lucide-react';
 import { MOBILE_PRIMARY, MORE_MENU_ITEMS } from './utils/navConfig';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
+// 관리자가 "사이트 관리"에서 기본 색상을 바꿔 뒀으면 렌더 전에 미리 적용(깜박임 방지, initTheme와 동일 원칙)
+const siteColorOverride = getSiteContent().primaryColor;
+if (siteColorOverride) document.documentElement.style.setProperty('--primary', siteColorOverride);
 
 // 메뉴 id → 아이콘
 const NAV_ICONS = {
   today: Home, record: PenLine, aiwrite: Zap, docs: FolderOpen, children: Users,
   settings: Settings, internal: ClipboardList, consult: MessageSquare, checklist: ClipboardList,
   check: CheckSquare, stats: BarChart3, newsletter: Newspaper, note: BookOpen,
-  medicine: Pill, accident: AlertTriangle, automation: Sparkles, docstudio: FileText,
+  medicine: Pill, accident: AlertTriangle, automation: Sparkles, docstudio: FileText, pages: Globe,
 };
 
 // 모바일 하단 탭 — 핵심 4개 + 더보기 (설정은 상단 기어)
@@ -63,6 +67,7 @@ const NAV_GROUPS = [
       { id: 'aiwrite',  label: 'AI작성',   icon: Zap },
       { id: 'automation', label: '자동화', icon: Sparkles },
       { id: 'docstudio', label: '문서 작성실', icon: FileText },
+      { id: 'pages',    label: '공개 페이지', icon: Globe },
       { id: 'internal', label: '원내문서', icon: ClipboardList },
       { id: 'docs',     label: '문서함',   icon: FolderOpen },
     ],
@@ -91,7 +96,7 @@ const NAV_GROUPS = [
 const PAGE_TITLES = {
   today: '오늘', record: '오늘기록', aiwrite: 'AI 문서작성', note: '알림장',
   children: '원아기록', docs: '문서함', check: '점검', stats: '통계',
-  internal: '원내문서', automation: '자동화 작업', docstudio: '문서 작성실',
+  internal: '원내문서', automation: '자동화 작업', docstudio: '문서 작성실', pages: '공개 페이지',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
   coach: 'AI 코칭', events: '행사 캘린더', consult: '상담 관리', checklist: '발달 체크리스트',
 };
@@ -330,6 +335,7 @@ export default function App() {
       case 'internal':   return <InternalDocsPage {...pageProps} />;
       case 'automation': return <AutomationPage {...pageProps} context={automationContext} />;
       case 'docstudio': return <DocumentStudioPage {...pageProps} />;
+      case 'pages': return <PublicPagesPage {...pageProps} />;
       case 'portfolio': return portfolioChild ? <PortfolioPage {...pageProps} childId={portfolioChild.childId} childName={portfolioChild.childName} onBack={() => handleNavigate('children')} /> : <ChildrenPage {...pageProps} />;
       default:         return <TodayPage    {...pageProps} />;
     }

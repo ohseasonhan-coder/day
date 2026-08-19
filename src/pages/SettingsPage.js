@@ -12,6 +12,7 @@ import { checkDriveStatus, pullFromDrive, pushToDrive } from '../utils/deviceSyn
 import { detectOnDeviceCapability } from '../utils/ondeviceLLM';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
   isMaster, adminUpdateAccount, adminDeleteAccount, adminCreateAccount, getAccountDataStats } from '../utils/auth';
+import { getGeminiConfig } from '../utils/ai/llm/geminiLLM';
 import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -19,6 +20,7 @@ import { extractDocxText, extractHwpxText, classifyFormFile } from '../utils/doc
 import EngineComparePanel from '../components/EngineComparePanel';
 import EngineReviewReport from '../components/EngineReviewReport';
 import DocTemplateStudio from '../components/DocTemplateStudio';
+import SiteManager from '../components/SiteManager';
 import { isB3Enabled, setB3Enabled } from '../utils/ai/b3/config';
 import { B4_STYLE_PROFILES, getB4StyleProfile, isB4Enabled, setB4Enabled, setB4StyleProfile } from '../utils/ai/b4/config';
 
@@ -55,6 +57,9 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   const [classes, setClasses]     = useState(getClasses());
   const [children, setChildren]   = useState(getChildren());
   const [activeTab, setActiveTab] = useState('general');
+  // 관리자가 Gemini API를 연결해 두었으면(기기 공용 설정) 개인정보 안내 문구를 그에 맞게 바꾼다 —
+  // 이때만 이름을 가린 관찰 내용 일부가 문장 생성을 위해 Google 서버로 나갈 수 있기 때문.
+  const geminiActive = !!getGeminiConfig().apiKey;
   // 설정 진입/탭 전환 시 항상 화면 맨 위부터 보이게(이전 화면 스크롤 위치 잔상 방지)
   useEffect(() => { try { window.scrollTo(0, 0); } catch {} }, [activeTab]);
   const [newChildName, setNewChildName] = useState('');
@@ -807,7 +812,14 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
 
             <SettingCard title="🔒 개인정보 저장 안내">
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-                기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장되며, 외부 서버로 전송되지 않습니다.
+                {geminiActive ? (
+                  <>
+                    기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장됩니다.<br />
+                    관리자가 연결한 Gemini AI가 배움 읽기·지원 문장을 쓸 때는, 이름을 가린 관찰 내용 일부가 Google 서버로 전송돼요(저장되지 않고 문장 생성에만 쓰이고 사라져요).
+                  </>
+                ) : (
+                  '기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장되며, 외부 서버로 전송되지 않습니다.'
+                )}
               </div>
             </SettingCard>
 
@@ -1787,6 +1799,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
         {/* ── 관리자 탭 (마스터 전용) ───────────────────────── */}
         {activeTab === 'admin' && isMaster(currentUser) && (
           <div>
+            <SiteManager currentUser={currentUser} />
             <DocTemplateStudio currentUser={currentUser} />
             {adminMsg && (
               <div style={{

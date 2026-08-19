@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { login, loginWithGoogle, setInitialPassword } from '../utils/auth';
 import { renderGoogleSignInButton, googleSignInWithAccountChooser, isElectron } from '../utils/driveBackup';
-import { getGoogleClientId, setGoogleClientId } from '../utils/storage';
+import { getGoogleClientId, setGoogleClientId, getSiteContent } from '../utils/storage';
+import { getGeminiConfig } from '../utils/ai/llm/geminiLLM';
 import { Zap, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
 
 // 로그인은 구글 계정 전용. 관리자(마스터)만 아이디/비밀번호로 로그인한다.
 export default function LoginPage({ onLogin }) {
   const [error, setError] = useState('');
+  // 관리자가 Gemini API를 연결해 두었으면(기기 공용 설정) 개인정보 안내 문구를 그에 맞게 바꾼다 —
+  // 이때만 이름을 가린 관찰 내용 일부가 문장 생성을 위해 Google 서버로 나갈 수 있기 때문.
+  const geminiActive = !!getGeminiConfig().apiKey;
+  // 관리자가 "사이트 관리"에서 편집한 로그인 화면 문구(기기 공용) — 없으면 기존 기본 문구 그대로.
+  const siteContent = getSiteContent();
   // 구글 로그인
   const [googleClientId, setGoogleClientIdState] = useState(() => getGoogleClientId());
   const [showGoogleSetup, setShowGoogleSetup] = useState(false);
@@ -99,9 +105,9 @@ export default function LoginPage({ onLogin }) {
         }}>
           <Zap size={32} color="white" fill="white" />
         </div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--primary)', letterSpacing: '-1px' }}>쌤워크</div>
+        <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--primary)', letterSpacing: '-1px' }}>{siteContent.loginHeadline || '쌤워크'}</div>
         <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6 }}>
-          선생님은 기록만, 문서는 앱이.
+          {siteContent.loginTagline || '선생님은 기록만, 문서는 앱이.'}
         </div>
       </div>
 
@@ -115,8 +121,9 @@ export default function LoginPage({ onLogin }) {
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--text-primary)' }}>구글 계정으로 시작하기</div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.7 }}>
-            별도 회원가입 없이 구글 계정 하나로 로그인하고,<br />
-            기록은 자동으로 <b>본인 구글 드라이브</b>에 백업돼요.
+            {siteContent.loginGoogleIntro ? siteContent.loginGoogleIntro : (
+              <>별도 회원가입 없이 구글 계정 하나로 로그인하고,<br />기록은 자동으로 <b>본인 구글 드라이브</b>에 백업돼요.</>
+            )}
           </div>
         </div>
 
@@ -136,8 +143,17 @@ export default function LoginPage({ onLogin }) {
               👥 다른 구글 계정으로 로그인
             </button>
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 10, lineHeight: 1.6 }}>
-              🔒 구글은 로그인과 본인 드라이브 백업에만 사용돼요.<br />
-              아이 기록이 외부 서버로 전송되지 않습니다.
+              {geminiActive ? (
+                <>
+                  🔒 구글은 로그인·드라이브 백업과, 관리자가 연결한 Gemini AI 문장 생성에 사용돼요.<br />
+                  문장을 만들 때 이름을 가린 관찰 내용 일부가 Google 서버로 전송될 수 있어요.
+                </>
+              ) : (
+                <>
+                  🔒 구글은 로그인과 본인 드라이브 백업에만 사용돼요.<br />
+                  아이 기록이 외부 서버로 전송되지 않습니다.
+                </>
+              )}
             </div>
           </div>
         ) : showGoogleSetup ? (

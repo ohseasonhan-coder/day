@@ -36,4 +36,17 @@ describe('설정 화면 개인정보 안내', () => {
     expect(src).toContain('이 기기에 저장');
     expect(src).toContain('외부 서버로 전송되지 않습니다');
   });
+
+  // 회귀: Gemini(관리자가 API 키를 연결한 경우)가 켜져 있으면 "외부 서버로 전송되지 않습니다"
+  // 라는 단정적 문구 대신, Google 서버로 나갈 수 있다는 사실을 알리는 문구로 바뀌어야 한다.
+  test('Gemini가 연결된 경우를 위한 조건부 안내 문구도 함께 있다(SettingsPage·LoginPage)', () => {
+    const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'pages', 'SettingsPage.js'), 'utf8');
+    expect(settingsSrc).toContain('geminiActive');
+    expect(settingsSrc).toContain('Google 서버로 전송돼요');
+
+    const loginSrc = fs.readFileSync(path.join(__dirname, '..', 'pages', 'LoginPage.js'), 'utf8');
+    expect(loginSrc).toContain('geminiActive');
+    expect(loginSrc).toContain('아이 기록이 외부 서버로 전송되지 않습니다');
+    expect(loginSrc).toContain('Google 서버로 전송될 수 있어요');
+  });
 });

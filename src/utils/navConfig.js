@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   // 고급 — '더보기' 영역(삭제하지 않음)
   { id: 'note',       label: '알림장',     group: 'more', level: 'basic',    desc: '오늘 기록으로 아이별 알림장 한 번에' },
   { id: 'docstudio',  label: '문서 작성실', group: 'more', level: 'basic',    desc: '빈 문서와 서식을 열어 직접 작성·편집' },
+  { id: 'pages',      label: '공개 페이지', group: 'more', level: 'basic',    desc: '관리자가 만든 안내 페이지 보기' },
   { id: 'automation', label: '자동화',     group: 'more', level: 'basic',    desc: '하루·한 달 문서를 한 번에 자동 생성' },
   { id: 'check',      label: '점검',       group: 'more', level: 'basic',    desc: '누락 기록·영역 균형 점검(평가제 대비)' },
   { id: 'today',      label: '오늘 홈',    group: 'more', level: 'advanced', desc: '오늘 현황 요약 홈으로 이동' },

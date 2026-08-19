@@ -64,6 +64,8 @@ export const SYNC_EXCLUDED_KEYS = [
   'sw_shared_rich_doc_templates',
   // Gemini API 설정(관리자 전용) — API 키를 절대 백업·동기화하지 않는다
   'sw_admin_gemini_api_key', 'sw_admin_gemini_model',
+  // 사이트 관리(관리자, 공개 페이지·문구·디자인) — 기기 공용, 계정 백업·동기화 제외
+  'sw_shared_site_pages', 'sw_shared_site_content',
   'sw_b2_sentence_engine',
   'sw_b3_case_engine_enabled',
   'sw_b4_discourse_engine_enabled', 'sw_b4_style_profile', 'sw_b4_recent_patterns', 'sw_b4_teacher_preference_profile',
@@ -271,6 +273,21 @@ export const getSettings = () => storage.get(KEYS.SETTINGS) || {
   tone: 'warm',            // 'warm' | 'professional' | 'formal'
 };
 export const saveSettings = (v) => storage.set(KEYS.SETTINGS, v);
+
+// ── 사이트 문구·디자인(관리자, 기기 공용) ───────────────────────────────────
+// 로그인 화면은 계정 선택 이전에 보이므로 계정별(sw_${uid}_*) 저장소가 아니라
+// 이 기기(브라우저) 전체에 적용되는 공용 키를 쓴다. 값이 없으면 항상 기존
+// 하드코딩 기본 문구로 폴백하므로, 관리자가 한 번도 설정하지 않아도 기존과 동일하게 보인다.
+const SITE_CONTENT_KEY = 'sw_shared_site_content';
+export function getSiteContent() {
+  try { return JSON.parse(localStorage.getItem(SITE_CONTENT_KEY)) || {}; }
+  catch { return {}; }
+}
+export function setSiteContent(patch) {
+  const next = { ...getSiteContent(), ...patch };
+  localStorage.setItem(SITE_CONTENT_KEY, JSON.stringify(next));
+  return next;
+}
 
 // ID generator
 export const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
