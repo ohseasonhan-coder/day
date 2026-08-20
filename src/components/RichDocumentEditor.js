@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -16,7 +16,7 @@ import TiptapLink from '@tiptap/extension-link';
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, CheckSquare, Columns3,
   Highlighter, Image as ImageIcon, Indent, Italic, Link as LinkIcon, List, ListOrdered, Minus, Outdent, Quote,
-  Redo2, Rows3, SplitSquareHorizontal, Strikethrough, Table as TableIcon,
+  Redo2, Rows3, SplitSquareHorizontal, Strikethrough, Table as TableIcon, Tag,
   Trash2, Type, Underline as UnderlineIcon, Undo2,
 } from 'lucide-react';
 import { FIELD_DEFINITIONS } from '../utils/documentStudio';
@@ -58,68 +58,127 @@ function ToolButton({ title, active, disabled, onClick, children }) {
   );
 }
 
+function FieldOption({ field, onClick }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left', padding: '7px 9px', borderRadius: 7,
+        fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)',
+        background: hover ? 'var(--gray-50)' : 'transparent', border: 'none',
+      }}
+    >
+      {field.label}
+      {field.custom && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-tertiary)', marginLeft: 6 }}>{field.value || '(비어 있음)'}</span>}
+    </button>
+  );
+}
+
 // fieldScope: 'all'(기본 16개+커스텀 전부) | 'customOnly'(원아 기록 기반 기본 필드는 의미가 없는
 // 공개 페이지 등에서 관리자가 만든 커스텀 필드만 노출)
+// "여기에 이게 들어간다"를 클릭 한 번으로 고르는 웹 에디터 느낌의 삽입 메뉴(검색+목록+클릭 삽입).
 function FieldInsert({ editor, disabled, onFieldInfo, fieldScope = 'all' }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [fieldKey, setFieldKey] = useState('');
-  const baseFields = fieldScope === 'customOnly' ? [] : FIELD_DEFINITIONS;
-  const customFields = getCustomFields().map((f) => ({
-    key: f.key, label: f.label, description: `관리자가 만든 필드 · 값: ${f.value || '(비어 있음)'}`, custom: true,
-  }));
-  const combined = [...baseFields, ...customFields];
-  const fields = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return combined.filter((field) =>
-      !q || field.label.toLowerCase().includes(q) || field.key.toLowerCase().includes(q));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, combined.length]);
-  const selected = combined.find((field) => field.key === fieldKey) || combined[0] || null;
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocPointer = (event) => {
+      if (btnRef.current?.contains(event.target) || panelRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    const onKey = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   if (disabled) return null;
-  if (!combined.length) {
-    return <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>커스텀 필드가 없어요 — 사이트 관리에서 먼저 만들어 주세요.</div>;
-  }
+
+  const baseFields = fieldScope === 'customOnly' ? [] : FIELD_DEFINITIONS;
+  const customFields = getCustomFields().map((f) => ({ key: f.key, label: f.label, value: f.value, custom: true }));
+  const combined = [...baseFields, ...customFields];
+  const q = query.trim().toLowerCase();
+  const filtered = combined.filter((field) => !q || field.label.toLowerCase().includes(q) || field.key.toLowerCase().includes(q));
+  const baseMatches = filtered.filter((f) => !f.custom);
+  const customMatches = filtered.filter((f) => f.custom);
+
+  const toggleOpen = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, left: rect.left });
+    }
+    setOpen((v) => !v);
+  };
+  const insertField = (field) => {
+    editor?.chain().focus().insertFieldChip(field.key, field.label).run();
+    onFieldInfo?.(field);
+    setOpen(false);
+    setQuery('');
+  };
+
   return (
-    <div className="doc-toolbar-field">
-      <input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="필드 검색"
-        style={{ ...selectStyle, width: 96 }}
-      />
-      <select
-        value={selected?.key || ''}
-        onChange={(event) => {
-          setFieldKey(event.target.value);
-          const field = combined.find((item) => item.key === event.target.value);
-          if (field) onFieldInfo?.(field);
-        }}
-        style={{ ...selectStyle, width: 150 }}
-      >
-        {baseFields.length > 0 && (
-          <optgroup label="기본 필드">
-            {fields.filter((f) => !f.custom).map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
-          </optgroup>
-        )}
-        {customFields.length > 0 && (
-          <optgroup label="직접 만든 필드">
-            {fields.filter((f) => f.custom).map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
-          </optgroup>
-        )}
-      </select>
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => {
-          if (!selected) return;
-          editor?.chain().focus().insertFieldChip(selected.key, selected.label).run();
-          onFieldInfo?.(selected);
-        }}
-        style={{ ...toolbarButton(false, !editor || !selected), width: 'auto', padding: '0 10px', fontSize: 12, fontWeight: 800 }}
+        title="필드 삽입 — 여기에 무엇이 들어갈지 골라요"
+        onClick={toggleOpen}
+        style={{ ...toolbarButton(open, !editor), width: 'auto', padding: '0 10px', fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
       >
-        삽입
+        <Tag size={14} /> 필드 삽입
       </button>
-    </div>
+      {open && (
+        <div
+          ref={panelRef}
+          style={{
+            position: 'fixed', top: pos.top, left: pos.left, zIndex: 200, width: 240,
+            background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 12,
+            boxShadow: '0 12px 32px rgba(0,0,0,0.16)', padding: 8,
+          }}
+        >
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="필드 검색"
+            style={{ ...selectStyle, width: '100%', marginBottom: 6, boxSizing: 'border-box' }}
+          />
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            {combined.length === 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', padding: '8px 4px' }}>
+                커스텀 필드가 없어요 — 사이트 관리에서 먼저 만들어 주세요.
+              </div>
+            )}
+            {baseMatches.length > 0 && (
+              <>
+                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-tertiary)', padding: '4px 6px' }}>기본 필드</div>
+                {baseMatches.map((field) => <FieldOption key={field.key} field={field} onClick={() => insertField(field)} />)}
+              </>
+            )}
+            {customMatches.length > 0 && (
+              <>
+                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-tertiary)', padding: '4px 6px' }}>직접 만든 필드</div>
+                {customMatches.map((field) => <FieldOption key={field.key} field={field} onClick={() => insertField(field)} />)}
+              </>
+            )}
+            {combined.length > 0 && filtered.length === 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', padding: '8px 4px' }}>검색 결과가 없어요.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
