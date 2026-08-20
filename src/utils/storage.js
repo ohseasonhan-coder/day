@@ -65,7 +65,7 @@ export const SYNC_EXCLUDED_KEYS = [
   // Gemini API 설정(관리자 전용) — API 키를 절대 백업·동기화하지 않는다
   'sw_admin_gemini_api_key', 'sw_admin_gemini_model',
   // 사이트 관리(관리자, 공개 페이지·문구·디자인) — 기기 공용, 계정 백업·동기화 제외
-  'sw_shared_site_pages', 'sw_shared_site_content',
+  'sw_shared_site_pages', 'sw_shared_site_content', 'sw_shared_custom_fields',
   'sw_b2_sentence_engine',
   'sw_b3_case_engine_enabled',
   'sw_b4_discourse_engine_enabled', 'sw_b4_style_profile', 'sw_b4_recent_patterns', 'sw_b4_teacher_preference_profile',

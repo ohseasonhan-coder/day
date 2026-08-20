@@ -7,6 +7,8 @@ import { getSiteContent, setSiteContent } from '../utils/storage';
 import {
   getSitePages, createBlankSitePage, saveSitePage, setSitePagePublished, deleteSitePage,
 } from '../utils/sitePages';
+import { getCustomFields, saveCustomField, deleteCustomField } from '../utils/customFields';
+import { stripImageSrcForStorage, hydrateImageSrc } from '../utils/photoStore';
 import RichDocumentEditor from './RichDocumentEditor';
 
 const btn = (primary) => ({ padding: '7px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: primary ? 'none' : '1px solid var(--border)', background: primary ? 'var(--primary)' : 'white', color: primary ? 'white' : 'var(--text-secondary)' });
@@ -23,16 +25,23 @@ export default function SiteManager({ currentUser }) {
   const [pages, setPages] = useState(() => getSitePages());
   const [editingPage, setEditingPage] = useState(null); // null = 목록, 객체 = 편집 중
   const [siteContent, setSiteContentState] = useState(() => getSiteContent());
+  const [customFields, setCustomFields] = useState(() => getCustomFields());
+  const [newField, setNewField] = useState({ label: '', value: '' });
   const [msg, setMsg] = useState('');
   const refreshPages = () => setPages(getSitePages());
+  const refreshCustomFields = () => setCustomFields(getCustomFields());
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500); };
 
   if (!isMaster(currentUser)) return null; // 진입 차단(저장 계층에서도 재검사)
 
   const openNew = () => setEditingPage(createBlankSitePage({}));
-  const openEdit = (p) => setEditingPage({ ...p });
+  const openEdit = async (p) => {
+    const hydrated = await hydrateImageSrc(p.content); // IndexedDB에서 실제 이미지 불러오기
+    setEditingPage({ ...p, content: hydrated });
+  };
   const savePage = () => {
-    const r = saveSitePage(editingPage, currentUser);
+    const stripped = { ...editingPage, content: stripImageSrcForStorage(editingPage.content) }; // localStorage엔 참조만
+    const r = saveSitePage(stripped, currentUser);
     if (!r.ok) { flash(r.error); return; }
     refreshPages();
     setEditingPage(null);
@@ -60,6 +69,19 @@ export default function SiteManager({ currentUser }) {
     saveContentField('primaryColor', hex);
   };
 
+  const addCustomField = () => {
+    const r = saveCustomField(newField, currentUser);
+    if (!r.ok) { flash(r.error); return; }
+    setNewField({ label: '', value: '' });
+    refreshCustomFields();
+    flash('필드를 만들었어요.');
+  };
+  const removeCustomField = (f) => {
+    if (!window.confirm(`"${f.label}" 필드를 삭제할까요? 이 필드를 쓰던 문서에는 더 이상 값이 채워지지 않아요.`)) return;
+    deleteCustomField(f.id, currentUser);
+    refreshCustomFields();
+  };
+
   if (editingPage) {
     return (
       <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
@@ -74,7 +96,9 @@ export default function SiteManager({ currentUser }) {
           <RichDocumentEditor
             content={editingPage.content}
             onChange={(content) => setEditingPage({ ...editingPage, content })}
-            canInsertFields={false}
+            canInsertFields
+            fieldScope="customOnly"
+            photoOwnerId={`page_${editingPage.id}`}
           />
         </div>
       </div>
@@ -122,6 +146,30 @@ export default function SiteManager({ currentUser }) {
           </label>
         ))}
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>비워 두면 기존 기본 문구가 그대로 쓰여요. 입력 후 다른 곳을 클릭하면 바로 저장돼요.</div>
+      </div>
+
+      {/* 커스텀 필드 */}
+      <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>🏷️ 커스텀 필드</div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+          "원장님 이름", "전화번호"처럼 직접 이름과 값을 만들어 두면, 공개 페이지 편집기에서 필드로 삽입할 수 있어요.
+        </div>
+        {customFields.map((f) => (
+          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12.5, flexWrap: 'wrap' }}>
+            <strong style={{ minWidth: 90 }}>{f.label}</strong>
+            <span style={{ color: 'var(--text-secondary)', flex: 1, minWidth: 100 }}>{f.value || '(비어 있음)'}</span>
+            <button onClick={() => removeCustomField(f)} style={{ ...btn(false), color: '#DC2626' }}>삭제</button>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+          <input value={newField.label} placeholder="필드 이름 (예: 원장님 이름)"
+            onChange={(e) => setNewField({ ...newField, label: e.target.value })}
+            style={{ ...inputStyle, flex: 1, minWidth: 130 }} />
+          <input value={newField.value} placeholder="값 (예: 홍길동)"
+            onChange={(e) => setNewField({ ...newField, value: e.target.value })}
+            style={{ ...inputStyle, flex: 1, minWidth: 130 }} />
+          <button onClick={addCustomField} style={btn(true)}>+ 추가</button>
+        </div>
       </div>
 
       {/* 디자인 */}

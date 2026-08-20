@@ -1,5 +1,21 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
+import TiptapImage from '@tiptap/extension-image';
 import { FIELD_MAP } from '../utils/documentStudio';
+
+// 기본 이미지 노드에 IndexedDB 사진 참조(photoId)만 추가 — localStorage에는 이 id만 남고
+// 실제 바이트는 photoStore.js(IndexedDB)에 저장된다(strip/hydrate로 오간다).
+export const ImageWithId = TiptapImage.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      photoId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-photo-id') || null,
+        renderHTML: (attributes) => (attributes.photoId ? { 'data-photo-id': attributes.photoId } : {}),
+      },
+    };
+  },
+});
 
 export const FieldChipNode = Node.create({
   name: 'fieldChip',
@@ -15,6 +31,13 @@ export const FieldChipNode = Node.create({
         parseHTML: (element) => element.getAttribute('data-field-key') || '',
         renderHTML: (attributes) => ({ 'data-field-key': attributes.fieldKey }),
       },
+      // 삽입 시점의 라벨을 노드에 함께 저장 — 기본 필드든 관리자 커스텀 필드든 조회 없이
+      // 스스로 표시 가능. 비어 있으면(기존 저장 문서) FIELD_MAP 조회로 폴백한다(하위 호환).
+      fieldLabel: {
+        default: '',
+        parseHTML: (element) => element.getAttribute('data-field-label') || '',
+        renderHTML: (attributes) => (attributes.fieldLabel ? { 'data-field-label': attributes.fieldLabel } : {}),
+      },
     };
   },
 
@@ -24,7 +47,7 @@ export const FieldChipNode = Node.create({
 
   renderHTML({ HTMLAttributes, node }) {
     const key = node.attrs.fieldKey;
-    const label = FIELD_MAP[key]?.label || key || '알 수 없는 필드';
+    const label = node.attrs.fieldLabel || FIELD_MAP[key]?.label || key || '알 수 없는 필드';
     return ['span', mergeAttributes(HTMLAttributes, {
       'data-field-chip': 'true',
       class: 'sw-field-chip',
@@ -34,8 +57,8 @@ export const FieldChipNode = Node.create({
 
   addCommands() {
     return {
-      insertFieldChip: (fieldKey) => ({ commands }) =>
-        commands.insertContent({ type: this.name, attrs: { fieldKey } }),
+      insertFieldChip: (fieldKey, fieldLabel = '') => ({ commands }) =>
+        commands.insertContent({ type: this.name, attrs: { fieldKey, fieldLabel } }),
     };
   },
 });

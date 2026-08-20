@@ -1,5 +1,6 @@
 import { getChildren, getClasses, getRecords, genId, today } from './storage';
 import { isMaster } from './auth';
+import { getCustomFields, getCustomFieldValue } from './customFields';
 
 export const RICH_DOCUMENTS_SUFFIX = 'rich_documents';
 export const RICH_TEMPLATES_KEY = 'sw_shared_rich_doc_templates';
@@ -258,7 +259,8 @@ export function collectFieldKeys(content) {
 export function validateRichDocumentContent(content) {
   const errors = [];
   if (!content || content.type !== 'doc') errors.push('문서 JSON 구조가 올바르지 않습니다.');
-  const unknown = collectFieldKeys(content).filter((key) => !FIELD_MAP[key]);
+  const customKeys = new Set(getCustomFields().map((f) => f.key));
+  const unknown = collectFieldKeys(content).filter((key) => !FIELD_MAP[key] && !customKeys.has(key));
   if (unknown.length) errors.push(`지원하지 않는 자동 필드: ${[...new Set(unknown)].join(', ')}`);
   return { ok: errors.length === 0, errors };
 }
@@ -432,6 +434,7 @@ function renderTextNode(node) {
     if (mark.type === 'strike') html = `<s>${html}</s>`;
     if (mark.type === 'textStyle') html = `<span${attrsToStyle(mark.attrs)}>${html}</span>`;
     if (mark.type === 'highlight') html = `<mark${attrsToStyle({ backgroundColor: mark.attrs?.color || '#fff3bf' })}>${html}</mark>`;
+    if (mark.type === 'link') html = `<a href="${escapeHtml(mark.attrs?.href || '')}" target="_blank" rel="noopener noreferrer">${html}</a>`;
   });
   return html;
 }
@@ -445,8 +448,14 @@ export function renderRichDocumentHtml(content, fieldValues = {}) {
     if (node.type === 'fieldChip') {
       const key = node.attrs?.fieldKey;
       const field = FIELD_MAP[key];
-      const value = fieldValues[key];
-      return `<span class="field-chip-rendered" data-field="${escapeHtml(key)}">${escapeHtml(value || `[${field?.label || key}]`)}</span>`;
+      const label = node.attrs?.fieldLabel || field?.label || key;
+      const value = fieldValues[key] ?? getCustomFieldValue(key);
+      return `<span class="field-chip-rendered" data-field="${escapeHtml(key)}">${escapeHtml(value || `[${label}]`)}</span>`;
+    }
+    if (node.type === 'image') {
+      const src = node.attrs?.src || '';
+      if (!src) return '';
+      return `<img src="${escapeHtml(src)}" alt="${escapeHtml(node.attrs?.alt || '')}" style="max-width:100%;height:auto;" />`;
     }
     if (node.type === 'paragraph') return `<p${attrsToStyle(node.attrs)}>${renderChildren(node) || '<br />'}</p>`;
     if (node.type === 'heading') {

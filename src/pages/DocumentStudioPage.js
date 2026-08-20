@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Copy, Eye, FilePlus2, FileText, Printer, Save, Search, Trash2,
 } from 'lucide-react';
@@ -6,6 +6,7 @@ import RichDocumentEditor from '../components/RichDocumentEditor';
 import { useToast } from '../components/Toast';
 import { isMaster } from '../utils/auth';
 import { getRecords } from '../utils/storage';
+import { hydrateImageSrc, stripImageSrcForStorage } from '../utils/photoStore';
 import {
   FIELD_DEFINITIONS,
   FIELD_MAP,
@@ -59,8 +60,11 @@ function InstanceWorkspace({ instance, currentUser, onBack, onChanged, showToast
   const [inst, setInst] = useState(instance);
   const [printMode, setPrintMode] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [previewContent, setPreviewContent] = useState(instance.content); // 이미지 하이드레이션 반영본
   const reload = () => { const next = getInstance(inst.id, currentUser); if (next) setInst(next); onChanged(); };
   const sourceRecord = getRecords().find((r) => r.id === inst.sourceRecordId);
+
+  useEffect(() => { hydrateImageSrc(inst.content).then(setPreviewContent); }, [inst.content]);
 
   const onField = (key, value) => {
     const r = updateFieldValue(inst.id, key, value, currentUser);
@@ -107,7 +111,7 @@ function InstanceWorkspace({ instance, currentUser, onBack, onChanged, showToast
       <div className="doc-editor-layout">
         <div className="doc-canvas-wrap">
           <div className="doc-a4-canvas">
-            <div className="doc-preview-body" dangerouslySetInnerHTML={{ __html: renderRichDocumentHtml(inst.content, inst.fieldValues) }} />
+            <div className="doc-preview-body" dangerouslySetInnerHTML={{ __html: renderRichDocumentHtml(previewContent, inst.fieldValues) }} />
           </div>
         </div>
         <aside className="doc-field-panel no-print">
@@ -274,8 +278,10 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
     setTemplates(listRichTemplates(currentUser, { includePrivate: admin }));
   };
 
-  const openDocument = (doc) => {
-    setEditing(JSON.parse(JSON.stringify(doc)));
+  const openDocument = async (doc) => {
+    const cloned = JSON.parse(JSON.stringify(doc));
+    const hydrated = await hydrateImageSrc(cloned.content); // IndexedDB에서 실제 이미지 불러오기
+    setEditing({ ...cloned, content: hydrated });
     setPreview(false);
     setPrintMode(false);
     setSaveState('저장됨');
@@ -283,13 +289,15 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
 
   const saveNow = (doc = editing) => {
     if (!doc) return null;
-    const result = saveRichDocument(doc, currentUser);
+    // localStorage엔 이미지 참조(photoId)만 남기고, 화면(editing)엔 실제 이미지를 계속 보여준다.
+    const toSave = { ...doc, content: stripImageSrcForStorage(doc.content) };
+    const result = saveRichDocument(toSave, currentUser);
     if (!result.ok) {
       setSaveState('저장 실패');
       showToast(result.error, 'error');
       return null;
     }
-    setEditing(result.document);
+    setEditing({ ...result.document, content: doc.content });
     refresh();
     setSaveState('저장됨');
     return result.document;
@@ -550,6 +558,8 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
                 content={editing.content}
                 onChange={(content) => scheduleSave({ content })}
                 canInsertFields={admin}
+                fieldScope="all"
+                photoOwnerId={`doc_${editing.id}`}
                 onFieldInfo={setSelectedField}
               />
             )}

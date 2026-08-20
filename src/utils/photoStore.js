@@ -99,3 +99,45 @@ export async function deletePhotosByRecord(recordId) {
     store.transaction.onerror = () => { db.close(); reject(store.transaction.error); };
   });
 }
+
+export async function getPhotoById(id) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = tx(db, 'readonly').get(id);
+    req.onsuccess = () => { db.close(); resolve(req.result || null); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+// ── 리치 문서(Tiptap JSON) 안의 이미지 노드 ↔ IndexedDB 참조 변환 ──────────────
+// 문서 JSON은 localStorage(5MB 한도)에 저장되므로, 큰 dataURL을 그대로 넣지 않고
+// photoId 참조만 남긴다(stripImageSrcForStorage). 편집기를 열거나 화면에 보여줄 때만
+// IndexedDB에서 실제 dataURL을 찾아 채운다(hydrateImageSrc).
+function walkAndTransformNode(node, visit) {
+  if (!node || typeof node !== 'object') return node;
+  const next = visit(node);
+  if (Array.isArray(next.content)) next.content = next.content.map((child) => walkAndTransformNode(child, visit));
+  return next;
+}
+
+export function stripImageSrcForStorage(content) {
+  if (!content) return content;
+  const clone = JSON.parse(JSON.stringify(content));
+  return walkAndTransformNode(clone, (node) => {
+    if (node.type === 'image' && node.attrs?.photoId) return { ...node, attrs: { ...node.attrs, src: '' } };
+    return node;
+  });
+}
+
+export async function hydrateImageSrc(content) {
+  if (!content) return content;
+  const clone = JSON.parse(JSON.stringify(content));
+  const imageNodes = [];
+  walkAndTransformNode(clone, (node) => { if (node.type === 'image' && node.attrs?.photoId) imageNodes.push(node); return node; });
+  await Promise.all(imageNodes.map(async (node) => {
+    if (node.attrs.src) return; // 이미 채워져 있으면(예: 방금 삽입) 다시 조회하지 않음
+    const photo = await getPhotoById(node.attrs.photoId);
+    if (photo?.dataUrl) node.attrs.src = photo.dataUrl;
+  }));
+  return clone;
+}

@@ -15,6 +15,7 @@ import {
   validateRichDocumentContent,
 } from './documentStudio';
 import { saveChildren, saveFormTemplates, saveRecords, getFormTemplates } from './storage';
+import { saveCustomField } from './customFields';
 
 const MASTER = { userId: 'master', role: 'master', displayName: '관리자' };
 const TEACHER = { userId: 'teacher1', displayName: '김교사' };
@@ -176,5 +177,60 @@ describe('document studio field rendering and grid regression', () => {
     const docs = getRichDocuments(TEACHER.userId);
     expect(docs).toHaveLength(2);
     expect(docs.map((item) => item.title)).toEqual(expect.arrayContaining(['원본', '원본 복제본']));
+  });
+});
+
+describe('관리자 커스텀 필드 통합', () => {
+  test('커스텀 필드 key는 미등록 필드 검사를 통과한다', () => {
+    const field = saveCustomField({ label: '원장님 이름', value: '홍길동' }, MASTER).field;
+    const doc = { type: 'doc', content: [paragraph(chip(field.key))] };
+    expect(validateRichDocumentContent(doc)).toMatchObject({ ok: true, errors: [] });
+  });
+
+  test('등록되지 않은 필드 key는 여전히 거부된다', () => {
+    const doc = { type: 'doc', content: [paragraph(chip('doesNotExist'))] };
+    expect(validateRichDocumentContent(doc).ok).toBe(false);
+  });
+
+  test('renderRichDocumentHtml이 fieldValues 없이도 커스텀 필드 값을 채운다', () => {
+    const field = saveCustomField({ label: '전화번호', value: '02-1234-5678' }, MASTER).field;
+    const doc = { type: 'doc', content: [paragraph(chip(field.key))] };
+    const html = renderRichDocumentHtml(doc, {});
+    expect(html).toContain('02-1234-5678');
+  });
+
+  test('fieldValues가 있으면 그쪽이 커스텀 필드 값보다 우선한다', () => {
+    const field = saveCustomField({ label: '전화번호', value: '기본값' }, MASTER).field;
+    const doc = { type: 'doc', content: [paragraph(chip(field.key))] };
+    const html = renderRichDocumentHtml(doc, { [field.key]: '오버라이드값' });
+    expect(html).toContain('오버라이드값');
+    expect(html).not.toContain('기본값');
+  });
+
+  test('삽입 시점 라벨(fieldLabel)이 있으면 값이 없을 때 그 라벨로 표시된다', () => {
+    const doc = { type: 'doc', content: [paragraph({ type: 'fieldChip', attrs: { fieldKey: 'ghost_key', fieldLabel: '삭제된 필드' } })] };
+    const html = renderRichDocumentHtml(doc, {});
+    expect(html).toContain('[삭제된 필드]');
+  });
+});
+
+describe('이미지·링크 렌더링', () => {
+  test('src가 있는 이미지 노드는 <img>로 렌더링된다', () => {
+    const doc = { type: 'doc', content: [{ type: 'image', attrs: { src: 'data:image/jpeg;base64,AAAA', alt: '사진' } }] };
+    const html = renderRichDocumentHtml(doc, {});
+    expect(html).toContain('<img src="data:image/jpeg;base64,AAAA"');
+    expect(html).toContain('alt="사진"');
+  });
+
+  test('src가 비어 있는(하이드레이션 전) 이미지 노드는 조용히 아무것도 렌더링하지 않는다', () => {
+    const doc = { type: 'doc', content: [{ type: 'image', attrs: { src: '', photoId: 'p1' } }] };
+    expect(() => renderRichDocumentHtml(doc, {})).not.toThrow();
+    expect(renderRichDocumentHtml(doc, {})).toBe('');
+  });
+
+  test('link 마크가 있는 텍스트는 <a href>로 렌더링된다', () => {
+    const doc = { type: 'doc', content: [paragraph({ type: 'text', text: '자세히 보기', marks: [{ type: 'link', attrs: { href: 'https://example.com' } }] })] };
+    const html = renderRichDocumentHtml(doc, {});
+    expect(html).toContain('<a href="https://example.com" target="_blank" rel="noopener noreferrer">자세히 보기</a>');
   });
 });

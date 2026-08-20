@@ -4,10 +4,15 @@ import React, { useState } from 'react';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { listPublishedSitePages } from '../utils/sitePages';
 import { renderRichDocumentHtml } from '../utils/documentStudio';
+import { hydrateImageSrc } from '../utils/photoStore';
 
 export default function PublicPagesPage() {
   const [pages] = useState(() => listPublishedSitePages());
   const [open, setOpen] = useState(null);
+  const openPage = async (p) => {
+    const hydrated = await hydrateImageSrc(p.content); // IndexedDB에서 실제 이미지 불러오기
+    setOpen({ ...p, content: hydrated });
+  };
 
   if (open) {
     return (
@@ -31,7 +36,7 @@ export default function PublicPagesPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {pages.map((p) => (
-            <button key={p.id} onClick={() => setOpen(p)} style={{
+            <button key={p.id} onClick={() => openPage(p)} style={{
               display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
               background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14,
               padding: '14px 16px', fontSize: 14, fontWeight: 800, color: 'var(--text-primary)',

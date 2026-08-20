@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -12,15 +12,18 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import TiptapLink from '@tiptap/extension-link';
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, CheckSquare, Columns3,
-  Highlighter, Indent, Italic, List, ListOrdered, Minus, Outdent, Quote,
+  Highlighter, Image as ImageIcon, Indent, Italic, Link as LinkIcon, List, ListOrdered, Minus, Outdent, Quote,
   Redo2, Rows3, SplitSquareHorizontal, Strikethrough, Table as TableIcon,
   Trash2, Type, Underline as UnderlineIcon, Undo2,
 } from 'lucide-react';
 import { FIELD_DEFINITIONS } from '../utils/documentStudio';
+import { getCustomFields } from '../utils/customFields';
+import { compressImage, savePhotos } from '../utils/photoStore';
 import {
-  FieldChipNode, FontSizeExtension, IndentExtension, LineHeightExtension, PageBreakNode,
+  FieldChipNode, FontSizeExtension, ImageWithId, IndentExtension, LineHeightExtension, PageBreakNode,
 } from './documentEditorExtensions';
 
 const toolbarButton = (active = false, disabled = false) => ({
@@ -55,17 +58,28 @@ function ToolButton({ title, active, disabled, onClick, children }) {
   );
 }
 
-function FieldInsert({ editor, disabled, onFieldInfo }) {
+// fieldScope: 'all'(기본 16개+커스텀 전부) | 'customOnly'(원아 기록 기반 기본 필드는 의미가 없는
+// 공개 페이지 등에서 관리자가 만든 커스텀 필드만 노출)
+function FieldInsert({ editor, disabled, onFieldInfo, fieldScope = 'all' }) {
   const [query, setQuery] = useState('');
-  const [fieldKey, setFieldKey] = useState(FIELD_DEFINITIONS[0].key);
+  const [fieldKey, setFieldKey] = useState('');
+  const baseFields = fieldScope === 'customOnly' ? [] : FIELD_DEFINITIONS;
+  const customFields = getCustomFields().map((f) => ({
+    key: f.key, label: f.label, description: `관리자가 만든 필드 · 값: ${f.value || '(비어 있음)'}`, custom: true,
+  }));
+  const combined = [...baseFields, ...customFields];
   const fields = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return FIELD_DEFINITIONS.filter((field) =>
+    return combined.filter((field) =>
       !q || field.label.toLowerCase().includes(q) || field.key.toLowerCase().includes(q));
-  }, [query]);
-  const selected = FIELD_DEFINITIONS.find((field) => field.key === fieldKey) || FIELD_DEFINITIONS[0];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, combined.length]);
+  const selected = combined.find((field) => field.key === fieldKey) || combined[0] || null;
 
   if (disabled) return null;
+  if (!combined.length) {
+    return <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>커스텀 필드가 없어요 — 사이트 관리에서 먼저 만들어 주세요.</div>;
+  }
   return (
     <div className="doc-toolbar-field">
       <input
@@ -75,23 +89,33 @@ function FieldInsert({ editor, disabled, onFieldInfo }) {
         style={{ ...selectStyle, width: 96 }}
       />
       <select
-        value={fieldKey}
+        value={selected?.key || ''}
         onChange={(event) => {
           setFieldKey(event.target.value);
-          const field = FIELD_DEFINITIONS.find((item) => item.key === event.target.value);
+          const field = combined.find((item) => item.key === event.target.value);
           if (field) onFieldInfo?.(field);
         }}
         style={{ ...selectStyle, width: 150 }}
       >
-        {fields.map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
+        {baseFields.length > 0 && (
+          <optgroup label="기본 필드">
+            {fields.filter((f) => !f.custom).map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
+          </optgroup>
+        )}
+        {customFields.length > 0 && (
+          <optgroup label="직접 만든 필드">
+            {fields.filter((f) => f.custom).map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
+          </optgroup>
+        )}
       </select>
       <button
         type="button"
         onClick={() => {
-          editor?.chain().focus().insertFieldChip(selected.key).run();
+          if (!selected) return;
+          editor?.chain().focus().insertFieldChip(selected.key, selected.label).run();
           onFieldInfo?.(selected);
         }}
-        style={{ ...toolbarButton(false, !editor), width: 'auto', padding: '0 10px', fontSize: 12, fontWeight: 800 }}
+        style={{ ...toolbarButton(false, !editor || !selected), width: 'auto', padding: '0 10px', fontSize: 12, fontWeight: 800 }}
       >
         삽입
       </button>
@@ -104,8 +128,11 @@ export default function RichDocumentEditor({
   onChange,
   editable = true,
   canInsertFields = false,
+  fieldScope = 'all',
+  photoOwnerId = null,
   onFieldInfo,
 }) {
+  const fileInputRef = useRef(null);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -120,6 +147,8 @@ export default function RichDocumentEditor({
       TableCell,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TiptapLink.configure({ openOnClick: false, autolink: false }),
+      ImageWithId.configure({ inline: false }),
       FieldChipNode,
       PageBreakNode,
       FontSizeExtension,
@@ -133,13 +162,26 @@ export default function RichDocumentEditor({
       handleClick(view, pos, event) {
         const target = event.target;
         if (target?.dataset?.fieldChip === 'true') {
-          const field = FIELD_DEFINITIONS.find((item) => item.key === target.dataset.fieldKey);
+          const key = target.dataset.fieldKey;
+          const field = FIELD_DEFINITIONS.find((item) => item.key === key)
+            || getCustomFields().find((item) => item.key === key);
           if (field) onFieldInfo?.(field);
         }
         return false;
       },
     },
   }, [editable]);
+
+  const insertImage = async (file) => {
+    if (!file || !editor) return;
+    try {
+      const dataUrl = await compressImage(file);
+      const photoId = photoOwnerId ? (await savePhotos(photoOwnerId, [dataUrl]))[0] : null;
+      editor.chain().focus().setImage({ src: dataUrl, photoId }).run();
+    } catch {
+      // 이미지 삽입 실패해도 문서 편집 자체는 계속할 수 있어야 하므로 조용히 무시
+    }
+  };
 
   React.useEffect(() => {
     if (!editor || !content) return;
@@ -216,7 +258,20 @@ export default function RichDocumentEditor({
             <ToolButton title="셀 분할" disabled={!editor.can().splitCell()} onClick={() => editor.chain().focus().splitCell().run()}><SplitSquareHorizontal size={iconSize} /></ToolButton>
             <ToolButton title="행 삭제" disabled={!editor.can().deleteRow()} onClick={() => editor.chain().focus().deleteRow().run()}><Trash2 size={iconSize} /></ToolButton>
             <ToolButton title="열 삭제" disabled={!editor.can().deleteColumn()} onClick={() => editor.chain().focus().deleteColumn().run()}><Trash2 size={iconSize} /></ToolButton>
-            <FieldInsert editor={editor} disabled={!canInsertFields} onFieldInfo={onFieldInfo} />
+            <span className="doc-toolbar-sep" />
+            <input
+              ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) insertImage(file); }}
+            />
+            <ToolButton title="이미지 삽입" disabled={!photoOwnerId} onClick={() => fileInputRef.current?.click()}><ImageIcon size={iconSize} /></ToolButton>
+            <ToolButton title="링크" active={editor.isActive('link')} onClick={() => {
+              const prevHref = editor.getAttributes('link').href || '';
+              const url = window.prompt('링크 주소(URL)', prevHref);
+              if (url === null) return;
+              if (!url.trim()) { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
+              editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
+            }}><LinkIcon size={iconSize} /></ToolButton>
+            <FieldInsert editor={editor} disabled={!canInsertFields} fieldScope={fieldScope} onFieldInfo={onFieldInfo} />
           </div>
         </div>
       )}
