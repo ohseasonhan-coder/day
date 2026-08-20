@@ -9,6 +9,8 @@
 import { getCurrentUser, isMaster } from './auth';
 import { generateObservationWithEngine } from './ai/llm/engineAdapter';
 import { parseTargetSections } from './ai/targetQuality';
+import { collectFieldKeys } from './documentStudio';
+import { getCustomField, getCustomFields } from './customFields';
 
 export const DOC_FORMS_KEY = 'sw_shared_doc_forms'; // 계정 키(sw_${uid}_*) 패턴과 충돌하지 않는 공용 키
 
@@ -43,8 +45,10 @@ const writeAll = (list) => { try { localStorage.setItem(DOC_FORMS_KEY, JSON.stri
 const denied = () => ({ ok: false, error: '관리자만 사용할 수 있어요.' });
 const canAdmin = (user) => isMaster(user || getCurrentUser());
 
-// 서식에서 {{tag}} 추출
+// 서식에서 필드 태그 추출 — 신규(content, Tiptap JSON) 서식은 fieldChip 노드를 순회,
+// 구버전(blocks) 서식은 {{tag}} 텍스트 패턴을 그대로 검사(하위 호환, 로직 변경 없음).
 export function extractTags(template) {
+  if (template.content) return Array.from(new Set(collectFieldKeys(template.content)));
   const texts = [];
   (template.blocks || []).forEach((b) => {
     if (b.type === 'paragraph' || b.type === 'notice' || b.type === 'checkbox') texts.push(b.text || '');
@@ -58,6 +62,14 @@ export function extractTags(template) {
 export function validateTemplate(template) {
   const errors = [];
   if (!String(template.title || '').trim()) errors.push('서식 제목이 필요해요.');
+  const customKeys = new Set(getCustomFields().map((f) => f.key));
+  const isKnown = (k) => FIELD_DICTIONARY[k] || customKeys.has(k);
+  if (template.content) {
+    if (!template.content.content?.length) errors.push('내용을 입력해 주세요.');
+    const unknown = extractTags(template).filter((k) => !isKnown(k));
+    if (unknown.length) errors.push(`정의되지 않은 필드 태그: ${unknown.map((k) => `{{${k}}}`).join(', ')}`);
+    return { ok: errors.length === 0, errors };
+  }
   if (!(template.blocks || []).length) errors.push('블록이 최소 1개 필요해요.');
   const unknown = extractTags(template).filter((k) => !FIELD_DICTIONARY[k]);
   if (unknown.length) errors.push(`정의되지 않은 필드 태그: ${unknown.map((k) => `{{${k}}}`).join(', ')}`);
@@ -136,18 +148,19 @@ export function listPublishedTemplates() {
 }
 
 // ── 렌더링(인스턴스) — 원본 서식 불변 ─────────────────────────────────────
-// values: { fieldKey: string } — 채워진 값. 미입력 필드는 안내 문구/빈칸 처리.
+// values: { fieldKey: string } — 채워진 값. 미입력 필드는 안내 문구/빈칸 처리(관리자 커스텀 필드는 자기 값으로 폴백).
 const fieldText = (key, values) => {
   const def = FIELD_DICTIONARY[key];
   const v = values[key];
   if (v != null && String(v).trim()) return String(v).trim();
-  if (!def) return `{{${key}}}`;
-  return def.placeholder || `(${def.label} — 직접 입력 필요)`;
+  if (def) return def.placeholder || `(${def.label} — 직접 입력 필요)`;
+  const custom = getCustomField(key);
+  if (custom) return custom.value || `(${custom.label} — 관리자 미설정)`;
+  return `{{${key}}}`;
 };
 const fillText = (text, values) => String(text || '').replace(/\{\{([a-zA-Z]+)\}\}/g, (_, k) => fieldText(k, values));
 
-// 서식 + 값 → 문서 인스턴스(복사용 텍스트 포함). 원본은 절대 수정하지 않는다.
-export function renderInstance(template, values = {}) {
+function renderBlocksToText(template, values) {
   const lines = [];
   (template.blocks || []).forEach((b) => {
     if (b.type === 'paragraph') lines.push(fillText(b.text, values));
@@ -162,13 +175,111 @@ export function renderInstance(template, values = {}) {
       });
     }
   });
+  return lines.join('\n');
+}
+
+// 신규(content, Tiptap JSON) 서식 → 평문 렌더링. renderRichDocumentHtml(documentStudio.js)과 같은
+// 재귀 순회 구조를 쓰되 HTML 태그 대신 복사용 평문을 만든다. fieldChip 값 치환은 fieldText를 재사용.
+function renderContentToPlainText(content, values) {
+  const renderChildren = (node) => (node.content || []).map(renderNode).join('');
+  const renderNode = (node) => {
+    if (!node) return '';
+    if (node.type === 'text') return node.text || '';
+    if (node.type === 'hardBreak') return '\n';
+    if (node.type === 'fieldChip') return fieldText(node.attrs?.fieldKey, values);
+    if (node.type === 'image') return '';
+    if (node.type === 'paragraph' || node.type === 'heading') return `${renderChildren(node)}\n`;
+    if (node.type === 'bulletList') return (node.content || []).map((li) => `- ${renderChildren(li).trim()}\n`).join('');
+    if (node.type === 'orderedList') return (node.content || []).map((li, i) => `${i + 1}. ${renderChildren(li).trim()}\n`).join('');
+    if (node.type === 'taskList') return renderChildren(node);
+    if (node.type === 'taskItem') return `${node.attrs?.checked ? '☑' : '☐'} ${renderChildren(node).trim()}\n`;
+    if (node.type === 'listItem') return renderChildren(node);
+    if (node.type === 'blockquote') {
+      return `${renderChildren(node).split('\n').filter((line) => line.trim()).map((line) => `※ ${line}`).join('\n')}\n`;
+    }
+    if (node.type === 'horizontalRule') return '----------\n';
+    if (node.type === 'pageBreak') return '\n';
+    if (node.type === 'table') return renderChildren(node);
+    if (node.type === 'tableRow') {
+      const cells = (node.content || []).map((cell) => renderChildren(cell).replace(/\n+/g, ' ').trim());
+      return `${cells.join(cells.length <= 2 ? ' : ' : ' | ')}\n`;
+    }
+    if (node.type === 'tableHeader' || node.type === 'tableCell') return renderChildren(node);
+    if (node.type === 'doc') return renderChildren(node);
+    return renderChildren(node);
+  };
+  return renderNode(content);
+}
+
+// 서식 + 값 → 문서 인스턴스(복사용 텍스트 포함). 원본은 절대 수정하지 않는다.
+export function renderInstance(template, values = {}) {
+  const text = template.content
+    ? renderContentToPlainText(template.content, values)
+    : renderBlocksToText(template, values);
   return {
     instanceId: `doc_${Date.now().toString(36)}`,
     templateId: template.templateId,
     templateVersion: template.version,
     createdAt: new Date().toISOString(),
-    text: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+    text: text.replace(/\n{3,}/g, '\n\n').trim(),
   };
+}
+
+// ── 구버전(blocks) → 신규(content, Tiptap JSON) 변환 — 관리자가 예전 서식을 새 편집기로
+// "편집"할 때 1회만 호출된다. 원본 blocks는 건드리지 않고 새 content만 만들어 반환한다.
+function textToInlineNodes(text) {
+  const nodes = [];
+  const source = String(text || '');
+  const re = /\{\{([a-zA-Z]+)\}\}/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(source))) {
+    if (m.index > last) nodes.push({ type: 'text', text: source.slice(last, m.index) });
+    const key = m[1];
+    nodes.push({ type: 'fieldChip', attrs: { fieldKey: key, fieldLabel: FIELD_DICTIONARY[key]?.label || key } });
+    last = re.lastIndex;
+  }
+  if (last < source.length) nodes.push({ type: 'text', text: source.slice(last) });
+  return nodes.length ? nodes : undefined;
+}
+const paragraphFrom = (text) => ({ type: 'paragraph', content: textToInlineNodes(text) });
+
+export function convertBlocksToTiptapContent(blocks) {
+  const content = [];
+  let pendingChecks = null;
+  const flushChecks = () => { if (pendingChecks) { content.push(pendingChecks); pendingChecks = null; } };
+  (blocks || []).forEach((b) => {
+    if (b.type === 'checkbox') {
+      const item = { type: 'taskItem', attrs: { checked: false }, content: [paragraphFrom(b.text)] };
+      if (pendingChecks) pendingChecks.content.push(item);
+      else pendingChecks = { type: 'taskList', content: [item] };
+      return;
+    }
+    flushChecks();
+    if (b.type === 'paragraph') content.push(paragraphFrom(b.text));
+    else if (b.type === 'notice') content.push({ type: 'blockquote', content: [paragraphFrom(b.text)] });
+    else if (b.type === 'linebreak') content.push({ type: 'paragraph' });
+    else if (b.type === 'field') {
+      const label = FIELD_DICTIONARY[b.fieldKey]?.label || b.fieldKey;
+      content.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: label }] });
+      content.push({ type: 'paragraph', content: [{ type: 'fieldChip', attrs: { fieldKey: b.fieldKey, fieldLabel: label } }] });
+    } else if (b.type === 'table') {
+      content.push({
+        type: 'table',
+        content: (b.rows || []).map((row) => ({
+          type: 'tableRow',
+          content: row.map((cell) => ({
+            type: 'tableCell',
+            content: [cell.fieldKey
+              ? { type: 'paragraph', content: [{ type: 'fieldChip', attrs: { fieldKey: cell.fieldKey, fieldLabel: FIELD_DICTIONARY[cell.fieldKey]?.label || cell.fieldKey } }] }
+              : paragraphFrom(cell.text)],
+          })),
+        })),
+      });
+    }
+  });
+  flushChecks();
+  return { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] };
 }
 
 // ── 자동 입력 필드 채우기 ─────────────────────────────────────────────────

@@ -1,15 +1,19 @@
-// 문서 서식 관리(관리자 전용) — 표·문단 기반 블록 편집기 MVP.
-// 자유 편집기가 아니라 안정적인 블록 방식: 문단/표/줄바꿈/체크박스/안내문구/필드.
+// 문서 서식 관리(관리자 전용) — RichDocumentEditor(Tiptap) 기반 워드/한글 느낌 WYSIWYG 편집기.
+// 서식은 Tiptap JSON(content)으로 저장되며, docTemplates.js가 이를 평문(복사용 텍스트)으로 렌더링한다.
+// 예전(blocks 기반) 서식은 편집 시 convertBlocksToTiptapContent로 1회 변환되어 새 편집기에서 열린다.
 // 모든 저장·수정·삭제·공개 전환은 docTemplates.js가 권한(isMaster)을 다시 검사한다.
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { isMaster } from '../utils/auth';
 import {
   FIELD_DICTIONARY, FIELD_KEYS, listTemplatesForAdmin, saveTemplate, duplicateTemplate,
   setTemplatePublished, archiveTemplate, deleteTemplate, renderInstance, validateTemplate,
+  convertBlocksToTiptapContent,
 } from '../utils/docTemplates';
+import { emptyTiptapDoc } from '../utils/documentStudio';
 import { PRIVATE_SERVER_KEYS, getServerConfig, setServerConfig, privateServerAdapter } from '../utils/ai/llm/privateServerLLM';
 import { GEMINI_KEYS, getGeminiConfig, setGeminiConfig, geminiAdapter } from '../utils/ai/llm/geminiLLM';
 import { B2_LLM_ENGINES, getB2SentenceEngine, setB2SentenceEngine } from '../utils/ai/b2/config';
+import RichDocumentEditor from './RichDocumentEditor';
 
 const ENGINE_LABELS = {
   'rule-b2': '규칙 엔진(기본, 외부 전송 없음)',
@@ -22,74 +26,6 @@ const ENGINE_LABELS = {
 
 const btn = (primary) => ({ padding: '7px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: primary ? 'none' : '1px solid var(--border)', background: primary ? 'var(--primary)' : 'white', color: primary ? 'white' : 'var(--text-secondary)' });
 const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5 };
-const newBlock = (type) => ({
-  id: `b_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
-  type,
-  ...(type === 'table' ? { cols: 2, rows: [[{ text: '항목' }, { text: '' }]] } : {}),
-  ...(type === 'field' ? { fieldKey: FIELD_KEYS[0] } : {}),
-  ...(['paragraph', 'notice', 'checkbox'].includes(type) ? { text: '' } : {}),
-});
-
-function FieldPicker({ value, onChange }) {
-  return (
-    <select value={value || ''} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
-      <option value="">(직접 텍스트)</option>
-      {FIELD_KEYS.map((k) => <option key={k} value={k}>{`{{${k}}} — ${FIELD_DICTIONARY[k].label}`}</option>)}
-    </select>
-  );
-}
-
-function BlockEditor({ block, onChange, onRemove }) {
-  const set = (patch) => onChange({ ...block, ...patch });
-  return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, marginBottom: 8, background: 'var(--gray-50)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-tertiary)' }}>
-          {{ paragraph: '문단', table: '표', linebreak: '줄바꿈', checkbox: '체크박스', notice: '안내 문구', field: '필드' }[block.type]}
-        </span>
-        <button onClick={onRemove} style={{ fontSize: 11, color: '#DC2626', background: 'none' }}>삭제</button>
-      </div>
-      {['paragraph', 'notice', 'checkbox'].includes(block.type) && (
-        <textarea value={block.text} onChange={(e) => set({ text: e.target.value })} rows={2}
-          placeholder="내용 — {{childName}} 형태로 필드 삽입 가능" style={{ ...inputStyle, resize: 'vertical' }} />
-      )}
-      {block.type === 'field' && <FieldPicker value={block.fieldKey} onChange={(k) => set({ fieldKey: k || FIELD_KEYS[0] })} />}
-      {block.type === 'table' && (
-        <div>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 11.5 }}>열 수</span>
-            <select value={block.cols} onChange={(e) => {
-              const cols = Number(e.target.value);
-              set({ cols, rows: block.rows.map((r) => Array.from({ length: cols }, (_, i) => r[i] || { text: '' })) });
-            }} style={{ ...inputStyle, width: 'auto' }}>
-              {[2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <button onClick={() => set({ rows: [...block.rows, Array.from({ length: block.cols }, () => ({ text: '' }))] })} style={btn(false)}>행 추가</button>
-            <button onClick={() => block.rows.length > 1 && set({ rows: block.rows.slice(0, -1) })} style={btn(false)}>행 삭제</button>
-          </div>
-          {block.rows.map((row, ri) => (
-            <div key={ri} style={{ display: 'grid', gridTemplateColumns: `repeat(${block.cols}, 1fr)`, gap: 4, marginBottom: 4 }}>
-              {row.map((cell, ci) => (
-                <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <FieldPicker value={cell.fieldKey} onChange={(k) => {
-                    const rows = block.rows.map((r, i) => (i === ri ? r.map((c, j) => (j === ci ? (k ? { fieldKey: k } : { text: c.text || '' }) : c)) : r));
-                    set({ rows });
-                  }} />
-                  {!cell.fieldKey && (
-                    <input value={cell.text || ''} placeholder="셀 텍스트" onChange={(e) => {
-                      const rows = block.rows.map((r, i) => (i === ri ? r.map((c, j) => (j === ci ? { text: e.target.value } : c)) : r));
-                      set({ rows });
-                    }} style={inputStyle} />
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function DocTemplateStudio({ currentUser }) {
   const [list, setList] = useState(() => listTemplatesForAdmin(currentUser));
@@ -100,6 +36,8 @@ export default function DocTemplateStudio({ currentUser }) {
   const [gemini, setGemini] = useState(getGeminiConfig());
   const [geminiState, setGeminiState] = useState('');
   const [sentenceEngine, setSentenceEngineState] = useState(getB2SentenceEngine());
+  // RichDocumentEditor의 "/" 슬래시 메뉴가 마운트 시점에 이 배열을 캡처하므로 참조가 안정적이어야 한다(useMemo).
+  const docFieldOptions = useMemo(() => FIELD_KEYS.map((k) => ({ key: k, label: FIELD_DICTIONARY[k].label })), []);
   const refresh = () => setList(listTemplatesForAdmin(currentUser));
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500); };
 
@@ -121,8 +59,8 @@ export default function DocTemplateStudio({ currentUser }) {
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>📄 문서 서식 관리 (관리자 전용)</div>
       <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
-        표·문단 블록으로 서식을 만들고 공개하면, 선생님들이 문서 자동화에서 선택해 쓸 수 있어요.
-        서식에는 필드 자리만 저장되고 원아 기록·생성 문서 내용은 저장되지 않아요.
+        워드·한글처럼 자유롭게 서식을 만들고 공개하면, 선생님들이 문서 자동화에서 선택해 쓸 수 있어요.
+        본문 중 "/"를 입력하면 필드를 바로 골라 넣을 수 있어요. 서식에는 필드 자리만 저장되고 원아 기록·생성 문서 내용은 저장되지 않아요.
       </div>
       {msg && <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', marginBottom: 8 }}>{msg}</div>}
 
@@ -178,7 +116,7 @@ export default function DocTemplateStudio({ currentUser }) {
 
       {!editing && (
         <div>
-          <button onClick={() => setEditing({ title: '', description: '', documentType: 'observation', blocks: [newBlock('table')] })} style={btn(true)}>+ 새 서식 만들기</button>
+          <button onClick={() => setEditing({ title: '', description: '', documentType: 'observation', content: emptyTiptapDoc() })} style={btn(true)}>+ 새 서식 만들기</button>
           <div style={{ marginTop: 10 }}>
             {list.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>아직 서식이 없어요.</div>}
             {list.map((t) => (
@@ -186,7 +124,10 @@ export default function DocTemplateStudio({ currentUser }) {
                 <span style={{ fontSize: 13, fontWeight: 700, flex: 1, minWidth: 120 }}>
                   {t.title} <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>v{t.version} · {t.archived ? '보관됨' : t.published ? '공개' : '비공개(초안)'}</span>
                 </span>
-                <button onClick={() => setEditing(JSON.parse(JSON.stringify(t)))} style={btn(false)}>편집</button>
+                <button onClick={() => {
+                  const clone = JSON.parse(JSON.stringify(t));
+                  setEditing(clone.content ? clone : { ...clone, content: convertBlocksToTiptapContent(clone.blocks || []), blocks: undefined });
+                }} style={btn(false)}>편집</button>
                 <button onClick={() => act(duplicateTemplate, t.templateId)} style={btn(false)}>복제</button>
                 {!t.archived && <button onClick={() => act(setTemplatePublished, t.templateId, !t.published)} style={btn(false)}>{t.published ? '비공개로' : '공개하기'}</button>}
                 {!t.archived && <button onClick={() => act(archiveTemplate, t.templateId)} style={{ ...btn(false), color: '#B45309' }}>보관</button>}
@@ -201,21 +142,17 @@ export default function DocTemplateStudio({ currentUser }) {
         <div>
           <input value={editing.title} placeholder="서식 제목 (예: 관찰일지 기본형)" onChange={(e) => setEditing({ ...editing, title: e.target.value })} style={{ ...inputStyle, marginBottom: 6 }} />
           <input value={editing.description} placeholder="서식 설명" onChange={(e) => setEditing({ ...editing, description: e.target.value })} style={{ ...inputStyle, marginBottom: 8 }} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-            {['paragraph', 'table', 'linebreak', 'checkbox', 'notice', 'field'].map((ty) => (
-              <button key={ty} onClick={() => setEditing({ ...editing, blocks: [...editing.blocks, newBlock(ty)] })} style={btn(false)}>
-                + {{ paragraph: '문단', table: '표', linebreak: '줄바꿈', checkbox: '체크박스', notice: '안내 문구', field: '필드' }[ty]}
-              </button>
-            ))}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+            <RichDocumentEditor
+              content={editing.content}
+              onChange={(content) => setEditing({ ...editing, content })}
+              canInsertFields
+              baseFields={docFieldOptions}
+            />
           </div>
-          {editing.blocks.map((b, i) => (
-            <BlockEditor key={b.id} block={b}
-              onChange={(nb) => setEditing({ ...editing, blocks: editing.blocks.map((x, j) => (j === i ? nb : x)) })}
-              onRemove={() => setEditing({ ...editing, blocks: editing.blocks.filter((_, j) => j !== i) })} />
-          ))}
           <div style={{ background: 'var(--gray-50)', borderRadius: 10, padding: 10, margin: '8px 0', whiteSpace: 'pre-wrap', fontSize: 12.5 }}>
             <div style={{ fontWeight: 800, fontSize: 11.5, marginBottom: 4 }}>미리보기(빈 값은 안내 문구로 표시)</div>
-            {renderInstance(editing, {}).text || '(블록을 추가하세요)'}
+            {renderInstance(editing, {}).text || '(내용을 입력하세요)'}
           </div>
           {(() => { const v = validateTemplate(editing); return v.ok ? null : <div style={{ fontSize: 12, color: '#DC2626', marginBottom: 6 }}>{v.errors.join(' / ')}</div>; })()}
           <div style={{ display: 'flex', gap: 6 }}>

@@ -2,11 +2,12 @@
 import {
   DOC_FORMS_KEY, FIELD_DICTIONARY, validateTemplate, saveTemplate, duplicateTemplate,
   setTemplatePublished, archiveTemplate, deleteTemplate, listTemplatesForAdmin, listPublishedTemplates,
-  renderInstance, buildAutoValues, generateAIFieldValues, extractTags,
+  renderInstance, buildAutoValues, generateAIFieldValues, extractTags, convertBlocksToTiptapContent,
 } from './docTemplates';
 import { createMockAdapter } from './ai/llm/mockLLM';
 import { __resetAutoDetect } from './ai/llm/privateServerLLM';
 import { SYNC_EXCLUDED_KEYS } from './storage';
+import { saveCustomField } from './customFields';
 
 const MASTER = { userId: 'master', role: 'master' };
 const TEACHER = { userId: 't1', displayName: '김교사' };
@@ -178,5 +179,88 @@ describe('저장 분리', () => {
     expect(raw).not.toContain('{{'); // 태그는 셀 fieldKey로 저장(텍스트 태그 아님)
     expect(raw).not.toContain('다시 할래');
     expect(raw).not.toContain('쌓았다');
+  });
+});
+
+const text = (t) => ({ type: 'text', text: t });
+const paragraph = (...content) => ({ type: 'paragraph', content: content.filter(Boolean) });
+const chip = (fieldKey) => ({ type: 'fieldChip', attrs: { fieldKey } });
+
+describe('콘텐츠 기반(Tiptap) 서식 — 렌더링·태그·검증', () => {
+  test('문단·필드칩이 평문으로 치환된다', () => {
+    const tpl = { title: '워드형', content: { type: 'doc', content: [paragraph(text('원아명: '), chip('childName'))] } };
+    const out = renderInstance(tpl, { childName: '지우' }).text;
+    expect(out).toBe('원아명: 지우');
+  });
+
+  test('2열 표는 " : "로, 3열 이상 표는 " | "로 셀을 잇는다', () => {
+    const twoCol = {
+      title: 't2',
+      content: { type: 'doc', content: [{ type: 'table', content: [{ type: 'tableRow', content: [
+        { type: 'tableCell', content: [paragraph(text('원아명'))] },
+        { type: 'tableCell', content: [paragraph(chip('childName'))] },
+      ] }] }] },
+    };
+    expect(renderInstance(twoCol, { childName: '지우' }).text).toBe('원아명 : 지우');
+
+    const threeCol = {
+      title: 't3',
+      content: { type: 'doc', content: [{ type: 'table', content: [{ type: 'tableRow', content: [
+        { type: 'tableCell', content: [paragraph(text('원아명'))] },
+        { type: 'tableCell', content: [paragraph(chip('childName'))] },
+        { type: 'tableCell', content: [paragraph(chip('recordDate'))] },
+      ] }] }] },
+    };
+    expect(renderInstance(threeCol, { childName: '지우', recordDate: '2026-08-20' }).text).toBe('원아명 | 지우 | 2026-08-20');
+  });
+
+  test('taskItem은 checked 여부에 따라 ☑/☐로, blockquote는 각 줄 앞에 ※를 붙인다(체크박스·안내문구의 새 편집기 대체)', () => {
+    const tpl = {
+      title: 't4',
+      content: {
+        type: 'doc',
+        content: [
+          { type: 'taskList', content: [
+            { type: 'taskItem', attrs: { checked: true }, content: [paragraph(text('가정 공유 완료'))] },
+            { type: 'taskItem', attrs: { checked: false }, content: [paragraph(text('사진 첨부'))] },
+          ] },
+          { type: 'blockquote', content: [paragraph(text('공휴일에는 등원하지 않아요.'))] },
+        ],
+      },
+    };
+    const out = renderInstance(tpl, {}).text;
+    expect(out).toContain('☑ 가정 공유 완료');
+    expect(out).toContain('☐ 사진 첨부');
+    expect(out).toContain('※ 공휴일에는 등원하지 않아요.');
+  });
+
+  test('extractTags는 중복 없이 필드칩 키만 모으고, validateTemplate은 관리자 커스텀 필드 키도 허용한다', () => {
+    asUser(MASTER);
+    const field = saveCustomField({ label: '원장님 이름', value: '홍길동' }, MASTER).field;
+    const tpl = {
+      title: '커스텀 포함',
+      content: { type: 'doc', content: [paragraph(chip('childName'), chip('childName'), chip(field.key))] },
+    };
+    expect(extractTags(tpl)).toEqual(['childName', field.key]);
+    expect(validateTemplate(tpl).ok).toBe(true);
+
+    const bad = { title: '미등록', content: { type: 'doc', content: [paragraph(chip('doesNotExist'))] } };
+    const v = validateTemplate(bad);
+    expect(v.ok).toBe(false);
+    expect(v.errors.join(' ')).toContain('doesNotExist');
+  });
+});
+
+describe('레거시 blocks → content 변환기', () => {
+  test('convertBlocksToTiptapContent로 변환한 뒤에도 renderInstance 결과에 같은 값들이 그대로 남는다', () => {
+    const content = convertBlocksToTiptapContent(TPL.blocks);
+    const converted = { ...TPL, content, blocks: undefined };
+    const auto = buildAutoValues({ childName: '지우', recordDate: '2026-07-03' });
+    const inst = renderInstance(converted, { ...auto, observation: '관찰문장.', learningReading: '배움문장.', supportAndNextPlan: '지원문장.' });
+    expect(inst.text).toContain('지우');
+    expect(inst.text).toContain('2026-07-03');
+    expect(inst.text).toContain('배움문장.');
+    expect(inst.text).toContain('가정 공유 완료'); // 체크박스 → taskItem 변환
+    expect(inst.text).toContain('교사 메모');       // field 블록 → 라벨 heading 변환
   });
 });
