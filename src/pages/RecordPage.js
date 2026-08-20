@@ -347,14 +347,20 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!result || !selectedChild || saved) return;
     const newRecord = addRecord({ childId: selectedChild.id, childName: selectedChild.name, date: recordDate || today(), rawText, recordType, photoCount: photos.length, ...result });
     setRecords(prev => [newRecord, ...prev]);
+    // 사진 저장을 먼저 끝내야 자동 생성 문서에도 같은 사진을 끼워 넣을 수 있다(아래 onRecordSaved).
+    let savedPhotos = [];
     if (photos.length > 0) {
-      savePhotos(newRecord.id, photos)
-        .then(() => setPhotos([]))
-        .catch(() => showToast('사진 저장 중 오류가 발생했어요. (기록은 저장됨)', 'error'));
+      try {
+        const ids = await savePhotos(newRecord.id, photos);
+        savedPhotos = ids.map((id, i) => ({ id, dataUrl: photos[i] }));
+        setPhotos([]);
+      } catch {
+        showToast('사진 저장 중 오류가 발생했어요. (기록은 저장됨)', 'error');
+      }
     }
     // 검토 모드: 수정 전후 파생 통계만 로컬 저장(원문 미복제)
     if (reviewMode && reviewOriginalRef.current) {
@@ -364,9 +370,10 @@ export default function RecordPage({ context, onNavigate, isDesktop }) {
     setSaved(true);
     clearDraft(); setDraftBanner(false);
     // 활성 서식 규칙에 따라 문서 초안 자동 생성(관찰/상담 → 문서 작성실 문서함). 중복 저장 시 기존 초안 유지.
+    // 사진이 있으면(savedPhotos) 서식 내용 끝에 같은 사진을 자동으로 끼워 넣는다.
     let docText = '';
     try {
-      const made = onRecordSaved({ record: newRecord, recordType, context: { className: cl?.name, classAge: cl?.age } });
+      const made = onRecordSaved({ record: newRecord, recordType, context: { className: cl?.name, classAge: cl?.age }, photos: savedPhotos });
       if (made.created.length) docText = ` 문서 초안 ${made.created.length}건이 문서 작성실에 준비됐어요.`;
     } catch {}
     const labels = newRecord.automation?.appliedLabels || [];

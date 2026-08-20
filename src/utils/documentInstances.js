@@ -11,6 +11,7 @@
 import { getRecords, getChildren, getClasses, genId, today } from './storage';
 import { isMaster, getCurrentUser } from './auth';
 import { listRichTemplates, collectFieldKeys, FIELD_MAP } from './documentStudio';
+import { stripImageSrcForStorage } from './photoStore';
 
 export const INSTANCES_SUFFIX = 'doc_instances';
 export const AUTO_RULES_KEY = 'sw_shared_doc_auto_rules'; // 관리자 전용(기기 공용)
@@ -160,8 +161,20 @@ function instanceTitle(template, record, values) {
   return [date, who, template.title].filter(Boolean).join(' · ');
 }
 
+// 기록에 첨부된 사진을 문서 내용 끝에 이미지 노드로 덧붙인다(photos: [{id, dataUrl}]).
+// id는 photoStore.js에 이미 저장된 실제 IndexedDB photoId를 그대로 재사용 — 별도 복제 저장 없음.
+// 여기서는 dataUrl을 그대로 넣어 미리보기에 즉시 보이게 하고, 실제 저장(saveInstance) 직전에
+// stripImageSrcForStorage로 src를 비운다(문서 서식 이미지와 동일한 strip-on-save 관례).
+function appendPhotosToContent(content, photos) {
+  if (!photos?.length) return content;
+  const imageNodes = photos.map((p) => ({ type: 'image', attrs: { src: p.dataUrl, photoId: p.id, alt: '기록 사진' } }));
+  const base = content && Array.isArray(content.content) ? content : { type: 'doc', content: [] };
+  return { ...base, content: [...base.content, ...imageNodes] };
+}
+
 // ── 서식 복제본 + 자동 채움으로 인스턴스 생성(idempotent) ────────────────────
-export function createInstanceFromRecord({ templateId, record, sourceRecordType, rule, user = getCurrentUser(), context = {} }) {
+// photos: 원본 기록에 첨부된 사진([{id, dataUrl}]) — 있으면 문서 내용 끝에 자동으로 끼워 넣는다.
+export function createInstanceFromRecord({ templateId, record, sourceRecordType, rule, user = getCurrentUser(), context = {}, photos = [] }) {
   const existing = findInstanceBySource(templateId, record.id, user);
   if (existing) return { ok: true, existing: true, instance: existing }; // 중복 생성 방지
   const template = listRichTemplates(user, { includePrivate: isMaster(user) }).find((t) => t.templateId === templateId);
@@ -169,6 +182,7 @@ export function createInstanceFromRecord({ templateId, record, sourceRecordType,
 
   const { values, states, b4AuditStatus } = buildFieldPayload({ template, record, sourceRecordType, context, user });
   const now = nowIso();
+  const content = appendPhotosToContent(clone(template.content), photos); // 서식 복제 — 원본 불변
   const instance = {
     id: `inst_${genId()}`,
     templateId,
@@ -179,7 +193,7 @@ export function createInstanceFromRecord({ templateId, record, sourceRecordType,
     status: rule?.createMode === 'final' ? 'final' : 'draft',
     autoCreated: true,
     title: instanceTitle(template, record, values),
-    content: clone(template.content),        // 서식 복제 — 원본 불변
+    content: stripImageSrcForStorage(content),
     fieldValues: values,
     fieldStates: states,
     sourceChanged: false,
@@ -195,13 +209,13 @@ export function createInstanceFromRecord({ templateId, record, sourceRecordType,
 // ── 기록 저장 훅 ───────────────────────────────────────────────────────────
 const RECORD_TYPE_TRIGGER = { observe: 'observationRecordSaved', consult: 'consultationRecordSaved' };
 
-export function onRecordSaved({ record, recordType, user = getCurrentUser(), context = {} } = {}) {
+export function onRecordSaved({ record, recordType, user = getCurrentUser(), context = {}, photos = [] } = {}) {
   const trigger = RECORD_TYPE_TRIGGER[recordType];
   if (!trigger || !record?.id) return { created: [], existing: [] };
   const out = { created: [], existing: [] };
   templatesForTrigger(trigger).forEach(({ rule, template }) => {
     const res = createInstanceFromRecord({
-      templateId: template.templateId, record, rule, user, context,
+      templateId: template.templateId, record, rule, user, context, photos,
       sourceRecordType: rule.sourceRecordType,
     });
     if (res.ok) (res.existing ? out.existing : out.created).push(res.instance);

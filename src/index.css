@@ -680,8 +680,9 @@ input:focus, textarea:focus {
   gap: 5px;
   flex-wrap: wrap;
 }
-.sw-field-chip,
-.field-chip-rendered {
+/* 편집기 안에서만 필드 자리를 알아볼 수 있게 배지로 표시(음영·색·크기 포함) — 완성 문서에는
+   적용하지 않는다(.field-chip-rendered는 아래에서 별도로, 일반 텍스트처럼 보이게 정의). */
+.sw-field-chip {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
@@ -700,6 +701,12 @@ input:focus, textarea:focus {
   margin-right: 5px;
   font-size: 0.75em;
   opacity: 0.65;
+}
+/* 완성된 문서(미리보기·공개 페이지·인쇄)에서는 자동으로 채워진 값이 직접 입력한 텍스트와
+   구분되지 않아야 한다 — 배경·글자색·크기·굵기를 모두 주변 문단과 동일하게 유지한다. */
+.field-chip-rendered {
+  color: inherit;
+  font: inherit;
 }
 .sw-page-break,
 .document-page-break {

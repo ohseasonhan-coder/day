@@ -9,6 +9,7 @@ import { isLoggedIn, getCurrentUser, logout, seedSpecialAccounts } from './utils
 import { initTheme, useTheme } from './utils/theme';
 import TodayPage    from './pages/TodayPage';
 import RecordPage   from './pages/RecordPage';
+import PhotoRecordPage from './pages/PhotoRecordPage';
 import ChildrenPage from './pages/ChildrenPage';
 import DocsPage     from './pages/DocsPage';
 import CheckPage    from './pages/CheckPage';
@@ -33,7 +34,7 @@ import OnboardingModal from './components/OnboardingModal';
 import SearchModal from './components/SearchModal';
 import LockScreen from './components/LockScreen';
 
-import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles, MoreHorizontal, FileText, Globe } from 'lucide-react';
+import { Home, PenLine, Users, FolderOpen, CheckSquare, Settings, Zap, BookOpen, BarChart3, Pill, AlertTriangle, Newspaper, MessageSquare, ClipboardList, Search, ChevronDown, ChevronRight, Sparkles, MoreHorizontal, FileText, Globe, Camera } from 'lucide-react';
 import { MOBILE_PRIMARY, MORE_MENU_ITEMS } from './utils/navConfig';
 
 initTheme(); // 페이지 로드 즉시 테마 적용 (깜박임 방지)
@@ -47,6 +48,7 @@ const NAV_ICONS = {
   settings: Settings, internal: ClipboardList, consult: MessageSquare, checklist: ClipboardList,
   check: CheckSquare, stats: BarChart3, newsletter: Newspaper, note: BookOpen,
   medicine: Pill, accident: AlertTriangle, automation: Sparkles, docstudio: FileText, pages: Globe,
+  photoRecord: Camera,
 };
 
 // 모바일 하단 탭 — 핵심 4개 + 더보기 (설정은 상단 기어)
@@ -65,6 +67,7 @@ const NAV_GROUPS = [
       { id: 'today',    label: '오늘',     icon: Home },
       { id: 'record',   label: '오늘기록', icon: PenLine },
       { id: 'aiwrite',  label: 'AI작성',   icon: Zap },
+      { id: 'photoRecord', label: '사진 기록', icon: Camera },
       { id: 'automation', label: '자동화', icon: Sparkles },
       { id: 'docstudio', label: '문서 작성실', icon: FileText },
       { id: 'pages',    label: '공개 페이지', icon: Globe },
@@ -94,7 +97,7 @@ const NAV_GROUPS = [
 ];
 
 const PAGE_TITLES = {
-  today: '오늘', record: '오늘기록', aiwrite: 'AI 문서작성', note: '알림장',
+  today: '오늘', record: '오늘기록', aiwrite: 'AI 문서작성', note: '알림장', photoRecord: '사진 기록',
   children: '원아기록', docs: '문서함', check: '점검', stats: '통계',
   internal: '원내문서', automation: '자동화 작업', docstudio: '문서 작성실', pages: '공개 페이지',
   medicine: '투약 관리', accident: '사고·상해 기록', newsletter: '가정통신문',
@@ -319,6 +322,7 @@ export default function App() {
     switch (page) {
       case 'today':    return <TodayPage    {...pageProps} />;
       case 'record':   return <RecordPage   {...pageProps} context={recordContext} />;
+      case 'photoRecord': return <PhotoRecordPage {...pageProps} />;
       case 'note':     return <NotePage     {...pageProps} />;
       case 'children': return <ChildrenPage {...pageProps} />;
       case 'docs':     return <DocsPage     {...pageProps} context={docsContext} initialTab="history" />;

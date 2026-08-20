@@ -13,6 +13,7 @@
 export const GEMINI_KEYS = {
   API_KEY: 'sw_admin_gemini_api_key',
   MODEL: 'sw_admin_gemini_model',
+  VISION_ENABLED: 'sw_admin_gemini_vision_enabled',
 };
 
 export const GEMINI_DEFAULTS = {
@@ -48,6 +49,18 @@ export function clearGeminiConfig() {
   } catch {}
 }
 
+// 사진 원본을 Gemini로 보내는 것은 이름을 가린 텍스트 전송보다 훨씬 큰 노출이라
+// 기존 텍스트 생성 opt-in과 별개의 플래그로 관리한다(관리자가 명시적으로 따로 켜야 함).
+export function isGeminiVisionEnabled() {
+  try { return localStorage.getItem(GEMINI_KEYS.VISION_ENABLED) === '1'; } catch { return false; }
+}
+export function setGeminiVisionEnabled(on) {
+  try {
+    if (on) localStorage.setItem(GEMINI_KEYS.VISION_ENABLED, '1');
+    else localStorage.removeItem(GEMINI_KEYS.VISION_ENABLED);
+  } catch {}
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = GEMINI_DEFAULTS.timeoutMs) {
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
@@ -62,15 +75,21 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = GEMINI_DEFAULTS.t
 }
 
 // OpenAI 스타일 messages([{role, content}]) → Gemini contents/systemInstruction 형식으로 변환.
-function toGeminiRequest(messages = [], { schema, temperature, maxTokens } = {}) {
+// image({mimeType, data(base64)})가 있으면 마지막 user 턴에 inlineData 파트로 덧붙인다(사진 분석용).
+function toGeminiRequest(messages = [], { schema, temperature, maxTokens, image } = {}) {
   const systemParts = [];
   const contents = [];
   messages.forEach((m) => {
     if (m.role === 'system') systemParts.push(String(m.content || ''));
     else contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content || '') }] });
   });
+  if (!contents.length) contents.push({ role: 'user', parts: [{ text: '' }] });
+  if (image?.data) {
+    const last = contents[contents.length - 1];
+    last.parts.push({ inlineData: { mimeType: image.mimeType || 'image/jpeg', data: image.data } });
+  }
   const body = {
-    contents: contents.length ? contents : [{ role: 'user', parts: [{ text: '' }] }],
+    contents,
     generationConfig: {
       temperature,
       maxOutputTokens: maxTokens,
@@ -113,15 +132,16 @@ export const geminiAdapter = {
     return ok ? { ok: true } : { ok: false, error: 'Gemini 연결 실패' };
   },
   // messages → 텍스트(JSON 기대). 프롬프트·응답은 저장하지 않고 반환만 한다.
+  // image가 있으면 사진도 함께 보낸다(사진 분석 — 호출부가 opt-in 여부를 먼저 확인해야 한다).
   generate: async ({
-    messages, schema, model: modelOverride,
+    messages, schema, model: modelOverride, image,
     timeoutMs = GEMINI_DEFAULTS.timeoutMs, retries = GEMINI_DEFAULTS.retries,
     temperature = GEMINI_DEFAULTS.temperature, maxTokens = GEMINI_DEFAULTS.maxTokens,
   } = {}) => {
     const { apiKey, model: configuredModel } = getGeminiConfig();
     if (!apiKey) throw new Error('gemini-not-configured');
     const model = String(modelOverride || configuredModel).trim();
-    const body = toGeminiRequest(messages, { schema, temperature, maxTokens });
+    const body = toGeminiRequest(messages, { schema, temperature, maxTokens, image });
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {

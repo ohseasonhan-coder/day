@@ -11,7 +11,9 @@ import {
 } from '../utils/docTemplates';
 import { emptyTiptapDoc } from '../utils/documentStudio';
 import { PRIVATE_SERVER_KEYS, getServerConfig, setServerConfig, privateServerAdapter } from '../utils/ai/llm/privateServerLLM';
-import { GEMINI_KEYS, getGeminiConfig, setGeminiConfig, geminiAdapter } from '../utils/ai/llm/geminiLLM';
+import {
+  GEMINI_KEYS, getGeminiConfig, setGeminiConfig, geminiAdapter, isGeminiVisionEnabled, setGeminiVisionEnabled,
+} from '../utils/ai/llm/geminiLLM';
 import { B2_LLM_ENGINES, getB2SentenceEngine, setB2SentenceEngine } from '../utils/ai/b2/config';
 import RichDocumentEditor from './RichDocumentEditor';
 
@@ -35,6 +37,7 @@ export default function DocTemplateStudio({ currentUser }) {
   const [serverState, setServerState] = useState('');
   const [gemini, setGemini] = useState(getGeminiConfig());
   const [geminiState, setGeminiState] = useState('');
+  const [visionEnabled, setVisionEnabled] = useState(isGeminiVisionEnabled());
   const [sentenceEngine, setSentenceEngineState] = useState(getB2SentenceEngine());
   // RichDocumentEditor의 "/" 슬래시 메뉴가 마운트 시점에 이 배열을 캡처하므로 참조가 안정적이어야 한다(useMemo).
   const docFieldOptions = useMemo(() => FIELD_KEYS.map((k) => ({ key: k, label: FIELD_DICTIONARY[k].label })), []);
@@ -112,6 +115,34 @@ export default function DocTemplateStudio({ currentUser }) {
             <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>규칙 엔진을 선택하면 키가 있어도 AI를 쓰지 않아요.</span>
           </div>
         </details>
+        {gemini.apiKey && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 800 }}>📸 사진 분석(Gemini Vision) 허용</span>
+              <button onClick={() => {
+                const next = !visionEnabled;
+                setVisionEnabled(next);
+                setGeminiVisionEnabled(next);
+                flash(next ? '사진 분석을 켰어요. 이제 사진 기록에서 AI 초안 버튼이 보여요.' : '사진 분석을 껐어요.');
+              }} style={{
+                width: 44, height: 24, borderRadius: 12,
+                background: visionEnabled ? 'var(--primary)' : 'var(--gray-300)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}>
+                <div style={{
+                  width: 18, height: 18, background: 'var(--white)', borderRadius: '50%',
+                  position: 'absolute', top: 3, left: visionEnabled ? 23 : 3, transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4, lineHeight: 1.6 }}>
+              "사진 기록" 화면에서 선생님이 초안 생성을 누르면, 첨부한 사진 원본(이름을 가린 텍스트와 달리
+              얼굴 등 실제 모습이 그대로 보일 수 있어요)이 Google 서버로 전송돼 활동 설명 문장을 만드는 데만
+              쓰이고 저장되지 않아요. 이 토글을 켜지 않으면 "사진 기록"에서 AI 초안 버튼이 보이지 않아요.
+              ({GEMINI_KEYS.VISION_ENABLED})
+            </div>
+          </div>
+        )}
       </div>
 
       {!editing && (

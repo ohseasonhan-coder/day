@@ -105,11 +105,19 @@ test('외부 API 호출 코드는 허용된 두 지점(로컬 7B, Gemini)으로�
     expect(src).not.toMatch(/openai\.com|anthropic|api\.openai|api\.mistral|openrouter/i);
   });
 
+  // 예외3: photoObservation.js는 "사진 기록" 화면 전용 — geminiAdapter(외부 Gemini 호출)를 직접
+  // 위임만 하고 fetch를 스스로 호출하지 않는다. 사진 분석이라는 존재 목적 자체가 Gemini Vision opt-in
+  // 이므로 이름을 가려서 이 검사를 통과시키기보다 geminiLLM.js와 동일하게 감사 대상 예외로 등록한다.
+  files.filter((f) => relPath(f) === 'llm/photoObservation.js').forEach((f) => {
+    const src = fs.readFileSync(f, 'utf8');
+    expect(src).not.toMatch(/fetch\s*\(|XMLHttpRequest|axios|openai\.com|anthropic|api\.openai|api\.mistral|openrouter/i);
+  });
+
   // 그 외 모든 파일은 실제 네트워크 호출(fetch/XMLHttpRequest/axios)이나 상용 API 참조를 가질 수 없다.
   // b2/llmBridge.js·b2/config.js는 'gemini'를 엔진 id 문자열로만 참조(실제 fetch는 geminiLLM.js 전용)하므로
   // 'gemini' 문자열만 예외로 허용하고 fetch(/axios 등은 그대로 금지 대상에 남긴다.
   const ENGINE_ID_ONLY_FILES = ['b2/llmBridge.js', 'b2/config.js'];
-  const EXEMPT = ['llm/privateServerLLM.js', 'llm/geminiLLM.js'];
+  const EXEMPT = ['llm/privateServerLLM.js', 'llm/geminiLLM.js', 'llm/photoObservation.js'];
   const source = files
     .filter((f) => !EXEMPT.includes(relPath(f)))
     .map((f) => {

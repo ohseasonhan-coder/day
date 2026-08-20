@@ -74,6 +74,33 @@ describe('기록 저장 → 문서 초안 자동 생성', () => {
   });
 });
 
+describe('기록 사진 → 자동 생성 문서에 이미지 자동 삽입', () => {
+  test('기록에 사진이 있으면 문서 내용 끝에 같은 photoId로 이미지 노드가 붙는다(src는 저장 전 비움)', () => {
+    const photos = [{ id: 'rec_1-p123-0', dataUrl: 'data:image/jpeg;base64,AAAA' }];
+    const out = onRecordSaved({ record: RECORD, recordType: 'observe', user: TEACHER, photos });
+    const inst = out.created[0];
+    const nodes = inst.content.content;
+    const lastNode = nodes[nodes.length - 1];
+    expect(lastNode).toMatchObject({ type: 'image', attrs: { photoId: 'rec_1-p123-0', src: '' } });
+  });
+
+  test('사진이 없으면(기본값) 서식 내용이 그대로 유지되고 이미지 노드가 없다', () => {
+    const out = onRecordSaved({ record: RECORD, recordType: 'observe', user: TEACHER });
+    const inst = out.created[0];
+    expect(inst.content.content.some((n) => n.type === 'image')).toBe(false);
+  });
+
+  test('여러 장이면 모두 순서대로 끝에 붙는다', () => {
+    const photos = [
+      { id: 'rec_1-p1-0', dataUrl: 'data:image/jpeg;base64,AAAA' },
+      { id: 'rec_1-p1-1', dataUrl: 'data:image/jpeg;base64,BBBB' },
+    ];
+    const { instance } = createInstanceFromRecord({ templateId: 'builtin_observation', record: RECORD, sourceRecordType: 'observationRecord', user: TEACHER, photos });
+    const imageNodes = instance.content.content.filter((n) => n.type === 'image');
+    expect(imageNodes.map((n) => n.attrs.photoId)).toEqual(['rec_1-p1-0', 'rec_1-p1-1']);
+  });
+});
+
 describe('B4 audit·근거 부족 처리', () => {
   test('fallback 상태면 값은 채우되 "확인 필요"로 표시된다', () => {
     const rec = { ...RECORD, id: 'rec_fb', copyReadyAudit: { ok: false, severity: 'minor', warnings: [], fallbackApplied: true } };

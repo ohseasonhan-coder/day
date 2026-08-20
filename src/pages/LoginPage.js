@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { login, loginWithGoogle, setInitialPassword } from '../utils/auth';
 import { renderGoogleSignInButton, googleSignInWithAccountChooser, isElectron } from '../utils/driveBackup';
 import { getGoogleClientId, setGoogleClientId, getSiteContent } from '../utils/storage';
-import { getGeminiConfig } from '../utils/ai/llm/geminiLLM';
+import { getGeminiConfig, isGeminiVisionEnabled } from '../utils/ai/llm/geminiLLM';
 import { Zap, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
 
 // 로그인은 구글 계정 전용. 관리자(마스터)만 아이디/비밀번호로 로그인한다.
@@ -11,6 +11,7 @@ export default function LoginPage({ onLogin }) {
   // 관리자가 Gemini API를 연결해 두었으면(기기 공용 설정) 개인정보 안내 문구를 그에 맞게 바꾼다 —
   // 이때만 이름을 가린 관찰 내용 일부가 문장 생성을 위해 Google 서버로 나갈 수 있기 때문.
   const geminiActive = !!getGeminiConfig().apiKey;
+  const visionActive = geminiActive && isGeminiVisionEnabled();
   // 관리자가 "사이트 관리"에서 편집한 로그인 화면 문구(기기 공용) — 없으면 기존 기본 문구 그대로.
   const siteContent = getSiteContent();
   // 구글 로그인
@@ -147,6 +148,7 @@ export default function LoginPage({ onLogin }) {
                 <>
                   🔒 구글은 로그인·드라이브 백업과, 관리자가 연결한 Gemini AI 문장 생성에 사용돼요.<br />
                   문장을 만들 때 이름을 가린 관찰 내용 일부가 Google 서버로 전송될 수 있어요.
+                  {visionActive && <><br />관리자가 사진 분석도 켠 경우, "사진 기록"에서 사진 원본이 Google 서버로 전송될 수 있어요.</>}
                 </>
               ) : (
                 <>

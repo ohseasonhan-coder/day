@@ -63,7 +63,7 @@ export const SYNC_EXCLUDED_KEYS = [
   'sw_shared_doc_forms', 'sw_admin_llm_server_url', 'sw_admin_llm_server_model', 'sw_admin_llm_server_model_14b',
   'sw_shared_rich_doc_templates',
   // Gemini API 설정(관리자 전용) — API 키를 절대 백업·동기화하지 않는다
-  'sw_admin_gemini_api_key', 'sw_admin_gemini_model',
+  'sw_admin_gemini_api_key', 'sw_admin_gemini_model', 'sw_admin_gemini_vision_enabled',
   // 사이트 관리(관리자, 공개 페이지·문구·디자인) — 기기 공용, 계정 백업·동기화 제외
   'sw_shared_site_pages', 'sw_shared_site_content', 'sw_shared_custom_fields',
   'sw_b2_sentence_engine',

@@ -12,7 +12,7 @@ import { checkDriveStatus, pullFromDrive, pushToDrive } from '../utils/deviceSyn
 import { detectOnDeviceCapability } from '../utils/ondeviceLLM';
 import { changePassword, deleteAccount, PLANS, getAccounts, linkGoogleToAccount, unlinkGoogleFromAccount,
   isMaster, adminUpdateAccount, adminDeleteAccount, adminCreateAccount, getAccountDataStats } from '../utils/auth';
-import { getGeminiConfig } from '../utils/ai/llm/geminiLLM';
+import { getGeminiConfig, isGeminiVisionEnabled } from '../utils/ai/llm/geminiLLM';
 import { RECORD_QUALITY_SAMPLES, TONE_OPTIONS } from '../utils/ai';
 import { ArrowLeft, Plus, Trash2, Download, Upload, LogOut, Key, UserX, Check, AlertCircle, Moon, Sun, ChevronUp, ChevronDown, FileText } from 'lucide-react';
 import { renderPdfToImage, detectFieldsFromPdf } from '../utils/pdfUtils';
@@ -60,6 +60,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
   // 관리자가 Gemini API를 연결해 두었으면(기기 공용 설정) 개인정보 안내 문구를 그에 맞게 바꾼다 —
   // 이때만 이름을 가린 관찰 내용 일부가 문장 생성을 위해 Google 서버로 나갈 수 있기 때문.
   const geminiActive = !!getGeminiConfig().apiKey;
+  const visionActive = geminiActive && isGeminiVisionEnabled();
   // 설정 진입/탭 전환 시 항상 화면 맨 위부터 보이게(이전 화면 스크롤 위치 잔상 방지)
   useEffect(() => { try { window.scrollTo(0, 0); } catch {} }, [activeTab]);
   const [newChildName, setNewChildName] = useState('');
@@ -816,6 +817,7 @@ export default function SettingsPage({ onBack, currentUser, onLogout, isDark, to
                   <>
                     기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장됩니다.<br />
                     관리자가 연결한 Gemini AI가 배움 읽기·지원 문장을 쓸 때는, 이름을 가린 관찰 내용 일부가 Google 서버로 전송돼요(저장되지 않고 문장 생성에만 쓰이고 사라져요).
+                    {visionActive && <><br />관리자가 사진 분석도 켠 경우, "사진 기록"에서 사진으로 초안을 만들 때는 사진 원본(얼굴 등 실제 모습 포함)이 Google 서버로 전송돼요(저장되지 않고 초안 생성에만 쓰이고 사라져요).</>}
                   </>
                 ) : (
                   '기록은 기본적으로 이 기기에 저장됩니다. Google Drive 백업을 켠 경우 사용자 본인의 드라이브에만 저장되며, 외부 서버로 전송되지 않습니다.'
