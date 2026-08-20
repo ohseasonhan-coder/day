@@ -265,6 +265,7 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
   const [instanceOpen, setInstanceOpen] = useState(null); // 자동 생성 문서(인스턴스) 작업 화면
   const [inboxVersion, setInboxVersion] = useState(0);
   const [connectTrigger, setConnectTrigger] = useState({}); // 서식별로 아직 연결 전 선택한 trigger
+  const [creatingTemplate, setCreatingTemplate] = useState(false); // "공개 페이지"처럼 문서를 거치지 않고 바로 서식 작성
   const saveTimer = useRef(null);
   const inbox = useMemo(() => groupInstancesForInbox(currentUser), [currentUser, inboxVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const autoRules = useMemo(() => getAutoRules(), [inboxVersion]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -340,6 +341,29 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
     if (!result.ok) { showToast(result.error, 'error'); return; }
     refresh();
     showToast('문서를 서식으로 저장했어요. 공개 전까지 관리자만 볼 수 있습니다.', 'success');
+  };
+
+  // "공개 페이지 → 새 페이지 만들기"와 동일한 흐름: 개인 문서를 만들지 않고, 에디터에서 바로
+  // 작성한 뒤 저장하면 곧바로 서식이 된다("내 문서" 목록엔 남지 않음).
+  const startNewTemplate = () => {
+    setCreatingTemplate(true);
+    setEditing(createBlankRichDocument({ title: '새 서식', user: currentUser }));
+    setPreview(false);
+    setPrintMode(false);
+  };
+  const cancelNewTemplate = () => {
+    setCreatingTemplate(false);
+    setEditing(null);
+  };
+  const saveNewTemplate = () => {
+    if (!editing) return;
+    const stripped = { ...editing, content: stripImageSrcForStorage(editing.content) };
+    const result = saveRichTemplateFromDocument(stripped, currentUser);
+    if (!result.ok) { showToast(result.error, 'error'); return; }
+    refresh();
+    setCreatingTemplate(false);
+    setEditing(null);
+    showToast('새 서식을 만들었어요. 공개 전까지 관리자만 볼 수 있습니다.', 'success');
   };
 
   const filtered = documents.filter((doc) => {
@@ -477,7 +501,10 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
         </section>
 
         <section className="doc-studio-section">
-          <div className="doc-section-title">문서 서식에서 시작</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div className="doc-section-title" style={{ flex: 1 }}>문서 서식에서 시작</div>
+            {admin && <button onClick={startNewTemplate} style={btn(true)}><FilePlus2 size={16} /> + 새 서식 만들기</button>}
+          </div>
           <div className="template-grid">
             {templates.map((template) => (
               <div key={template.templateId} className="template-card">
@@ -535,17 +562,21 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
   return (
     <div className={`doc-studio-editor ${printMode ? 'document-studio-print' : ''}`}>
       <div className="doc-editor-top no-print">
-        <button onClick={() => { saveNow(); setEditing(null); }} style={btn(false)}><ArrowLeft size={16} /> 목록</button>
+        <button onClick={() => { if (creatingTemplate) cancelNewTemplate(); else { saveNow(); setEditing(null); } }} style={btn(false)}>
+          <ArrowLeft size={16} /> {creatingTemplate ? '취소' : '목록'}
+        </button>
         <input
           value={editing.title}
-          onChange={(event) => scheduleSave({ title: event.target.value })}
+          onChange={(event) => (creatingTemplate ? setEditing({ ...editing, title: event.target.value }) : scheduleSave({ title: event.target.value }))}
           style={{ ...inputStyle, flex: 1, minWidth: 180, fontWeight: 900 }}
-          placeholder="문서 제목"
+          placeholder={creatingTemplate ? '서식 제목' : '문서 제목'}
         />
-        <span className="doc-save-state"><Save size={14} /> {saveState}</span>
+        {!creatingTemplate && <span className="doc-save-state"><Save size={14} /> {saveState}</span>}
         <button onClick={() => setPreview((value) => !value)} style={btn(false)}><Eye size={16} /> {preview ? '편집' : '미리보기'}</button>
-        <button onClick={() => { setPrintMode(true); setPreview(true); setTimeout(() => window.print(), 80); }} style={btn(false)}><Printer size={16} /> 인쇄용</button>
-        {admin && <button onClick={saveAsTemplate} style={btn(true)}>서식으로 저장</button>}
+        {!creatingTemplate && <button onClick={() => { setPrintMode(true); setPreview(true); setTimeout(() => window.print(), 80); }} style={btn(false)}><Printer size={16} /> 인쇄용</button>}
+        {admin && (creatingTemplate
+          ? <button onClick={saveNewTemplate} style={btn(true)}>저장</button>
+          : <button onClick={saveAsTemplate} style={btn(true)}>서식으로 저장</button>)}
       </div>
 
       <div className="doc-editor-layout">
@@ -556,10 +587,10 @@ export default function DocumentStudioPage({ isDesktop, currentUser }) {
             ) : (
               <RichDocumentEditor
                 content={editing.content}
-                onChange={(content) => scheduleSave({ content })}
+                onChange={(content) => (creatingTemplate ? setEditing({ ...editing, content }) : scheduleSave({ content }))}
                 canInsertFields={admin}
                 fieldScope="all"
-                photoOwnerId={`doc_${editing.id}`}
+                photoOwnerId={`${creatingTemplate ? 'tpl' : 'doc'}_${editing.id}`}
                 onFieldInfo={setSelectedField}
               />
             )}
