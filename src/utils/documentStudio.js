@@ -414,6 +414,9 @@ const escapeHtml = (value) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+// 필드 자동 값(관찰내용 등)은 여러 줄의 순수 텍스트로 들어올 수 있어 줄바꿈(\n)을 <br />로 살려준다.
+const escapeHtmlWithBreaks = (value) => escapeHtml(value).replace(/\n/g, '<br />');
+
 function attrsToStyle(attrs = {}) {
   const styles = [];
   if (attrs.textAlign) styles.push(`text-align:${attrs.textAlign}`);
@@ -450,7 +453,7 @@ export function renderRichDocumentHtml(content, fieldValues = {}) {
       const field = FIELD_MAP[key];
       const label = node.attrs?.fieldLabel || field?.label || key;
       const value = fieldValues[key] ?? getCustomFieldValue(key);
-      return `<span class="field-chip-rendered" data-field="${escapeHtml(key)}">${escapeHtml(value || `[${label}]`)}</span>`;
+      return `<span class="field-chip-rendered" data-field="${escapeHtml(key)}">${escapeHtmlWithBreaks(value || `[${label}]`)}</span>`;
     }
     if (node.type === 'image') {
       const src = node.attrs?.src || '';

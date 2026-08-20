@@ -212,6 +212,12 @@ describe('관리자 커스텀 필드 통합', () => {
     const html = renderRichDocumentHtml(doc, {});
     expect(html).toContain('[삭제된 필드]');
   });
+
+  test('필드 값 안의 줄바꿈(\\n)이 <br />로 살아난다', () => {
+    const doc = { type: 'doc', content: [paragraph(chip('observation'))] };
+    const html = renderRichDocumentHtml(doc, { observation: '첫 줄\n둘째 줄\n셋째 줄' });
+    expect(html).toContain('첫 줄<br />둘째 줄<br />셋째 줄');
+  });
 });
 
 describe('이미지·링크 렌더링', () => {

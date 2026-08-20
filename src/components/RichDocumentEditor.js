@@ -23,8 +23,16 @@ import { FIELD_DEFINITIONS } from '../utils/documentStudio';
 import { getCustomFields } from '../utils/customFields';
 import { compressImage, savePhotos } from '../utils/photoStore';
 import {
-  FieldChipNode, FontSizeExtension, ImageWithId, IndentExtension, LineHeightExtension, PageBreakNode,
+  createFieldSlashCommand, FieldChipNode, FontSizeExtension, ImageWithId, IndentExtension, LineHeightExtension, PageBreakNode,
 } from './documentEditorExtensions';
+
+// 툴바 팝업과 "/" 슬래시 메뉴가 공유하는 필드 목록 계산 — fieldScope: 'all'(기본 16개+커스텀 전부) |
+// 'customOnly'(원아 기록 기반 기본 필드는 의미가 없는 공개 페이지 등에서 커스텀 필드만 노출)
+function collectFieldOptions(fieldScope) {
+  const baseFields = fieldScope === 'customOnly' ? [] : FIELD_DEFINITIONS;
+  const customFields = getCustomFields().map((f) => ({ key: f.key, label: f.label, value: f.value, custom: true }));
+  return [...baseFields, ...customFields];
+}
 
 const toolbarButton = (active = false, disabled = false) => ({
   width: 34,
@@ -105,9 +113,7 @@ function FieldInsert({ editor, disabled, onFieldInfo, fieldScope = 'all' }) {
 
   if (disabled) return null;
 
-  const baseFields = fieldScope === 'customOnly' ? [] : FIELD_DEFINITIONS;
-  const customFields = getCustomFields().map((f) => ({ key: f.key, label: f.label, value: f.value, custom: true }));
-  const combined = [...baseFields, ...customFields];
+  const combined = collectFieldOptions(fieldScope);
   const q = query.trim().toLowerCase();
   const filtered = combined.filter((field) => !q || field.label.toLowerCase().includes(q) || field.key.toLowerCase().includes(q));
   const baseMatches = filtered.filter((f) => !f.custom);
@@ -213,6 +219,14 @@ export default function RichDocumentEditor({
       FontSizeExtension,
       LineHeightExtension,
       IndentExtension,
+      ...(canInsertFields ? [createFieldSlashCommand({
+        getItems: (query) => {
+          const q = query.trim().toLowerCase();
+          const combined = collectFieldOptions(fieldScope);
+          return combined.filter((field) => !q || field.label.toLowerCase().includes(q) || field.key.toLowerCase().includes(q));
+        },
+        onInsert: (field) => onFieldInfo?.(field),
+      })] : []),
     ],
     content,
     editable,
@@ -229,7 +243,7 @@ export default function RichDocumentEditor({
         return false;
       },
     },
-  }, [editable]);
+  }, [editable, canInsertFields, fieldScope]);
 
   const insertImage = async (file) => {
     if (!file || !editor) return;
